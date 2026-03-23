@@ -1,0 +1,356 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* SKILLCLUB Design Tokens */
+    --background: 40 30% 94%;
+    --background-secondary: 270 40% 94%;
+    --foreground: 220 46% 19%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 46% 19%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 46% 19%;
+    --primary: 33 58% 50%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 30% 90%;
+    --secondary-foreground: 220 46% 19%;
+    --muted: 40 20% 90%;
+    --muted-foreground: 220 15% 50%;
+    --accent: 33 58% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 35 20% 85%;
+    --input: 35 20% 85%;
+    --ring: 33 58% 50%;
+    --radius: 0.75rem;
+
+    /* SKILLCLUB Color Vars */
+    --color-navy: #1B2A4A;
+    --color-amber: #C4873A;
+    --color-parchment: #F4F0E8;
+    --color-parchment-dark: #E8E2D4;
+    --color-forest: #2D7A4F;
+    --color-plum: #5C3D8F;
+    --color-text-primary: #1B2A4A;
+    --color-text-secondary: #6B7A99;
+    --color-text-muted: #9BAAC4;
+    --color-bg: #F4F0E8;
+    --color-bg-card: #FFFFFF;
+    --color-border: rgba(27, 42, 74, 0.1);
+
+    /* Shadows */
+    --shadow-card: 0 4px 24px rgba(27, 42, 74, 0.07);
+    --shadow-card-hover: 0 8px 32px rgba(27, 42, 74, 0.12);
+    --shadow-warm: 0 8px 32px rgba(196, 135, 58, 0.18);
+    --shadow-floating: 0 16px 48px rgba(27, 42, 74, 0.14);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--color-navy);
+  }
+
+  h1 { font-size: clamp(2.25rem, 5vw, 3.5rem); line-height: 1.1; }
+  h2 { font-size: clamp(1.75rem, 3.5vw, 2.5rem); }
+  h3 { font-size: clamp(1.375rem, 2.5vw, 1.75rem); }
+  h4 { font-size: clamp(1.125rem, 2vw, 1.25rem); }
+}
+
+@layer components {
+
+  /* ── Cards ─────────────────────────────────────────── */
+  .sc-card {
+    background: white;
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid var(--color-border);
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  .sc-card:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .sc-card-warm {
+    background: white;
+    border-radius: 18px;
+    box-shadow: var(--shadow-card);
+    border: 1px solid rgba(196, 135, 58, 0.15);
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+
+  .sc-card-warm:hover {
+    box-shadow: var(--shadow-warm);
+    transform: translateY(-2px);
+  }
+
+  /* ── Buttons ────────────────────────────────────────── */
+  .btn-amber {
+    background: var(--color-amber);
+    color: white;
+    padding: 0.875rem 1.75rem;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px rgba(196, 135, 58, 0.3);
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-amber:hover {
+    background: #D4975A;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(196, 135, 58, 0.4);
+  }
+
+  .btn-navy {
+    background: var(--color-navy);
+    color: white;
+    padding: 0.875rem 1.75rem;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s ease;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-navy:hover {
+    background: #243660;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(27, 42, 74, 0.3);
+  }
+
+  .btn-outline-navy {
+    background: transparent;
+    color: var(--color-navy);
+    padding: 0.875rem 1.75rem;
+    border-radius: 14px;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s ease;
+    border: 2px solid var(--color-navy);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-outline-navy:hover {
+    background: var(--color-navy);
+    color: white;
+  }
+
+  /* ── Trust Badges ───────────────────────────────────── */
+  .trust-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .trust-badge-explorer { background: #EDF2FF; color: #4C6EF5; }
+  .trust-badge-member { background: #E3F2FD; color: #1976D2; }
+  .trust-badge-verified { background: #E8F5EE; color: #2D7A4F; }
+  .trust-badge-teacher { background: #FFF3E0; color: #C4873A; }
+  .trust-badge-connector { background: #EDE8F7; color: #5C3D8F; }
+
+  /* ── Skill Cards ────────────────────────────────────── */
+  .skill-card {
+    background: white;
+    border-radius: 20px;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .skill-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-card-hover);
+    border-color: rgba(196, 135, 58, 0.2);
+  }
+
+  /* ── Text Utilities ─────────────────────────────────── */
+  .text-navy { color: var(--color-navy); }
+  .text-amber-sc { color: var(--color-amber); }
+  .text-forest { color: var(--color-forest); }
+  .text-plum { color: var(--color-plum); }
+  .text-muted-sc { color: var(--color-text-secondary); }
+
+  .text-gradient-warm {
+    background: linear-gradient(135deg, var(--color-amber) 0%, #D4975A 50%, #C4873A 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-navy {
+    background: linear-gradient(135deg, var(--color-navy) 0%, #5C3D8F 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Section Layouts ────────────────────────────────── */
+  .section-pinned {
+    height: 100vh;
+    width: 100vw;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .section-flowing {
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Warm Dividers ──────────────────────────────────── */
+  .divider-warm {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(196, 135, 58, 0.3), transparent);
+    border: none;
+    margin: 1.5rem 0;
+  }
+
+  /* ── Input Styles ───────────────────────────────────── */
+  .input-sc {
+    background: white;
+    border: 1.5px solid var(--color-border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9375rem;
+    color: var(--color-navy);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    width: 100%;
+    outline: none;
+  }
+
+  .input-sc:focus {
+    border-color: var(--color-amber);
+    box-shadow: 0 0 0 3px rgba(196, 135, 58, 0.12);
+  }
+
+  .input-sc::placeholder {
+    color: var(--color-text-muted);
+  }
+
+  /* ── Archetype Pills ────────────────────────────────── */
+  .archetype-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.875rem;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+
+  .archetype-giver { background: #FFF3E0; color: #C4873A; border: 1.5px solid rgba(196, 135, 58, 0.3); }
+  .archetype-seeker { background: #EDE8F7; color: #5C3D8F; border: 1.5px solid rgba(92, 61, 143, 0.3); }
+  .archetype-connector { background: #E8F5EE; color: #2D7A4F; border: 1.5px solid rgba(45, 122, 79, 0.3); }
+
+  /* ── Feed Cards ─────────────────────────────────────── */
+  .feed-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card);
+    padding: 1.25rem;
+    transition: all 0.25s ease;
+  }
+
+  .feed-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+
+  /* ── Noticeboard Pattern ────────────────────────────── */
+  .dot-pattern {
+    background-image: radial-gradient(circle, rgba(27, 42, 74, 0.08) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+}
+
+@layer utilities {
+  .animation-paused { animation-play-state: paused; }
+  .will-change-transform { will-change: transform; }
+  .gpu-accelerated { transform: translateZ(0); }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-amber);
+  outline-offset: 2px;
+}
+
+::selection {
+  background-color: rgba(196, 135, 58, 0.2);
+  color: var(--color-navy);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--color-parchment); }
+::-webkit-scrollbar-thumb { background: var(--color-parchment-dark); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(27, 42, 74, 0.3); }

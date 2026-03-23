@@ -1,0 +1,506 @@
+import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { skills, categories } from '@/data/mockData';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import { Link } from 'react-router-dom';
+import {
+  ChevronRight,
+  ChevronLeft,
+  Check,
+  Star,
+  Edit3,
+  BookOpen,
+} from 'lucide-react';
+
+const STEPS = ['Basics', 'Description', 'Pricing', 'Media', 'Publish'];
+
+const FORMAT_OPTIONS = [
+  { value: 'online', label: '💻 Online', desc: 'Video call sessions' },
+  { value: 'in-person', label: '📍 In-person', desc: 'Meet in Marrakesh' },
+  { value: 'both', label: '🌐 Both', desc: 'Student chooses' },
+];
+
+const LEVEL_OPTIONS = [
+  { value: 'all levels', label: '✦ All levels' },
+  { value: 'beginner', label: '🌱 Beginner' },
+  { value: 'intermediate', label: '📈 Intermediate' },
+  { value: 'advanced', label: '🚀 Advanced' },
+];
+
+export default function Teach() {
+  const { user } = useAuth();
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({
+    title: '',
+    category: '',
+    format: 'both',
+    level: 'all levels',
+    description: '',
+    philosophy: '',
+    who_for: '',
+    price: 200,
+    currency: 'MAD',
+    location: user?.location ?? '',
+    languages: user?.languages ?? [],
+  });
+  const [published, setPublished] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  const mySkills = skills.filter((s) => s.teacher_id === 'member-1');
+
+  const update = (key: string, value: unknown) => setForm((prev) => ({ ...prev, [key]: value }));
+
+  const canProceed = () => {
+    if (step === 0) return form.title.trim() && form.category;
+    if (step === 1) return form.description.trim();
+    if (step === 2) return form.price > 0;
+    return true;
+  };
+
+  if (published) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-16 space-y-4">
+        <div className="w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-4" style={{ background: '#E8F5EE' }}>
+          <Check className="w-10 h-10" style={{ color: 'var(--color-forest)' }} />
+        </div>
+        <h1 className="font-heading text-2xl text-navy">Your skill is live! ✦</h1>
+        <p className="font-body text-[var(--color-text-secondary)]">
+          <strong>{form.title}</strong> is now visible to the SKILLCLUB community in Marrakesh.
+        </p>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={() => { setPublished(false); setStep(0); setForm({ title: '', category: '', format: 'both', level: 'all levels', description: '', philosophy: '', who_for: '', price: 200, currency: 'MAD', location: user?.location ?? '', languages: user?.languages ?? [] }); }}
+            className="px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold font-body text-navy hover:bg-parchment"
+          >
+            Add another skill
+          </button>
+          <Link
+            to="/app/browse"
+            className="btn-amber text-sm"
+            style={{ padding: '0.625rem 1.25rem' }}
+          >
+            View in Browse
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl text-navy">Share a Skill</h1>
+        <p className="font-body text-[var(--color-text-secondary)] mt-1 text-sm">
+          Tell the community what you know. Givers are the heart of SKILLCLUB.
+        </p>
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Form Card */}
+        <div className="lg:col-span-2 sc-card p-6">
+          {/* Progress */}
+          <div className="flex items-center gap-0 mb-8">
+            {STEPS.map((s, i) => (
+              <div key={s} className="flex items-center flex-1 last:flex-none">
+                <div className="flex flex-col items-center gap-1">
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold font-body transition-all"
+                    style={
+                      i < step
+                        ? { background: 'var(--color-forest)', color: 'white' }
+                        : i === step
+                        ? { background: 'var(--color-amber)', color: 'white' }
+                        : { background: '#E8E2D4', color: 'var(--color-text-muted)' }
+                    }
+                  >
+                    {i < step ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                  </div>
+                  <span
+                    className="text-[10px] font-body font-medium hidden sm:block"
+                    style={{ color: i === step ? 'var(--color-amber)' : 'var(--color-text-muted)' }}
+                  >
+                    {s}
+                  </span>
+                </div>
+                {i < STEPS.length - 1 && (
+                  <div
+                    className="flex-1 h-0.5 mx-1"
+                    style={{ background: i < step ? 'var(--color-forest)' : '#E8E2D4' }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Step 0: Basics */}
+          {step === 0 && (
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">
+                  Skill Title *
+                </label>
+                <input
+                  value={form.title}
+                  onChange={(e) => update('title', e.target.value)}
+                  placeholder="e.g. Classical Piano, Python for Beginners, Moroccan Tagine…"
+                  className="input-sc"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">
+                  Category *
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      onClick={() => update('category', cat.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-body font-medium transition-all border"
+                      style={
+                        form.category === cat.id
+                          ? { background: 'var(--color-amber)', color: 'white', border: '1px solid var(--color-amber)' }
+                          : { background: 'white', color: 'var(--color-text-secondary)', border: '1px solid var(--color-border)' }
+                      }
+                    >
+                      {cat.emoji} {cat.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">
+                  Format
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {FORMAT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => update('format', opt.value)}
+                      className="p-3 rounded-xl text-left border transition-all"
+                      style={
+                        form.format === opt.value
+                          ? { borderColor: 'var(--color-amber)', background: '#FFF3E0' }
+                          : { borderColor: 'var(--color-border)', background: 'white' }
+                      }
+                    >
+                      <div className="font-semibold font-body text-xs text-navy">{opt.label}</div>
+                      <div className="font-body text-[10px] text-[var(--color-text-muted)] mt-0.5">{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">
+                  Level
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {LEVEL_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => update('level', opt.value)}
+                      className="px-3 py-1.5 rounded-full text-sm font-body font-medium transition-all border"
+                      style={
+                        form.level === opt.value
+                          ? { background: 'var(--color-navy)', color: 'white', borderColor: 'var(--color-navy)' }
+                          : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
+                      }
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 1: Description */}
+          {step === 1 && (
+            <div className="space-y-5">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-1.5">
+                  Describe your skill *
+                </label>
+                <p className="text-xs font-body text-[var(--color-text-muted)] mb-2">
+                  Write like you're talking to someone over coffee. Not a CV — a conversation.
+                </p>
+                <textarea
+                  value={form.description}
+                  onChange={(e) => update('description', e.target.value)}
+                  placeholder="Tell potential students what they'll experience, why your approach is different, and what makes this skill worth learning with you…"
+                  className="input-sc resize-none"
+                  rows={5}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-1.5">
+                  Your teaching philosophy
+                </label>
+                <textarea
+                  value={form.philosophy}
+                  onChange={(e) => update('philosophy', e.target.value)}
+                  placeholder="In one or two sentences — what do you believe about teaching and learning?"
+                  className="input-sc resize-none"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-1.5">
+                  Who is this for?
+                </label>
+                <textarea
+                  value={form.who_for}
+                  onChange={(e) => update('who_for', e.target.value)}
+                  placeholder="Describe the ideal student. Be specific — it helps the right people find you."
+                  className="input-sc resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: Pricing */}
+          {step === 2 && (
+            <div className="space-y-6">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">
+                  Your rate per hour
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="relative flex-1">
+                    <span
+                      className="absolute left-4 top-1/2 -translate-y-1/2 font-bold font-body"
+                      style={{ color: 'var(--color-amber)' }}
+                    >
+                      MAD
+                    </span>
+                    <input
+                      type="number"
+                      min={50}
+                      max={1000}
+                      step={25}
+                      value={form.price}
+                      onChange={(e) => update('price', Number(e.target.value))}
+                      className="input-sc pl-16 text-2xl font-bold font-body"
+                      style={{ color: 'var(--color-navy)' }}
+                    />
+                  </div>
+                  <div className="text-sm font-body text-[var(--color-text-secondary)]">/ hour</div>
+                </div>
+                <input
+                  type="range"
+                  min={50}
+                  max={500}
+                  step={25}
+                  value={form.price}
+                  onChange={(e) => update('price', Number(e.target.value))}
+                  className="w-full mt-3 accent-amber-sc"
+                />
+              </div>
+
+              <div
+                className="p-4 rounded-2xl"
+                style={{ background: '#FFF3E0' }}
+              >
+                <div className="text-sm font-body font-semibold text-navy mb-2">Earnings breakdown</div>
+                <div className="space-y-1.5 font-body text-sm">
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Student pays</span>
+                    <span className="font-semibold text-navy">{form.price} MAD/hr</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span style={{ color: 'var(--color-text-secondary)' }}>Platform fee (12%)</span>
+                    <span style={{ color: 'var(--color-text-secondary)' }}>−{Math.round(form.price * 0.12)} MAD</span>
+                  </div>
+                  <hr className="divider-warm" />
+                  <div className="flex justify-between">
+                    <span className="font-bold text-navy">You receive</span>
+                    <span className="font-bold text-2xl font-heading" style={{ color: 'var(--color-amber)' }}>
+                      {Math.round(form.price * 0.88)} MAD/hr
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">
+                  Location (for in-person sessions)
+                </label>
+                <input
+                  value={form.location}
+                  onChange={(e) => update('location', e.target.value)}
+                  placeholder="Your neighbourhood in Marrakesh"
+                  className="input-sc"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Media */}
+          {step === 3 && (
+            <div className="space-y-4">
+              <p className="font-body text-sm text-[var(--color-text-secondary)]">
+                Add photos that capture the feel of your sessions. Real moments are better than perfect photos.
+              </p>
+              <div
+                className="h-40 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-parchment transition-colors"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <div className="text-3xl">📸</div>
+                <div className="font-body text-sm text-[var(--color-text-secondary)]">Click to upload photos</div>
+                <div className="text-[11px] font-body text-[var(--color-text-muted)]">JPG, PNG up to 5MB each</div>
+              </div>
+              <p
+                className="text-[11px] font-body text-center"
+                style={{ color: 'var(--color-text-muted)' }}
+              >
+                You can skip this and add photos later from your profile.
+              </p>
+            </div>
+          )}
+
+          {/* Step 4: Publish */}
+          {step === 4 && (
+            <div className="space-y-5">
+              <div
+                className="p-5 rounded-2xl"
+                style={{ background: 'var(--color-bg)' }}
+              >
+                <h3 className="font-heading text-navy text-lg mb-3">Review your listing</h3>
+                <div className="space-y-2 font-body text-sm">
+                  <div className="flex gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Title</span>
+                    <span className="font-medium text-navy">{form.title || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Category</span>
+                    <span className="font-medium text-navy">{form.category || '—'}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Format</span>
+                    <span className="font-medium text-navy">{form.format}</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="text-[var(--color-text-muted)] w-24 flex-shrink-0">Rate</span>
+                    <span className="font-bold" style={{ color: 'var(--color-amber)' }}>{form.price} MAD / hr</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs font-body text-[var(--color-text-secondary)] leading-relaxed">
+                By publishing, you agree to SKILLCLUB's community guidelines. Your listing will be visible to all verified members in Marrakesh immediately.
+              </p>
+              <button
+                onClick={async () => {
+                  if (!user || user.id === 'demo-user-bypass') {
+                    toast.error('Sign in to publish a skill');
+                    return;
+                  }
+                  setPublishing(true);
+                  const { error } = await supabase.from('skills').insert({
+                    teacher_id: user.id,
+                    title: form.title,
+                    description: form.description,
+                    category: form.category,
+                    neighborhood: form.location,
+                    price_per_hour: form.price,
+                    currency: form.currency,
+                    is_free: form.price === 0,
+                    is_active: true,
+                  });
+                  setPublishing(false);
+                  if (error) {
+                    toast.error('Could not publish skill. Please try again.');
+                  } else {
+                    setPublished(true);
+                  }
+                }}
+                disabled={publishing}
+                className="w-full btn-amber justify-center disabled:opacity-50"
+                style={{ padding: '1rem' }}
+              >
+                <Check className="w-4 h-4" />
+                {publishing ? 'Publishing…' : 'Publish My Skill'}
+              </button>
+            </div>
+          )}
+
+          {/* Nav buttons */}
+          <div className="flex items-center justify-between mt-8 pt-5 border-t border-[var(--color-border)]">
+            <button
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
+              disabled={step === 0}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold font-body border border-[var(--color-border)] text-navy disabled:opacity-40 hover:bg-parchment transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </button>
+            {step < STEPS.length - 1 && (
+              <button
+                onClick={() => canProceed() && setStep((s) => s + 1)}
+                disabled={!canProceed()}
+                className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold font-body text-white disabled:opacity-40 transition-all"
+                style={{ background: 'var(--color-amber)' }}
+              >
+                Continue
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar — My Active Skills */}
+        <div className="space-y-4">
+          <div className="sc-card p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BookOpen className="w-4 h-4" style={{ color: 'var(--color-amber)' }} />
+              <h3 className="font-heading text-navy" style={{ fontSize: '1rem' }}>
+                Your active skills
+              </h3>
+            </div>
+            {mySkills.length > 0 ? (
+              <div className="space-y-3">
+                {mySkills.map((skill) => (
+                  <div key={skill.id} className="flex items-start gap-2.5 pb-3 border-b border-[var(--color-border)] last:border-0 last:pb-0">
+                    <div
+                      className={`w-8 h-8 rounded-lg bg-gradient-to-br ${skill.cover_gradient} flex-shrink-0`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold font-body text-navy text-xs truncate">{skill.title}</div>
+                      <div className="flex items-center gap-1 text-[10px] font-body text-[var(--color-text-muted)] mt-0.5">
+                        <Star className="w-2.5 h-2.5 fill-amber-sc text-amber-sc" />
+                        {skill.avg_rating} · {skill.reviews_count} reviews
+                      </div>
+                    </div>
+                    <button className="p-1 rounded-lg hover:bg-parchment">
+                      <Edit3 className="w-3 h-3" style={{ color: 'var(--color-text-muted)' }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs font-body text-[var(--color-text-secondary)]">
+                No active skills yet. Create your first one!
+              </p>
+            )}
+          </div>
+
+          {/* Tips */}
+          <div
+            className="p-4 rounded-2xl"
+            style={{ background: 'var(--color-navy)' }}
+          >
+            <div className="text-white/70 text-[10px] font-semibold uppercase tracking-wider font-body mb-2">
+              Pro Tip
+            </div>
+            <p className="text-white/80 text-xs font-body leading-relaxed">
+              Skills with a teaching philosophy get 3× more inquiries than those without. Be specific about what makes your approach different.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
