@@ -1,6 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -8,16 +6,10 @@ import { Toaster } from '@/components/ui/sonner';
 // Landing Page Sections
 import Navigation from './sections/Navigation';
 import Hero from './sections/Hero';
-import DashboardPreview from './sections/DashboardPreview';
-import FeaturesGrid from './sections/FeaturesGrid';
-import CoursePage from './sections/CoursePage';
-import AssignmentFlow from './sections/AssignmentFlow';
-import CalendarPlanner from './sections/CalendarPlanner';
-import Messaging from './sections/Messaging';
-import StudyGroups from './sections/StudyGroups';
-import ProgressAnalytics from './sections/ProgressAnalytics';
+import LiveSkillsPreview from './sections/LiveSkillsPreview';
+import HowItWorks from './sections/HowItWorks';
 import Testimonials from './sections/Testimonials';
-import Pricing from './sections/Pricing';
+import JoinCTA from './sections/JoinCTA';
 import Footer from './sections/Footer';
 
 // App Pages
@@ -31,6 +23,7 @@ import Admin from './pages/Admin';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import Board from './pages/Board';
+import Welcome from './pages/Welcome';
 import AppLayout from './components/layout/AppLayout';
 
 // Auth Pages
@@ -39,70 +32,17 @@ import Signup from './pages/auth/Signup';
 import VerifyEmail from './pages/auth/VerifyEmail';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
-// Register GSAP plugins
-gsap.registerPlugin(ScrollTrigger);
-
-// Landing Page Component
+// Landing Page Component — streamlined to 5 sections
 function LandingPage() {
-  const mainRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const pinned = ScrollTrigger.getAll()
-        .filter(st => st.vars.pin)
-        .sort((a, b) => a.start - b.start);
-      
-      const maxScroll = ScrollTrigger.maxScroll(window);
-      if (!maxScroll || pinned.length === 0) return;
-
-      const pinnedRanges = pinned.map(st => ({
-        start: st.start / maxScroll,
-        end: (st.end ?? st.start) / maxScroll,
-        center: (st.start + ((st.end ?? st.start) - st.start) * 0.5) / maxScroll,
-      }));
-
-      ScrollTrigger.create({
-        snap: {
-          snapTo: (value: number) => {
-            const inPinned = pinnedRanges.some(
-              r => value >= r.start - 0.02 && value <= r.end + 0.02
-            );
-            if (!inPinned) return value;
-            const target = pinnedRanges.reduce(
-              (closest, r) =>
-                Math.abs(r.center - value) < Math.abs(closest - value) ? r.center : closest,
-              pinnedRanges[0]?.center ?? 0
-            );
-            return target;
-          },
-          duration: { min: 0.15, max: 0.35 },
-          delay: 0,
-          ease: 'power2.out',
-        },
-      });
-    }, 500);
-
-    return () => {
-      clearTimeout(timer);
-      ScrollTrigger.getAll().forEach(st => st.kill());
-    };
-  }, []);
-
   return (
-    <div ref={mainRef} className="relative">
+    <div className="relative">
       <Navigation />
       <Hero className="z-10" />
-      <DashboardPreview className="z-20" />
-      <FeaturesGrid className="z-30" />
-      <CoursePage className="z-40" />
-      <AssignmentFlow className="z-50" />
-      <CalendarPlanner className="z-60" />
-      <Messaging className="z-70" />
-      <StudyGroups className="z-80" />
-      <ProgressAnalytics className="z-90" />
-      <Testimonials className="z-100" />
-      <Pricing className="z-110" />
-      <Footer className="z-120" />
+      <LiveSkillsPreview className="z-20" />
+      <HowItWorks className="z-30" />
+      <Testimonials className="z-40" />
+      <JoinCTA className="z-50" />
+      <Footer className="z-60" />
     </div>
   );
 }
@@ -142,6 +82,7 @@ function AppRouter() {
           <Route path="board" element={<Board />} />
           <Route path="admin" element={<Admin />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="welcome" element={<Welcome />} />
           {/* Legacy dashboard redirect */}
           <Route path="dashboard" element={<Navigate to="/app/feed" replace />} />
         </Route>

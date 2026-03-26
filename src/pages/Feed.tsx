@@ -15,6 +15,7 @@ import {
 export default function Feed() {
   const { user } = useAuth();
   const [skills, setSkills] = useState<any[]>([]);
+  const [feedEvents, setFeedEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [skillCount, setSkillCount] = useState(0);
 
@@ -22,34 +23,43 @@ export default function Feed() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   useEffect(() => {
-    supabase
-      .from('skills')
-      .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, trust_tier, trust_score, city)')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(6)
-      .then(({ data }) => {
-        if (data) {
-          const mapped = data.map((s: any) => ({
-            ...s,
-            teacher: {
-              id: s.profiles?.id,
-              firstName: s.profiles?.first_name || '',
-              lastName: s.profiles?.last_name || '',
-              avatar: s.profiles?.avatar_url || '',
-              trust_tier: s.profiles?.trust_tier || 0,
-              trust_score: s.profiles?.trust_score || 0,
-              city: s.profiles?.city || 'Marrakesh',
-            },
-            slug: s.slug || s.id,
-            tags: s.tags || [],
-            cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
-          }));
-          setSkills(mapped);
-          setSkillCount(data.length);
-        }
-        setLoading(false);
-      });
+    Promise.all([
+      supabase
+        .from('skills')
+        .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, trust_tier, trust_score, city)')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(6),
+      supabase
+        .from('feed_events')
+        .select('*, profiles!feed_events_member_id_fkey(id, first_name, last_name, avatar_url), skills!feed_events_skill_id_fkey(id, slug)')
+        .order('created_at', { ascending: false })
+        .limit(5)
+    ]).then(([skillsRes, eventsRes]) => {
+      if (skillsRes.data) {
+        const mapped = skillsRes.data.map((s: any) => ({
+          ...s,
+          teacher: {
+            id: s.profiles?.id,
+            firstName: s.profiles?.first_name || '',
+            lastName: s.profiles?.last_name || '',
+            avatar: s.profiles?.avatar_url || '',
+            trust_tier: s.profiles?.trust_tier || 0,
+            trust_score: s.profiles?.trust_score || 0,
+            city: s.profiles?.city || 'Marrakesh',
+          },
+          slug: s.slug || s.id,
+          tags: s.tags || [],
+          cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
+        }));
+        setSkills(mapped);
+        setSkillCount(skillsRes.data.length);
+      }
+      if (eventsRes.data) {
+        setFeedEvents(eventsRes.data);
+      }
+      setLoading(false);
+    });
   }, []);
 
   return (
@@ -104,6 +114,42 @@ export default function Feed() {
         </div>
         <ArrowRight className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
       </Link>
+
+      {/* Activity Feed */}
+      {feedEvents.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="font-heading text-navy" style={{ fontSize: '1.1rem' }}>
+            Latest Activity
+          </h2>
+          <div className="space-y-3">
+            {feedEvents.map((event) => (
+              <div key={event.id} className="sc-card p-4 flex gap-3 items-start">
+                <Avatar className="w-10 h-10 ring-2 ring-white flex-shrink-0">
+                  <AvatarImage src={event.profiles?.avatar_url} />
+                  <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white' }}>
+                    {event.profiles?.first_name?.[0] || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="font-semibold font-body text-navy text-sm">
+                    {event.title}
+                  </div>
+                  {event.subtitle && (
+                    <div className="text-xs font-body text-[var(--color-text-secondary)] mt-0.5">
+                      {event.subtitle}
+                    </div>
+                  )}
+                  {event.skills?.slug && (
+                    <Link to={`/app/skill/${event.skills.slug}`} className="text-xs font-semibold font-body mt-2 inline-block" style={{ color: 'var(--color-amber)' }}>
+                      View skill →
+                    </Link>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Featured Skills */}
       <div className="space-y-3">

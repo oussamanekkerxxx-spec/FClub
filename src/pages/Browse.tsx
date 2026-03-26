@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/lib/supabase';
@@ -10,22 +10,26 @@ import {
   Wifi,
   Users,
   X,
+  Gift,
+  Globe,
 } from 'lucide-react';
 
 type Category = 'music' | 'languages' | 'technology' | 'cooking' | 'art' | 'fitness' | 'photography' | 'business' | 'writing';
 type Format = 'online' | 'in-person' | 'both';
 
-const categories = [
-  { id: 'music', label: 'Music', emoji: '🎵', count: 0 },
-  { id: 'languages', label: 'Languages', emoji: '🌍', count: 0 },
-  { id: 'technology', label: 'Technology', emoji: '💻', count: 0 },
-  { id: 'cooking', label: 'Cooking', emoji: '🍳', count: 0 },
-  { id: 'art', label: 'Art & Craft', emoji: '🎨', count: 0 },
-  { id: 'fitness', label: 'Fitness', emoji: '💪', count: 0 },
-  { id: 'photography', label: 'Photography', emoji: '📷', count: 0 },
-  { id: 'business', label: 'Business', emoji: '📊', count: 0 },
-  { id: 'writing', label: 'Writing', emoji: '✍️', count: 0 },
+const CATEGORIES = [
+  { id: 'music', label: 'Music', emoji: '🎵' },
+  { id: 'languages', label: 'Languages', emoji: '🌍' },
+  { id: 'technology', label: 'Technology', emoji: '💻' },
+  { id: 'cooking', label: 'Cooking', emoji: '🍳' },
+  { id: 'art', label: 'Art & Craft', emoji: '🎨' },
+  { id: 'fitness', label: 'Fitness', emoji: '💪' },
+  { id: 'photography', label: 'Photography', emoji: '📷' },
+  { id: 'business', label: 'Business', emoji: '📊' },
+  { id: 'writing', label: 'Writing', emoji: '✍️' },
 ];
+
+const NEIGHBORHOODS = ['Medina', 'Guéliz', 'Hivernage', 'Mellah', 'Palmeraie', 'Kasbah'];
 
 const FORMAT_LABELS: Record<Format, string> = {
   online: 'Online',
@@ -56,7 +60,11 @@ export default function Browse() {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
   const [selectedFormat, setSelectedFormat] = useState<Format | 'all'>('all');
+  const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('all');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [maxPrice, setMaxPrice] = useState(500);
+  const [showFreeOnly, setShowFreeOnly] = useState(false);
+  const [showGroupsOnly, setShowGroupsOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [skills, setSkills] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,12 +91,28 @@ export default function Browse() {
             tags: s.tags || [],
             cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
             format: s.format || 'in-person',
+            languages: s.languages || [],
           }));
           setSkills(mapped);
         }
         setLoading(false);
       });
   }, []);
+
+  // Compute dynamic category counts from fetched data
+  const categoriesWithCounts = useMemo(() => {
+    return CATEGORIES.map(cat => ({
+      ...cat,
+      count: skills.filter(s => s.category === cat.id).length,
+    }));
+  }, [skills]);
+
+  // Collect unique languages from all skills
+  const availableLanguages = useMemo(() => {
+    const langs = new Set<string>();
+    skills.forEach(s => (s.languages || []).forEach((l: string) => langs.add(l)));
+    return Array.from(langs).sort();
+  }, [skills]);
 
   const filtered = skills.filter((skill) => {
     const matchSearch =
@@ -100,8 +124,24 @@ export default function Browse() {
     const matchCat = selectedCategory === 'all' || skill.category === selectedCategory;
     const matchFormat = selectedFormat === 'all' || skill.format === selectedFormat || skill.format === 'both';
     const matchPrice = skill.price_per_hour <= maxPrice;
-    return matchSearch && matchCat && matchFormat && matchPrice;
+    const matchFree = !showFreeOnly || skill.price_per_hour === 0 || skill.is_free;
+    const matchGroups = !showGroupsOnly || skill.is_group;
+    const matchNeighborhood = selectedNeighborhood === 'all' || (skill.neighborhood || skill.location || '').toLowerCase().includes(selectedNeighborhood.toLowerCase());
+    const matchLanguage = selectedLanguage === 'all' || (skill.languages || []).includes(selectedLanguage);
+    return matchSearch && matchCat && matchFormat && matchPrice && matchFree && matchGroups && matchNeighborhood && matchLanguage;
   });
+
+  const hasActiveFilters = selectedCategory !== 'all' || selectedFormat !== 'all' || maxPrice < 500 || showFreeOnly || showGroupsOnly || selectedNeighborhood !== 'all' || selectedLanguage !== 'all';
+
+  const resetFilters = () => {
+    setSelectedCategory('all');
+    setSelectedFormat('all');
+    setMaxPrice(500);
+    setShowFreeOnly(false);
+    setShowGroupsOnly(false);
+    setSelectedNeighborhood('all');
+    setSelectedLanguage('all');
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -134,8 +174,40 @@ export default function Browse() {
         )}
       </div>
 
-      {/* Categories Scroll */}
+      {/* Quick Filter Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
+        {/* Free chip */}
+        <button
+          onClick={() => setShowFreeOnly(!showFreeOnly)}
+          className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${
+            showFreeOnly
+              ? 'text-white'
+              : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-green-400'
+          }`}
+          style={showFreeOnly ? { background: 'var(--color-forest)' } : {}}
+        >
+          <Gift className="w-3.5 h-3.5" />
+          Free
+        </button>
+
+        {/* Groups chip */}
+        <button
+          onClick={() => setShowGroupsOnly(!showGroupsOnly)}
+          className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${
+            showGroupsOnly
+              ? 'text-white'
+              : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-amber-sc'
+          }`}
+          style={showGroupsOnly ? { background: 'var(--color-plum)' } : {}}
+        >
+          <Users className="w-3.5 h-3.5" />
+          Groups
+        </button>
+
+        {/* Divider */}
+        <div className="w-px h-5 bg-[var(--color-border)] flex-shrink-0" />
+
+        {/* All Skills */}
         <button
           onClick={() => setSelectedCategory('all')}
           className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${
@@ -147,7 +219,7 @@ export default function Browse() {
         >
           All Skills
         </button>
-        {categories.map((cat) => (
+        {categoriesWithCounts.map((cat) => (
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id as Category)}
@@ -160,7 +232,7 @@ export default function Browse() {
           >
             <span>{cat.emoji}</span>
             {cat.label}
-            <span className="text-[10px] opacity-60">{cat.count}</span>
+            {cat.count > 0 && <span className="text-[10px] opacity-60">{cat.count}</span>}
           </button>
         ))}
       </div>
@@ -169,6 +241,39 @@ export default function Browse() {
         {/* Filter Sidebar (desktop) */}
         <aside className="hidden lg:block w-56 flex-shrink-0 space-y-5">
           <div className="sc-card p-4 space-y-5">
+            {/* Neighborhood */}
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">
+                Neighborhood
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => setSelectedNeighborhood('all')}
+                  className={`flex items-center gap-2 w-full text-left px-2.5 py-2 rounded-lg text-sm font-body transition-all ${
+                    selectedNeighborhood === 'all' ? 'font-semibold' : 'text-[var(--color-text-secondary)] hover:bg-parchment'
+                  }`}
+                  style={selectedNeighborhood === 'all' ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  All Marrakesh
+                </button>
+                {NEIGHBORHOODS.map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setSelectedNeighborhood(n)}
+                    className={`flex items-center gap-2 w-full text-left px-2.5 py-2 rounded-lg text-sm font-body transition-all ${
+                      selectedNeighborhood === n ? 'font-semibold' : 'text-[var(--color-text-secondary)] hover:bg-parchment'
+                    }`}
+                    style={selectedNeighborhood === n ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <hr className="divider-warm" />
+
             {/* Format */}
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">
@@ -197,6 +302,42 @@ export default function Browse() {
 
             <hr className="divider-warm" />
 
+            {/* Language */}
+            {availableLanguages.length > 0 && (
+              <>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">
+                    Language
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setSelectedLanguage('all')}
+                      className={`flex items-center gap-2 w-full text-left px-2.5 py-2 rounded-lg text-sm font-body transition-all ${
+                        selectedLanguage === 'all' ? 'font-semibold' : 'text-[var(--color-text-secondary)] hover:bg-parchment'
+                      }`}
+                      style={selectedLanguage === 'all' ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      All languages
+                    </button>
+                    {availableLanguages.map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => setSelectedLanguage(lang)}
+                        className={`flex items-center gap-2 w-full text-left px-2.5 py-2 rounded-lg text-sm font-body transition-all ${
+                          selectedLanguage === lang ? 'font-semibold' : 'text-[var(--color-text-secondary)] hover:bg-parchment'
+                        }`}
+                        style={selectedLanguage === lang ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
+                      >
+                        {lang}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <hr className="divider-warm" />
+              </>
+            )}
+
             {/* Price */}
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">
@@ -224,9 +365,9 @@ export default function Browse() {
             </div>
 
             {/* Reset */}
-            {(selectedCategory !== 'all' || selectedFormat !== 'all' || maxPrice < 500) && (
+            {hasActiveFilters && (
               <button
-                onClick={() => { setSelectedCategory('all'); setSelectedFormat('all'); setMaxPrice(500); }}
+                onClick={resetFilters}
                 className="w-full text-sm font-semibold font-body py-2 rounded-lg border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-parchment transition-colors"
               >
                 Reset filters
@@ -278,6 +419,16 @@ export default function Browse() {
                     >
                       {skill.format === 'both' ? '🌐 Both' : skill.format === 'online' ? '💻 Online' : '📍 In-person'}
                     </span>
+                    {/* Group badge */}
+                    {skill.is_group && (
+                      <span
+                        className="absolute top-2.5 left-2.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/80 font-body flex items-center gap-1"
+                        style={{ color: 'var(--color-plum)' }}
+                      >
+                        <Users className="w-3 h-3" />
+                        {skill.max_headcount ? `${skill.current_headcount || 0}/${skill.max_headcount}` : 'Group'}
+                      </span>
+                    )}
                     {/* Teacher avatar row */}
                     <div className="flex items-center gap-2">
                       <Avatar className="w-8 h-8 ring-2 ring-white/60">
@@ -332,10 +483,16 @@ export default function Browse() {
                       </div>
                       <div
                         className="font-bold font-body text-sm"
-                        style={{ color: 'var(--color-amber)' }}
+                        style={{ color: skill.price_per_hour === 0 || skill.is_free ? 'var(--color-forest)' : 'var(--color-amber)' }}
                       >
-                        {skill.price_per_hour} {skill.currency}
-                        <span className="text-[10px] font-normal">/hr</span>
+                        {skill.price_per_hour === 0 || skill.is_free ? (
+                          'Free'
+                        ) : (
+                          <>
+                            {skill.price_per_hour} {skill.currency}
+                            <span className="text-[10px] font-normal">/hr</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

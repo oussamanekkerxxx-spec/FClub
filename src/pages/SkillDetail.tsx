@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { skills, reviews } from '@/data/mockData';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import NewBookingModal from '@/components/bookings/NewBookingModal';
 import {
   Star,
@@ -13,6 +15,8 @@ import {
   CheckCircle,
   Shield,
   ChevronRight,
+  Users,
+  Loader2,
 } from 'lucide-react';
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -22,12 +26,216 @@ const LEVEL_LABELS: Record<string, string> = {
   advanced: '🚀 Advanced practitioners',
 };
 
+interface SkillData {
+  id: string;
+  slug: string;
+  teacher_id: string;
+  title: string;
+  category: string;
+  description: string;
+  philosophy: string;
+  who_for: string;
+  what_session_looks_like: string;
+  price_per_hour: number;
+  currency: string;
+  format: string;
+  location: string;
+  neighborhood: string;
+  languages: string[];
+  level: string;
+  avg_rating: number;
+  reviews_count: number;
+  tags: string[];
+  cover_gradient: string;
+  is_group: boolean;
+  max_headcount: number | null;
+  current_headcount: number;
+  availability_note: string | null;
+  teacher: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar: string;
+    bio: string;
+    location: string;
+    city: string;
+    trust_tier: number;
+    trust_score: number;
+    sessions_completed: number;
+    reviews_count: number;
+  };
+}
+
+interface ReviewData {
+  id: string;
+  rating: number;
+  content: string;
+  tags: string[];
+  created_at: string;
+  reviewer: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar: string;
+    city: string;
+  };
+}
+
 export default function SkillDetail() {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const skill = skills.find((s) => s.slug === slug);
-  const skillReviews = reviews.filter((r) => r.skill_id === skill?.id);
+  const [skill, setSkill] = useState<SkillData | null>(null);
+  const [skillReviews, setSkillReviews] = useState<ReviewData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [messagingTeacher, setMessagingTeacher] = useState(false);
+  const [enrolling, setEnrolling] = useState(false);
+
+  useEffect(() => {
+    if (!slug) return;
+
+    setLoading(true);
+
+    // Fetch skill with teacher profile
+    supabase
+      .from('skills')
+      .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, bio, neighborhood, city, trust_tier, trust_score, sessions_completed, reviews_count)')
+      .eq('slug', slug)
+      .eq('is_active', true)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data) {
+          setLoading(false);
+          return;
+        }
+
+        const p = data.profiles as any;
+        const mapped: SkillData = {
+          ...data,
+          tags: data.tags || [],
+          cover_gradient: data.cover_gradient || 'from-blue-500 to-purple-600',
+          format: data.format || 'in-person',
+          languages: data.languages || [],
+          teacher: {
+            id: p?.id || '',
+            firstName: p?.first_name || '',
+            lastName: p?.last_name || '',
+            avatar: p?.avatar_url || '',
+            bio: p?.bio || '',
+            location: p?.neighborhood ? `${p.neighborhood}, ${p.city || 'Marrakesh'}` : p?.city || 'Marrakesh',
+            city: p?.city || 'Marrakesh',
+            trust_tier: p?.trust_tier || 0,
+            trust_score: p?.trust_score || 0,
+            sessions_completed: p?.sessions_completed || 0,
+            reviews_count: p?.reviews_count || 0,
+          },
+        };
+        setSkill(mapped);
+
+        // Fetch reviews for this skill
+        supabase
+          .from('reviews')
+          .select('*, profiles!reviews_reviewer_id_fkey(id, first_name, last_name, avatar_url, city)')
+          .eq('skill_id', data.id)
+          .order('created_at', { ascending: false })
+          .then(({ data: revData }) => {
+            if (revData) {
+              const mappedReviews: ReviewData[] = revData.map((r: any) => ({
+                id: r.id,
+                rating: r.rating,
+                content: r.content,
+                tags: r.tags || [],
+                created_at: r.created_at,
+                reviewer: {
+                  id: r.profiles?.id || '',
+                  firstName: r.profiles?.first_name || '',
+                  lastName: r.profiles?.last_name || '',
+                  avatar: r.profiles?.avatar_url || '',
+                  city: r.profiles?.city || 'Marrakesh',
+                },
+              }));
+              setSkillReviews(mappedReviews);
+            }
+            setLoading(false);
+          });
+      });
+  }, [slug]);
+
+  const handleMessageTeacher = async () => {
+    if (!user || user.id === 'demo-user-bypass' || !skill) {
+      toast.error('Sign in to message a teacher');
+      return;
+    }
+
+    setMessagingTeacher(true);
+
+    // Check for existing conversation
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .contains('participant_ids', [user.id, skill.teacher.id])
+      .eq('skill_id', skill.id)
+      .maybeSingle();
+
+    if (existing) {
+      navigate(`/app/messages?conv=${existing.id}`);
+      return;
+    }
+
+    // Create new conversation
+    const { data: newConv, error } = await supabase
+      .from('conversations')
+      .insert({
+        skill_id: skill.id,
+        participant_ids: [user.id, skill.teacher.id],
+      })
+      .select('id')
+      .single();
+
+    setMessagingTeacher(false);
+
+    if (error || !newConv) {
+      toast.error('Could not start conversation. Please try again.');
+      return;
+    }
+
+    navigate(`/app/messages?conv=${newConv.id}`);
+  };
+
+  const handleGroupEnroll = async () => {
+    if (!user || user.id === 'demo-user-bypass' || !skill) {
+      toast.error('Sign in to join this group');
+      return;
+    }
+
+    setEnrolling(true);
+    const { error } = await supabase.from('group_enrollments').insert({
+      skill_id: skill.id,
+      member_id: user.id,
+    });
+    setEnrolling(false);
+
+    if (error) {
+      if (error.code === '23505') {
+        toast.info('You are already enrolled in this group.');
+      } else {
+        toast.error('Could not join group. Please try again.');
+      }
+      return;
+    }
+
+    toast.success(`You joined ${skill.title}!`);
+    setSkill(prev => prev ? { ...prev, current_headcount: prev.current_headcount + 1 } : prev);
+  };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--color-amber)' }} />
+      </div>
+    );
+  }
 
   if (!skill) {
     return (
@@ -39,11 +247,6 @@ export default function SkillDetail() {
       </div>
     );
   }
-
-  const handleMessageTeacher = () => {
-    navigate('/app/messages');
-  };
-
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -64,11 +267,19 @@ export default function SkillDetail() {
           <div className="sc-card overflow-hidden">
             <div className={`h-48 bg-gradient-to-br ${skill.cover_gradient} flex items-end p-6`}>
               <div>
-                <span
-                  className="text-[10px] font-semibold uppercase tracking-widest font-body px-2 py-1 rounded-full bg-white/20 text-white mb-2 inline-block"
-                >
-                  {skill.category}
-                </span>
+                <div className="flex items-center gap-2 mb-2">
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest font-body px-2 py-1 rounded-full bg-white/20 text-white inline-block"
+                  >
+                    {skill.category}
+                  </span>
+                  {skill.is_group && (
+                    <span className="text-[10px] font-semibold uppercase tracking-widest font-body px-2 py-1 rounded-full bg-white/30 text-white inline-flex items-center gap-1">
+                      <Users className="w-3 h-3" /> Group
+                      {skill.max_headcount && ` · ${skill.current_headcount}/${skill.max_headcount}`}
+                    </span>
+                  )}
+                </div>
                 <h1 className="font-heading text-3xl text-white">{skill.title}</h1>
               </div>
             </div>
@@ -92,7 +303,7 @@ export default function SkillDetail() {
                   {skill.languages.join(' · ')}
                 </div>
                 <div className="text-xs font-semibold font-body" style={{ color: 'var(--color-forest)' }}>
-                  {LEVEL_LABELS[skill.level]}
+                  {LEVEL_LABELS[skill.level] || skill.level}
                 </div>
               </div>
 
@@ -104,37 +315,43 @@ export default function SkillDetail() {
               </div>
 
               {/* Philosophy */}
-              <div
-                className="rounded-2xl p-5 mb-6"
-                style={{ background: '#FFF3E0', borderLeft: '3px solid var(--color-amber)' }}
-              >
-                <div className="text-xs font-semibold uppercase tracking-wider font-body mb-2" style={{ color: 'var(--color-amber)' }}>
-                  Teaching Philosophy
+              {skill.philosophy && (
+                <div
+                  className="rounded-2xl p-5 mb-6"
+                  style={{ background: '#FFF3E0', borderLeft: '3px solid var(--color-amber)' }}
+                >
+                  <div className="text-xs font-semibold uppercase tracking-wider font-body mb-2" style={{ color: 'var(--color-amber)' }}>
+                    Teaching Philosophy
+                  </div>
+                  <p className="font-heading italic text-navy text-lg leading-relaxed">
+                    "{skill.philosophy}"
+                  </p>
                 </div>
-                <p className="font-heading italic text-navy text-lg leading-relaxed">
-                  "{skill.philosophy}"
-                </p>
-              </div>
+              )}
 
               {/* Who is this for */}
-              <div className="mb-6">
-                <h3 className="font-heading text-navy mb-3" style={{ fontSize: '1.1rem' }}>
-                  Who is this for?
-                </h3>
-                <p className="font-body text-[var(--color-text-secondary)] leading-relaxed">
-                  {skill.who_for}
-                </p>
-              </div>
+              {skill.who_for && (
+                <div className="mb-6">
+                  <h3 className="font-heading text-navy mb-3" style={{ fontSize: '1.1rem' }}>
+                    Who is this for?
+                  </h3>
+                  <p className="font-body text-[var(--color-text-secondary)] leading-relaxed">
+                    {skill.who_for}
+                  </p>
+                </div>
+              )}
 
               {/* What a session looks like */}
-              <div className="mb-5">
-                <h3 className="font-heading text-navy mb-3" style={{ fontSize: '1.1rem' }}>
-                  What a session looks like
-                </h3>
-                <p className="font-body text-[var(--color-text-secondary)] leading-relaxed">
-                  {skill.what_session_looks_like}
-                </p>
-              </div>
+              {skill.what_session_looks_like && (
+                <div className="mb-5">
+                  <h3 className="font-heading text-navy mb-3" style={{ fontSize: '1.1rem' }}>
+                    What a session looks like
+                  </h3>
+                  <p className="font-body text-[var(--color-text-secondary)] leading-relaxed">
+                    {skill.what_session_looks_like}
+                  </p>
+                </div>
+              )}
 
               {/* Tags */}
               <div className="flex flex-wrap gap-2">
@@ -211,8 +428,12 @@ export default function SkillDetail() {
           <div className="sc-card-warm p-5 sticky top-20">
             {/* Price */}
             <div className="flex items-baseline gap-1 mb-4">
-              <span className="font-heading text-3xl text-navy">{skill.price_per_hour}</span>
-              <span className="font-body text-[var(--color-text-secondary)] text-sm">{skill.currency} / hour</span>
+              <span className="font-heading text-3xl text-navy">
+                {skill.price_per_hour === 0 ? 'Free' : skill.price_per_hour}
+              </span>
+              {skill.price_per_hour > 0 && (
+                <span className="font-body text-[var(--color-text-secondary)] text-sm">{skill.currency} / hour</span>
+              )}
             </div>
 
             {/* Format */}
@@ -223,22 +444,47 @@ export default function SkillDetail() {
               </span>
             </div>
 
+            {/* Availability note */}
+            {skill.availability_note && (
+              <div className="flex items-center gap-2 mb-4 p-3 rounded-xl" style={{ background: '#E8F5EE' }}>
+                <Clock className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--color-forest)' }} />
+                <span className="font-body text-xs" style={{ color: 'var(--color-forest)' }}>
+                  {skill.availability_note}
+                </span>
+              </div>
+            )}
+
             {/* Main CTA */}
-            <button
-              onClick={() => setIsBookingOpen(true)}
-              className="w-full btn-amber justify-center text-sm mb-2"
-              style={{ padding: '0.875rem 1rem' }}
-            >
-              Request a Session
-            </button>
+            {skill.is_group ? (
+              <button
+                onClick={handleGroupEnroll}
+                disabled={enrolling || (skill.max_headcount !== null && skill.current_headcount >= skill.max_headcount)}
+                className="w-full btn-amber justify-center text-sm mb-2 disabled:opacity-50"
+                style={{ padding: '0.875rem 1rem' }}
+              >
+                <Users className="w-4 h-4 mr-1.5" />
+                {skill.max_headcount !== null && skill.current_headcount >= skill.max_headcount
+                  ? 'Group Full'
+                  : enrolling ? 'Joining...' : 'Join This Group'}
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsBookingOpen(true)}
+                className="w-full btn-amber justify-center text-sm mb-2"
+                style={{ padding: '0.875rem 1rem' }}
+              >
+                Request a Session
+              </button>
+            )}
 
             <button
               onClick={handleMessageTeacher}
-              className="w-full flex items-center justify-center gap-2 text-sm font-semibold font-body mb-3 py-2.5 rounded-xl border transition-colors hover:bg-parchment"
+              disabled={messagingTeacher}
+              className="w-full flex items-center justify-center gap-2 text-sm font-semibold font-body mb-3 py-2.5 rounded-xl border transition-colors hover:bg-parchment disabled:opacity-50"
               style={{ borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }}
             >
               <MessageCircle className="w-4 h-4" />
-              Message {skill.teacher.firstName} first
+              {messagingTeacher ? 'Opening...' : `Message ${skill.teacher.firstName} first`}
             </button>
 
             <p className="text-center text-[11px] font-body text-[var(--color-text-muted)] pb-4 border-b border-[var(--color-border)]">

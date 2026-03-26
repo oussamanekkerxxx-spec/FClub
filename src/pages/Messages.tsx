@@ -1,8 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { conversations } from '@/data/mockData';
-import { Send, ArrowLeft } from 'lucide-react';
+import { Send, ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
+
+interface Conversation {
+  id: string;
+  skill_id: string | null;
+  participant_ids: string[];
+  updated_at: string;
+  skill_title?: string;
+  other_user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar: string;
+  };
+  last_message?: string;
+  last_message_at?: string;
+  unread_count: number;
+}
+
+interface Message {
+  id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+}
 
 function timeLabel(dateStr: string): string {
   const date = new Date(dateStr);
@@ -11,7 +36,7 @@ function timeLabel(dateStr: string): string {
 
 function dayLabel(dateStr: string): string {
   const date = new Date(dateStr);
-  const now = new Date('2026-03-12T02:17:00Z');
+  const now = new Date();
   const diff = Math.floor((now.getTime() - date.getTime()) / 86400000);
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Yesterday';
@@ -20,33 +45,211 @@ function dayLabel(dateStr: string): string {
 
 export default function Messages() {
   const { user } = useAuth();
-  const [selectedConvId, setSelectedConvId] = useState(conversations[0]?.id ?? null);
+  const [searchParams] = useSearchParams();
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [localConvs, setLocalConvs] = useState(conversations);
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const selected = localConvs.find((c) => c.id === selectedConvId);
+  const selected = conversations.find((c) => c.id === selectedConvId);
 
-  const handleSend = () => {
-    if (!newMessage.trim() || !selectedConvId) return;
-    setLocalConvs((prev) =>
-      prev.map((c) =>
-        c.id === selectedConvId
-          ? {
-              ...c,
-              last_message: newMessage,
-              last_message_at: new Date().toISOString(),
-              unread_count: 0,
-              messages: [
-                ...c.messages,
-                { id: `m-local-${Date.now()}`, sender_id: 'user-1', content: newMessage, created_at: new Date().toISOString() },
-              ],
-            }
-          : c
+  // Load conversations
+  useEffect(() => {
+    if (!user || user.id === 'demo-user-bypass') {
+      setLoading(false);
+      return;
+    }
+
+    const fetchConversations = async () => {
+      const { data: convs } = await supabase
+        .from('conversations')
+        .select('id, skill_id, participant_ids, updated_at')
+        .contains('participant_ids', [user.id])
+        .order('updated_at', { ascending: false });
+
+      if (!convs || convs.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Get other participant profiles and skill titles
+      const otherIds = convs.map(c =>
+        c.participant_ids.find((pid: string) => pid !== user.id) || c.participant_ids[0]
+      );
+      const skillIds = convs.filter(c => c.skill_id).map(c => c.skill_id);
+
+      const [profilesRes, skillsRes, messagesRes] = await Promise.all([
+        supabase.from('profiles').select('id, first_name, last_name, avatar_url').in('id', otherIds),
+        skillIds.length > 0
+          ? supabase.from('skills').select('id, title').in('id', skillIds)
+          : Promise.resolve({ data: [] }),
+        supabase
+          .from('messages')
+          .select('conversation_id, content, created_at')
+          .in('conversation_id', convs.map(c => c.id))
+          .order('created_at', { ascending: false }),
+      ]);
+
+      const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
+      const skillMap = new Map((skillsRes.data || []).map(s => [s.id, s]));
+
+      // Get latest message per conversation
+      const latestMsgMap = new Map<string, any>();
+      (messagesRes.data || []).forEach(m => {
+        if (!latestMsgMap.has(m.conversation_id)) {
+          latestMsgMap.set(m.conversation_id, m);
+        }
+      });
+
+      const mapped: Conversation[] = convs.map(c => {
+        const otherId = c.participant_ids.find((pid: string) => pid !== user.id) || c.participant_ids[0];
+        const profile = profileMap.get(otherId);
+        const skill = c.skill_id ? skillMap.get(c.skill_id) : null;
+        const latestMsg = latestMsgMap.get(c.id);
+
+        return {
+          id: c.id,
+          skill_id: c.skill_id,
+          participant_ids: c.participant_ids,
+          updated_at: c.updated_at,
+          skill_title: skill?.title,
+          other_user: {
+            id: otherId,
+            firstName: profile?.first_name || 'Unknown',
+            lastName: profile?.last_name || '',
+            avatar: profile?.avatar_url || '',
+          },
+          last_message: latestMsg?.content,
+          last_message_at: latestMsg?.created_at || c.updated_at,
+          unread_count: 0,
+        };
+      });
+
+      setConversations(mapped);
+
+      // Auto-select from URL param
+      const convParam = searchParams.get('conv');
+      if (convParam && mapped.some(c => c.id === convParam)) {
+        setSelectedConvId(convParam);
+        setMobileView('chat');
+      } else if (mapped.length > 0) {
+        setSelectedConvId(mapped[0].id);
+      }
+
+      setLoading(false);
+    };
+
+    fetchConversations();
+  }, [user, searchParams]);
+
+  // Load messages for selected conversation
+  useEffect(() => {
+    if (!selectedConvId) {
+      setMessages([]);
+      return;
+    }
+
+    const fetchMessages = async () => {
+      const { data } = await supabase
+        .from('messages')
+        .select('id, sender_id, content, created_at')
+        .eq('conversation_id', selectedConvId)
+        .order('created_at', { ascending: true });
+
+      setMessages(data || []);
+    };
+
+    fetchMessages();
+
+    // Subscribe to realtime messages
+    const channel = supabase
+      .channel(`messages-${selectedConvId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${selectedConvId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            if (prev.some(m => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+        }
       )
-    );
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedConvId]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || !selectedConvId || !user) return;
+
+    setSending(true);
+    const content = newMessage.trim();
     setNewMessage('');
+
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: selectedConvId,
+      sender_id: user.id,
+      content,
+    });
+
+    if (!error) {
+      // Update conversation's updated_at
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', selectedConvId);
+
+      // Update local conversation list
+      setConversations(prev =>
+        prev.map(c =>
+          c.id === selectedConvId
+            ? { ...c, last_message: content, last_message_at: new Date().toISOString() }
+            : c
+        )
+      );
+    }
+
+    setSending(false);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-6rem)]">
+        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--color-amber)' }} />
+      </div>
+    );
+  }
+
+  if (conversations.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-6rem)]">
+        <div className="text-center">
+          <MessageCircle className="w-12 h-12 mx-auto mb-4" style={{ color: 'var(--color-text-muted)' }} />
+          <div className="font-heading text-xl text-navy mb-2">No messages yet</div>
+          <p className="text-sm font-body" style={{ color: 'var(--color-text-secondary)' }}>
+            Find a skill and message a teacher to start a conversation.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-[calc(100vh-3.5rem-2rem)] md:h-[calc(100vh-3.5rem-3rem)] overflow-hidden" style={{ borderRadius: '18px', boxShadow: 'var(--shadow-card)', border: '1px solid var(--color-border)', background: 'white' }}>
@@ -57,13 +260,13 @@ export default function Messages() {
         <div className="px-4 py-4 border-b border-[var(--color-border)]">
           <h2 className="font-heading text-navy text-lg">Messages</h2>
           <p className="text-xs font-body mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            {localConvs.filter((c) => c.unread_count > 0).length} unread
+            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
           </p>
         </div>
 
         {/* Conversations */}
         <div className="flex-1 overflow-y-auto">
-          {localConvs.map((conv) => (
+          {conversations.map((conv) => (
             <button
               key={conv.id}
               onClick={() => { setSelectedConvId(conv.id); setMobileView('chat'); }}
@@ -71,39 +274,33 @@ export default function Messages() {
                 selectedConvId === conv.id ? 'bg-parchment' : 'bg-white'
               }`}
             >
-              <div className="relative flex-shrink-0">
-                <Avatar className="w-11 h-11">
-                  <AvatarImage src={conv.other_member.avatar} />
-                  <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white', fontSize: '12px' }}>
-                    {conv.other_member.firstName[0]}
-                  </AvatarFallback>
-                </Avatar>
-                {conv.unread_count > 0 && (
-                  <span
-                    className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold font-body text-white flex items-center justify-center"
-                    style={{ background: 'var(--color-amber)' }}
-                  >
-                    {conv.unread_count}
-                  </span>
-                )}
-              </div>
+              <Avatar className="w-11 h-11 flex-shrink-0">
+                <AvatarImage src={conv.other_user.avatar} />
+                <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white', fontSize: '12px' }}>
+                  {conv.other_user.firstName[0]}
+                </AvatarFallback>
+              </Avatar>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className={`text-sm font-body ${conv.unread_count ? 'font-bold text-navy' : 'font-medium text-navy'}`}>
-                    {conv.other_member.firstName}
+                  <span className="text-sm font-body font-medium text-navy">
+                    {conv.other_user.firstName}
                   </span>
-                  <span className="text-[10px] font-body" style={{ color: 'var(--color-text-muted)' }}>
-                    {dayLabel(conv.last_message_at)}
-                  </span>
+                  {conv.last_message_at && (
+                    <span className="text-[10px] font-body" style={{ color: 'var(--color-text-muted)' }}>
+                      {dayLabel(conv.last_message_at)}
+                    </span>
+                  )}
                 </div>
-                {conv.skill && (
+                {conv.skill_title && (
                   <div className="text-[10px] font-body mb-0.5" style={{ color: 'var(--color-amber)' }}>
-                    Re: {conv.skill.title}
+                    Re: {conv.skill_title}
                   </div>
                 )}
-                <p className={`text-[11px] font-body truncate ${conv.unread_count ? 'text-navy' : ''}`} style={{ color: conv.unread_count ? 'var(--color-navy)' : 'var(--color-text-secondary)' }}>
-                  {conv.last_message}
-                </p>
+                {conv.last_message && (
+                  <p className="text-[11px] font-body truncate" style={{ color: 'var(--color-text-secondary)' }}>
+                    {conv.last_message}
+                  </p>
+                )}
               </div>
             </button>
           ))}
@@ -123,38 +320,41 @@ export default function Messages() {
                 <ArrowLeft className="w-4 h-4 text-navy" />
               </button>
               <Avatar className="w-9 h-9">
-                <AvatarImage src={selected.other_member.avatar} />
+                <AvatarImage src={selected.other_user.avatar} />
                 <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white', fontSize: '11px' }}>
-                  {selected.other_member.firstName[0]}
+                  {selected.other_user.firstName[0]}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="font-semibold font-body text-navy text-sm">
-                  {selected.other_member.firstName} {selected.other_member.lastName}
+                  {selected.other_user.firstName} {selected.other_user.lastName}
                 </div>
-                {selected.skill && (
+                {selected.skill_title && (
                   <div className="text-[11px] font-body" style={{ color: 'var(--color-amber)' }}>
-                    Re: {selected.skill.title}
+                    Re: {selected.skill_title}
                   </div>
                 )}
-              </div>
-              <div className="ml-auto flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-400" />
-                <span className="text-[11px] font-body text-[var(--color-text-muted)]">Active</span>
               </div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
-              {selected.messages.map((msg) => {
-                const isOwn = msg.sender_id === 'user-1';
+              {messages.length === 0 && (
+                <div className="text-center py-8">
+                  <p className="text-sm font-body" style={{ color: 'var(--color-text-muted)' }}>
+                    Start the conversation — say hello!
+                  </p>
+                </div>
+              )}
+              {messages.map((msg) => {
+                const isOwn = msg.sender_id === user?.id;
                 return (
                   <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} gap-2`}>
                     {!isOwn && (
                       <Avatar className="w-7 h-7 flex-shrink-0 mt-auto">
-                        <AvatarImage src={selected.other_member.avatar} />
+                        <AvatarImage src={selected.other_user.avatar} />
                         <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white', fontSize: '9px' }}>
-                          {selected.other_member.firstName[0]}
+                          {selected.other_user.firstName[0]}
                         </AvatarFallback>
                       </Avatar>
                     )}
@@ -184,6 +384,7 @@ export default function Messages() {
                   </div>
                 );
               })}
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
@@ -193,13 +394,13 @@ export default function Messages() {
                   type="text"
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                  placeholder={`Message ${selected.other_member.firstName}…`}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  placeholder={`Message ${selected.other_user.firstName}…`}
                   className="input-sc flex-1 py-2.5 text-sm"
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() || sending}
                   className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
                   style={{ background: 'var(--color-amber)' }}
                 >

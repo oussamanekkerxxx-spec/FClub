@@ -1,5 +1,7 @@
 import { useRef, useLayoutEffect, useState } from 'react';
 import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+gsap.registerPlugin(ScrollTrigger);
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Flame, Send, Twitter, Linkedin, Github, Instagram } from 'lucide-react';

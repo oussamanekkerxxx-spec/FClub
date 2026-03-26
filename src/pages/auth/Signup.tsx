@@ -34,7 +34,7 @@ export default function Signup() {
     setError('');
 
     try {
-      const { error: signUpError } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -57,8 +57,15 @@ export default function Signup() {
         throw signUpError;
       }
 
-      toast.success('Account created! Check your email for the confirmation code.');
-      navigate('/verify-email', { state: { email } });
+      if (signUpData.session) {
+        // Email confirmations disabled — user is already signed in
+        toast.success('Account created! Welcome to FightClub.');
+        navigate('/onboarding');
+      } else {
+        // Email confirmations enabled — user must verify via OTP
+        toast.success('Account created! Check your email for the confirmation code.');
+        navigate('/verify-email', { state: { email } });
+      }
     } catch (err: any) {
       setError(err.message || 'Could not create account at this time.');
     } finally {

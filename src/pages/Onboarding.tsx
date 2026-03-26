@@ -5,6 +5,23 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
+const NEIGHBORHOODS = [
+  { id: 'Medina', label: 'Medina', emoji: '🕌' },
+  { id: 'Guéliz', label: 'Guéliz', emoji: '🏙️' },
+  { id: 'Hivernage', label: 'Hivernage', emoji: '🌴' },
+  { id: 'Mellah', label: 'Mellah', emoji: '✡️' },
+  { id: 'Palmeraie', label: 'Palmeraie', emoji: '🌿' },
+  { id: 'Kasbah', label: 'Kasbah', emoji: '🏰' },
+];
+
+const LANGUAGES = [
+  { id: 'Arabic', label: 'Arabic', emoji: '🇲🇦' },
+  { id: 'French', label: 'French', emoji: '🇫🇷' },
+  { id: 'English', label: 'English', emoji: '🇬🇧' },
+  { id: 'Spanish', label: 'Spanish', emoji: '🇪🇸' },
+  { id: 'Tamasheq', label: 'Tamasheq', emoji: '🏔️' },
+];
+
 const INTEREST_CATEGORIES = [
   { id: 'music', label: 'Music', emoji: '🎵' },
   { id: 'languages', label: 'Languages', emoji: '🌍' },
@@ -36,6 +53,11 @@ const TEACH_INTERESTS = [
 
 const STEPS = [
   {
+    id: 'location',
+    question: 'Where in Marrakesh are you?',
+    subtext: 'This helps us show you skills and people nearby.',
+  },
+  {
     id: 'curiosity',
     question: 'What are you curious about lately?',
     subtext: 'This helps us find the right people and skills for you in your city.',
@@ -57,6 +79,8 @@ export default function Onboarding() {
   const { user, updateUser } = useAuth();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState({
+    neighborhood: '',
+    languages: [] as string[],
     curiosity: [] as string[],
     aspiration: [] as string[],
     give: '',
@@ -72,7 +96,7 @@ export default function Onboarding() {
         setTransitioning(false);
       }, 250);
     } else {
-      // Final step — save to Supabase and go to feed
+      // Final step — save to Supabase and go to welcome/feed
       if (user && user.id !== 'demo-user-bypass') {
         const what_i_learn = answers.aspiration;
         const what_i_teach = answers.give === 'yes-skill' || answers.give === 'yes-unsure'
@@ -80,6 +104,8 @@ export default function Onboarding() {
           : [];
         const { error } = await supabase.from('profiles').upsert({
           id: user.id,
+          neighborhood: answers.neighborhood,
+          languages: answers.languages,
           what_i_learn,
           what_i_teach,
           onboarding_completed: true,
@@ -88,11 +114,26 @@ export default function Onboarding() {
           toast.error('Could not save your preferences. Please try again.');
           return;
         }
-        updateUser({ what_i_learn, what_i_teach, onboarding_completed: true });
+        updateUser({
+          what_i_learn,
+          what_i_teach,
+          languages: answers.languages,
+          location: answers.neighborhood,
+          onboarding_completed: true,
+        });
         toast.success('Welcome to FightClub!');
       }
-      navigate('/app/feed');
+      navigate('/app/welcome');
     }
+  };
+
+  const toggleLanguage = (id: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      languages: prev.languages.includes(id)
+        ? prev.languages.filter((x) => x !== id)
+        : [...prev.languages, id],
+    }));
   };
 
   const toggleCuriosity = (id: string) => {
@@ -114,9 +155,10 @@ export default function Onboarding() {
   };
 
   const canContinue =
-    (step === 0 && answers.curiosity.length > 0) ||
-    (step === 1 && answers.aspiration.length > 0) ||
-    (step === 2 && answers.give !== '');
+    (step === 0 && answers.neighborhood !== '') ||
+    (step === 1 && answers.curiosity.length > 0) ||
+    (step === 2 && answers.aspiration.length > 0) ||
+    (step === 3 && answers.give !== '');
 
   return (
     <div
@@ -175,8 +217,67 @@ export default function Onboarding() {
           </p>
         </div>
 
-        {/* Step 0: Topic tags */}
+        {/* Step 0: Neighborhood + Languages */}
         {step === 0 && (
+          <div className="w-full max-w-lg space-y-6">
+            {/* Neighborhood */}
+            <div className="grid grid-cols-3 gap-3">
+              {NEIGHBORHOODS.map((n) => {
+                const selected = answers.neighborhood === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    onClick={() => setAnswers((prev) => ({ ...prev, neighborhood: n.id }))}
+                    className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all border"
+                    style={
+                      selected
+                        ? { background: 'var(--color-navy)', borderColor: 'var(--color-navy)' }
+                        : { background: 'white', borderColor: 'var(--color-border)' }
+                    }
+                  >
+                    <span className="text-2xl">{n.emoji}</span>
+                    <span
+                      className="font-medium font-body text-sm"
+                      style={{ color: selected ? 'white' : 'var(--color-text-secondary)' }}
+                    >
+                      {n.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Languages */}
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3 text-center" style={{ color: 'var(--color-text-muted)' }}>
+                What languages do you speak?
+              </div>
+              <div className="flex flex-wrap justify-center gap-2.5">
+                {LANGUAGES.map((lang) => {
+                  const selected = answers.languages.includes(lang.id);
+                  return (
+                    <button
+                      key={lang.id}
+                      onClick={() => toggleLanguage(lang.id)}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold font-body transition-all border"
+                      style={
+                        selected
+                          ? { background: '#FFF3E0', color: 'var(--color-navy)', borderColor: 'var(--color-amber)' }
+                          : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
+                      }
+                    >
+                      {lang.emoji} {lang.label}
+                      {selected && <Check className="w-3.5 h-3.5" style={{ color: 'var(--color-amber)' }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Topic tags */}
+        {step === 1 && (
           <div className="flex flex-wrap justify-center gap-2.5 max-w-lg mx-auto">
             {INTEREST_CATEGORIES.map((cat) => {
               const selected = answers.curiosity.includes(cat.id);
@@ -199,8 +300,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 1: Aspirations */}
-        {step === 1 && (
+        {/* Step 2: Aspirations */}
+        {step === 2 && (
           <div className="grid sm:grid-cols-2 gap-3 w-full max-w-lg mx-auto">
             {LEARN_ASPIRATIONS.map((opt) => {
               const selected = answers.aspiration.includes(opt.id);
@@ -226,8 +327,8 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 2: Give */}
-        {step === 2 && (
+        {/* Step 3: Give */}
+        {step === 3 && (
           <div className="w-full max-w-lg space-y-4">
             <div className="grid sm:grid-cols-2 gap-3">
               {TEACH_INTERESTS.map((opt) => {
@@ -282,6 +383,11 @@ export default function Onboarding() {
         </button>
 
         {step === 0 && (
+          <p className="mt-3 text-[11px] font-body" style={{ color: 'var(--color-text-muted)' }}>
+            Select your neighborhood to continue
+          </p>
+        )}
+        {step === 1 && (
           <p className="mt-3 text-[11px] font-body" style={{ color: 'var(--color-text-muted)' }}>
             Select at least one to continue
           </p>

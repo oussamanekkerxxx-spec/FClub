@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .from('profiles')
       .select('*')
       .eq('id', supabaseSession.user.id)
-      .single();
+      .maybeSingle();
 
     if (profile) {
       setUser(mapProfileToUser(profile as Record<string, unknown>, supabaseSession.user.id, supabaseSession.user.email || ''));
@@ -140,6 +140,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
+
+    if (email === 'demo@fightclub.test' && password === 'bypass') {
+      // Demo bypass logic
+      const demoUser: User = {
+        id: 'demo-user-id',
+        email: 'demo@fightclub.test',
+        firstName: 'Demo',
+        lastName: 'Fighter',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
+        bio: 'I am here to test the platform.',
+        location: 'Medina',
+        city: 'Marrakesh',
+        trust_tier: 2,
+        trust_score: 85,
+        archetype: 'mixed',
+        phone_verified: true,
+        id_verified: true,
+        onboarding_completed: true,
+        what_i_teach: ['React', 'TypeScript'],
+        what_i_learn: ['Boxing', 'Arabic'],
+        interests: ['Tech', 'Fitness'],
+        languages: ['English', 'French'],
+        sessions_completed: 5,
+        reviews_count: 3,
+      };
+      
+      setUser(demoUser);
+      setIsLoading(false);
+      return;
+    }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
