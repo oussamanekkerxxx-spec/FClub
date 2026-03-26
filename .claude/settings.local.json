@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Vercel__list_projects",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "Bash(vercel --version)",
+      "Bash(npm install:*)",
+      "Bash(xargs grep:*)",
+      "mcp__claude_ai_Vercel__list_teams",
+      "mcp__claude_ai_Vercel__get_project",
+      "mcp__claude_ai_Vercel__list_deployments",
+      "Bash(vercel project:*)",
+      "Bash(vercel ls:*)",
+      "Bash(vercel whoami:*)",
+      "Bash(vercel inspect:*)",
+      "Bash(vercel link:*)",
+      "Bash(vercel env:*)",
+      "mcp__claude_ai_Vercel__get_deployment_build_logs",
+      "Bash(npm run:*)",
+      "Bash(vercel deploy:*)",
+      "WebFetch(domain:fclub-nine.vercel.app)",
+      "mcp__claude_ai_Vercel__web_fetch_vercel_url"
+    ]
+  }
+}

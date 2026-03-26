@@ -1,0 +1,1 @@
+- [FightClub QA Findings](project_fclub_qa_findings.md) -- Critical SPA routing 404, demo user ID mismatch, admin no auth, stale placeholders

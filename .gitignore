@@ -26,3 +26,5 @@ nul
 # IDE
 .vscode/
 .idea/
+
+.vercel

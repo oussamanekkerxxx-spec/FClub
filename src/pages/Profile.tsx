@@ -79,7 +79,13 @@ export default function Profile() {
         toast.error('Failed to save profile');
       } else {
         toast.success('Profile updated successfully!');
-        updateUser({});
+        updateUser({
+          bio: editBio,
+          location: editNeighborhood,
+          languages: editLanguages.split(',').map(l => l.trim()).filter(l => l),
+          what_i_teach: editTeach.split(',').map(s => s.trim()).filter(s => s),
+          what_i_learn: editLearn.split(',').map(s => s.trim()).filter(s => s),
+        });
         setIsEditing(false);
       }
     } catch (err) {
@@ -212,36 +218,6 @@ export default function Profile() {
           </div>
         </div>
       </div>
-
-      {/* Trust Score Breakdown */}
-      {user.trust_score > 0 && (
-        <div className="sc-card p-5">
-          <h3 className="font-heading text-navy mb-4" style={{ fontSize: '1.05rem' }}>
-            Trust Score Breakdown
-          </h3>
-          <div className="space-y-3">
-            {[
-              { label: 'Session Quality', value: 95, color: 'var(--color-amber)' },
-              { label: 'Reliability', value: 100, color: 'var(--color-forest)' },
-              { label: 'Community Contribution', value: 80, color: 'var(--color-plum)' },
-              { label: 'Review Quality', value: 88, color: '#1B2A4A' },
-            ].map((item) => (
-              <div key={item.label}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-body font-medium text-navy">{item.label}</span>
-                  <span className="text-xs font-bold font-body" style={{ color: item.color }}>{item.value}%</span>
-                </div>
-                <div className="h-1.5 bg-parchment-dark rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{ width: `${item.value}%`, background: item.color }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Verification Status */}
       <div className="sc-card p-5">

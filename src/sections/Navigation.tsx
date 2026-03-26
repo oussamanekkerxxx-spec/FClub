@@ -43,7 +43,7 @@ export default function Navigation({ className = '' }: NavigationProps) {
               <Flame className="w-6 h-6 text-white" />
             </div>
             <span className="font-heading font-semibold text-xl text-brand-text-primary">
-              FightClub
+              SKILLCLUB
             </span>
           </Link>
 

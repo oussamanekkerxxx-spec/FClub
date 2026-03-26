@@ -105,11 +105,11 @@ export default function Login() {
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-3 group">
             <div className="w-12 h-12 rounded-xl bg-[var(--color-amber)] text-white flex items-center justify-center font-bold text-xl shadow-warm group-hover:scale-105 transition-transform duration-300">
-              FC
+              SC
             </div>
           </Link>
-          <h1 className="mt-6 text-3xl font-heading text-[var(--color-navy)] mb-2">Welcome back, fighter</h1>
-          <p className="text-[var(--color-text-secondary)]">Your ring awaits.</p>
+          <h1 className="mt-6 text-3xl font-heading text-[var(--color-navy)] mb-2">Welcome back</h1>
+          <p className="text-[var(--color-text-secondary)]">Your community awaits.</p>
         </div>
 
         {/* Card */}

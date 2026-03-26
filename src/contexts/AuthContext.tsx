@@ -22,8 +22,9 @@ export interface User {
   onboarding_completed: boolean;
   what_i_teach: string[];
   what_i_learn: string[];
-  interests: string[];
   languages: string[];
+  role: string;
+  isDemo: boolean;
   sessions_completed: number;
   reviews_count: number;
 }
@@ -67,8 +68,9 @@ function mapProfileToUser(profile: Record<string, unknown>, authId: string, emai
     onboarding_completed: (profile.onboarding_completed as boolean) || false,
     what_i_teach: (profile.what_i_teach as string[]) || [],
     what_i_learn: (profile.what_i_learn as string[]) || [],
-    interests: (profile.what_i_learn as string[]) || [],
     languages: (profile.languages as string[]) || [],
+    role: (profile.role as string) || 'member',
+    isDemo: false,
     sessions_completed: (profile.sessions_completed as number) || 0,
     reviews_count: (profile.reviews_count as number) || 0,
   };
@@ -104,8 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         onboarding_completed: false,
         what_i_teach: [],
         what_i_learn: [],
-        interests: [],
         languages: [],
+        role: 'member',
+        isDemo: false,
         sessions_completed: 0,
         reviews_count: 0,
       });
@@ -144,7 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (email === 'demo@fightclub.test' && password === 'bypass') {
       // Demo bypass logic
       const demoUser: User = {
-        id: 'demo-user-id',
+        id: 'demo-user-bypass',
         email: 'demo@fightclub.test',
         firstName: 'Demo',
         lastName: 'Fighter',
@@ -160,8 +163,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         onboarding_completed: true,
         what_i_teach: ['React', 'TypeScript'],
         what_i_learn: ['Boxing', 'Arabic'],
-        interests: ['Tech', 'Fitness'],
         languages: ['English', 'French'],
+        role: 'member',
+        isDemo: true,
         sessions_completed: 5,
         reviews_count: 3,
       };

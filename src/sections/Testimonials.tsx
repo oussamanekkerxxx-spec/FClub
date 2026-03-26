@@ -103,7 +103,7 @@ export default function Testimonials({ className = '' }: TestimonialsProps) {
         {/* Header */}
         <div ref={headerRef} className="text-center max-w-2xl mx-auto mb-14">
           <h2 className="font-heading font-bold text-3xl sm:text-4xl text-brand-text-primary">
-            From the FightClub community
+            From the SKILLCLUB community
           </h2>
         </div>
 

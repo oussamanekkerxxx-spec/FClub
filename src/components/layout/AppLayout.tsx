@@ -10,15 +10,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-// Placeholder notifications until real-time is wired
-const notifications: { id: string; title: string; message: string; isRead: boolean }[] = [];
 import {
   Compass,
   Search,
   MessageCircle,
   User,
   Settings,
-  Bell,
   Menu,
   X,
   LogOut,
@@ -62,8 +59,6 @@ export default function AppLayout() {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const unreadNotifications = notifications.filter((n) => !n.isRead).length;
-
   const handleLogout = () => {
     logout();
     navigate('/');
@@ -100,11 +95,11 @@ export default function AppLayout() {
               className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm text-white"
               style={{ background: 'var(--color-amber)' }}
             >
-              FC
+              SC
             </div>
             <div>
               <span className="font-heading font-semibold text-base text-white tracking-wide">
-                FightClub
+                SKILLCLUB
               </span>
             </div>
           </Link>
@@ -233,7 +228,7 @@ export default function AppLayout() {
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-                <LogOut className="w-4 h-4 mr-2" /> Leave the Ring
+                <LogOut className="w-4 h-4 mr-2" /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -258,47 +253,8 @@ export default function AppLayout() {
             <Menu className="w-5 h-5 text-navy" />
           </button>
 
-          {/* Search */}
-          <div className="hidden md:flex flex-1 max-w-md mx-4">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-muted)]" />
-              <input
-                type="text"
-                placeholder="Find a skill or a person…"
-                className="input-sc pl-10 py-2 text-sm"
-                style={{ background: 'white' }}
-              />
-            </div>
-          </div>
-
           {/* Right */}
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="relative p-2 rounded-xl hover:bg-parchment-dark transition-colors">
-                  <Bell className="w-5 h-5 text-navy" />
-                  {unreadNotifications > 0 && (
-                    <span
-                      className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                      style={{ background: 'var(--color-amber)' }}
-                    />
-                  )}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {notifications.map((n) => (
-                  <DropdownMenuItem key={n.id} className="flex flex-col items-start py-2.5 cursor-pointer">
-                    <div className={`font-medium text-sm ${!n.isRead ? 'text-navy' : 'text-gray-600'}`}>
-                      {n.title}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-0.5">{n.message}</div>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
+          <div className="flex items-center gap-2 ml-auto">
             <Link to="/app/profile" className="lg:hidden">
               <Avatar className="w-8 h-8">
                 <AvatarImage src={user?.avatar} />

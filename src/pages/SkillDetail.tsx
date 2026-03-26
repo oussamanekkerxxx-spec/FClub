@@ -31,18 +31,18 @@ interface SkillData {
   slug: string;
   teacher_id: string;
   title: string;
-  category: string;
+  category: 'music' | 'languages' | 'technology' | 'cooking' | 'art' | 'fitness' | 'crafts' | 'writing' | 'photography' | 'business';
   description: string;
   philosophy: string;
   who_for: string;
   what_session_looks_like: string;
   price_per_hour: number;
   currency: string;
-  format: string;
+  format: 'online' | 'in-person' | 'both';
   location: string;
   neighborhood: string;
   languages: string[];
-  level: string;
+  level: 'all levels' | 'beginner' | 'intermediate' | 'advanced';
   avg_rating: number;
   reviews_count: number;
   tags: string[];
@@ -51,6 +51,8 @@ interface SkillData {
   max_headcount: number | null;
   current_headcount: number;
   availability_note: string | null;
+  status: 'active' | 'paused';
+  created_at: string;
   teacher: {
     id: string;
     firstName: string;
@@ -59,10 +61,15 @@ interface SkillData {
     bio: string;
     location: string;
     city: string;
-    trust_tier: number;
+    trust_tier: 0 | 1 | 2 | 3 | 4;
     trust_score: number;
+    archetype: 'giver' | 'seeker' | 'connector' | 'mixed';
+    what_i_teach: string[];
+    what_i_learn: string[];
+    languages: string[];
     sessions_completed: number;
     reviews_count: number;
+    joined_at: string;
   };
 }
 
@@ -551,7 +558,7 @@ export default function SkillDetail() {
               </div>
             </div>
             <Link
-              to="/app/profile"
+              to={`/app/member/${skill.teacher.id}`}
               className="flex items-center justify-center gap-1 w-full mt-4 py-2 rounded-xl text-xs font-semibold font-body border border-[var(--color-border)] text-navy hover:bg-parchment transition-colors"
             >
               View full profile

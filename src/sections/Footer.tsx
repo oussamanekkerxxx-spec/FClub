@@ -97,7 +97,7 @@ export default function Footer({ className = '' }: FooterProps) {
                 <Flame className="w-6 h-6 text-white" />
               </div>
               <span className="font-heading font-semibold text-xl text-white">
-                FightClub
+                SKILLCLUB
               </span>
             </Link>
             <p className="text-white/70 leading-relaxed mb-6 max-w-sm">
@@ -195,7 +195,7 @@ export default function Footer({ className = '' }: FooterProps) {
         {/* Bottom Bar */}
         <div className="mt-16 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-sm text-white/50">
-            © 2024 FightClub. All rights reserved.
+            © 2024 SKILLCLUB. All rights reserved.
           </p>
           <div className="flex items-center gap-6">
             <Link

@@ -4,7 +4,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import type { Skill } from '@/data/mockData';
+import type { Skill } from '@/types/skillclub';
 import { MapPin, Clock, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 
 const NEIGHBORHOODS = ['Medina', 'Guéliz', 'Hivernage', 'Mellah', 'Palmeraie', 'Other'];

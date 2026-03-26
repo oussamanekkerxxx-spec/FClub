@@ -61,7 +61,7 @@ export default function Welcome() {
           <Sparkles className="w-8 h-8" style={{ color: 'var(--color-amber)' }} />
         </div>
         <h1 className="font-heading text-2xl text-navy mb-2">
-          Welcome to FightClub, {user?.firstName}. ✦
+          Welcome to SKILLCLUB, {user?.firstName}. ✦
         </h1>
         <p className="font-body text-[var(--color-text-secondary)]">
           {matchedSkills.length > 0

@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading, isEmailVerified } = useAuth();
+  const { user, isAuthenticated, isLoading, isEmailVerified } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -26,7 +26,9 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const publicPaths = ['/verify-email', '/onboarding'];
   const isPublicPath = publicPaths.some(path => location.pathname.startsWith(path));
   
-  if (!isEmailVerified && !isPublicPath) {
+  const isDemoUser = user?.id === 'demo-user-bypass';
+
+  if (!isEmailVerified && !isPublicPath && !isDemoUser) {
     // Redirect to verify email page with user's email
     return <Navigate to="/verify-email" state={{ email: location.state?.email }} replace />;
   }

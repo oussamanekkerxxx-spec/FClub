@@ -121,7 +121,7 @@ export default function Onboarding() {
           location: answers.neighborhood,
           onboarding_completed: true,
         });
-        toast.success('Welcome to FightClub!');
+        toast.success('Welcome to SKILLCLUB!');
       }
       navigate('/app/welcome');
     }
@@ -172,9 +172,9 @@ export default function Onboarding() {
             className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm text-white"
             style={{ background: 'var(--color-amber)' }}
           >
-            FC
+            SC
           </div>
-          <span className="font-heading font-semibold text-navy text-lg">FightClub</span>
+          <span className="font-heading font-semibold text-navy text-lg">SKILLCLUB</span>
         </div>
         <button
           onClick={() => navigate('/app/feed')}

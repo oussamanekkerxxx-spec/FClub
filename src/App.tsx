@@ -20,6 +20,7 @@ import Messages from './pages/Messages';
 import Profile from './pages/Profile';
 import Teach from './pages/Teach';
 import Admin from './pages/Admin';
+import MemberProfile from './pages/MemberProfile';
 import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import Board from './pages/Board';
@@ -81,11 +82,16 @@ function AppRouter() {
           <Route path="teach" element={<Teach />} />
           <Route path="board" element={<Board />} />
           <Route path="admin" element={<Admin />} />
+          <Route path="member/:id" element={<MemberProfile />} />
           <Route path="settings" element={<Settings />} />
           <Route path="welcome" element={<Welcome />} />
           {/* Legacy dashboard redirect */}
           <Route path="dashboard" element={<Navigate to="/app/feed" replace />} />
+          {/* 404 fallback inside app */}
+          <Route path="*" element={<Navigate to="/app/feed" replace />} />
         </Route>
+        {/* Global 404 */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster position="top-right" richColors />
     </Router>
