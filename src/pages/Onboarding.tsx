@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Check } from 'lucide-react';
+import { ArrowRight, Check, Upload, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -22,159 +22,167 @@ const LANGUAGES = [
   { id: 'Tamasheq', label: 'Tamasheq', emoji: '🏔️' },
 ];
 
-const INTEREST_CATEGORIES = [
-  { id: 'music', label: 'Music', emoji: '🎵' },
-  { id: 'languages', label: 'Languages', emoji: '🌍' },
-  { id: 'technology', label: 'Technology', emoji: '💻' },
-  { id: 'cooking', label: 'Cooking', emoji: '🍳' },
-  { id: 'art', label: 'Art & Craft', emoji: '🎨' },
-  { id: 'fitness', label: 'Fitness', emoji: '💪' },
-  { id: 'photography', label: 'Photography', emoji: '📷' },
-  { id: 'writing', label: 'Writing', emoji: '✍️' },
-];
-
-const LEARN_ASPIRATIONS = [
-  { id: 'music', label: 'Play an instrument', emoji: '🎵' },
-  { id: 'cook', label: 'Cook traditional food', emoji: '🍳' },
-  { id: 'language', label: 'Learn a language', emoji: '🌍' },
-  { id: 'move', label: 'Move my body', emoji: '🧘' },
-  { id: 'create', label: 'Make something with my hands', emoji: '✂️' },
-  { id: 'tech', label: 'Get better with technology', emoji: '💻' },
-  { id: 'photo', label: 'See through a camera', emoji: '📷' },
-  { id: 'write', label: 'Put words on a page', emoji: '✍️' },
-];
-
-const TEACH_INTERESTS = [
-  { id: 'yes-skill', label: 'Yes, and I know exactly what', emoji: '✓' },
-  { id: 'yes-unsure', label: 'Yes, but I\'m not sure anyone would want to learn it', emoji: '🤔' },
-  { id: 'maybe', label: 'Maybe one day', emoji: '✦' },
-  { id: 'seeker', label: 'I\'m purely here to learn', emoji: '🌱' },
+const SKILL_TAGS = [
+  'Music', 'Languages', 'Technology', 'Cooking', 'Art & Craft',
+  'Fitness', 'Photography', 'Writing', 'Business', 'Crafts',
+  'Yoga', 'Drawing', 'Chess', 'Gardening', 'Calligraphy',
 ];
 
 const STEPS = [
-  {
-    id: 'location',
-    question: 'Where in Marrakesh are you?',
-    subtext: 'This helps us show you skills and people nearby.',
-  },
-  {
-    id: 'curiosity',
-    question: 'What are you curious about lately?',
-    subtext: 'This helps us find the right people and skills for you in your city.',
-  },
-  {
-    id: 'aspiration',
-    question: 'Is there something you\'ve always wanted to learn but never had the chance?',
-    subtext: 'Be honest. There are no wrong answers — only interesting ones.',
-  },
-  {
-    id: 'give',
-    question: 'Is there something you could share with someone else?',
-    subtext: 'A skill, a passion, a craft. The best clubs have givers and seekers.',
-  },
+  { id: 'identity', question: 'Tell us who you are', subtext: 'This is how the community will know you.' },
+  { id: 'location', question: 'Where in Marrakesh are you?', subtext: 'We use this to show you nearby skills and people.' },
+  { id: 'skills', question: 'What do you teach and learn?', subtext: 'You can add more any time from your profile.' },
+  { id: 'photo', question: 'Add a profile photo', subtext: 'Members with photos get 3× more connections. You can skip for now.' },
 ];
 
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState({
+  const [saving, setSaving] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const [fields, setFields] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    bio: '',
     neighborhood: '',
     languages: [] as string[],
-    curiosity: [] as string[],
-    aspiration: [] as string[],
-    give: '',
-    giveText: '',
+    teachText: '',
+    learnText: '',
+    teachTags: [] as string[],
+    learnTags: [] as string[],
   });
-  const [transitioning, setTransitioning] = useState(false);
+
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar || null);
+
+  const update = (key: keyof typeof fields, value: unknown) =>
+    setFields(prev => ({ ...prev, [key]: value }));
+
+  const toggleTag = (list: 'teachTags' | 'learnTags', tag: string) => {
+    setFields(prev => ({
+      ...prev,
+      [list]: prev[list].includes(tag)
+        ? prev[list].filter(t => t !== tag)
+        : [...prev[list], tag],
+    }));
+  };
+
+  const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2 MB'); return; }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const canContinue = () => {
+    if (step === 0) return fields.firstName.trim().length > 0 && fields.lastName.trim().length > 0;
+    if (step === 1) return fields.neighborhood !== '';
+    if (step === 2) return true; // optional
+    return true; // photo is optional
+  };
+
+  const saveStep = async () => {
+    if (!user || user.id === 'demo-user-bypass') return true;
+
+    if (step === 0) {
+      const { error } = await supabase.from('profiles').update({
+        first_name: fields.firstName.trim(),
+        last_name: fields.lastName.trim(),
+        bio: fields.bio.trim() || null,
+      }).eq('id', user.id);
+      if (error) { toast.error('Could not save. Please try again.'); return false; }
+      updateUser({ firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), bio: fields.bio.trim() || undefined });
+    }
+
+    if (step === 1) {
+      const { error } = await supabase.from('profiles').update({
+        neighborhood: fields.neighborhood,
+        languages: fields.languages,
+      }).eq('id', user.id);
+      if (error) { toast.error('Could not save. Please try again.'); return false; }
+      updateUser({ location: fields.neighborhood, languages: fields.languages });
+    }
+
+    if (step === 2) {
+      const what_i_teach = [
+        ...fields.teachTags,
+        ...fields.teachText.split(',').map(s => s.trim()).filter(Boolean),
+      ];
+      const what_i_learn = [
+        ...fields.learnTags,
+        ...fields.learnText.split(',').map(s => s.trim()).filter(Boolean),
+      ];
+      const { error } = await supabase.from('profiles').update({ what_i_teach, what_i_learn }).eq('id', user.id);
+      if (error) { toast.error('Could not save. Please try again.'); return false; }
+      updateUser({ what_i_teach, what_i_learn });
+    }
+
+    return true;
+  };
+
+  const finishOnboarding = async () => {
+    if (!user || user.id === 'demo-user-bypass') { navigate('/app/welcome'); return; }
+    setSaving(true);
+
+    // Upload avatar if selected
+    if (avatarFile) {
+      const ext = avatarFile.name.split('.').pop();
+      const path = `${user.id}/profile.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from('avatars')
+        .upload(path, avatarFile, { upsert: true });
+      if (!uploadErr) {
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
+        await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+        updateUser({ avatar: publicUrl });
+      }
+    }
+
+    // Set onboarding complete
+    const { error } = await supabase.from('profiles')
+      .update({ onboarding_completed: true })
+      .eq('id', user.id);
+
+    if (error) {
+      toast.error('Could not complete setup. Please try again.');
+      setSaving(false);
+      return;
+    }
+
+    updateUser({ onboarding_completed: true });
+    toast.success('Welcome to FIGHTCLUB!');
+    navigate('/app/welcome');
+  };
 
   const goNext = async () => {
     if (step < STEPS.length - 1) {
+      setSaving(true);
+      const ok = await saveStep();
+      setSaving(false);
+      if (!ok) return;
       setTransitioning(true);
-      setTimeout(() => {
-        setStep((s) => s + 1);
-        setTransitioning(false);
-      }, 250);
+      setTimeout(() => { setStep(s => s + 1); setTransitioning(false); }, 200);
     } else {
-      // Final step — save to Supabase and go to welcome/feed
-      if (user && user.id !== 'demo-user-bypass') {
-        const what_i_learn = answers.aspiration;
-        const what_i_teach = answers.give === 'yes-skill' || answers.give === 'yes-unsure'
-          ? [...answers.curiosity, ...(answers.giveText ? [answers.giveText] : [])]
-          : [];
-        const { error } = await supabase.from('profiles').upsert({
-          id: user.id,
-          neighborhood: answers.neighborhood,
-          languages: answers.languages,
-          what_i_learn,
-          what_i_teach,
-          onboarding_completed: true,
-        }, { onConflict: 'id' });
-        if (error) {
-          toast.error('Could not save your preferences. Please try again.');
-          return;
-        }
-        updateUser({
-          what_i_learn,
-          what_i_teach,
-          languages: answers.languages,
-          location: answers.neighborhood,
-          onboarding_completed: true,
-        });
-        toast.success('Welcome to SKILLCLUB!');
-      }
-      navigate('/app/welcome');
+      await finishOnboarding();
     }
   };
 
-  const toggleLanguage = (id: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      languages: prev.languages.includes(id)
-        ? prev.languages.filter((x) => x !== id)
-        : [...prev.languages, id],
-    }));
-  };
-
-  const toggleCuriosity = (id: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      curiosity: prev.curiosity.includes(id)
-        ? prev.curiosity.filter((x) => x !== id)
-        : [...prev.curiosity, id],
-    }));
-  };
-
-  const toggleAspiration = (id: string) => {
-    setAnswers((prev) => ({
-      ...prev,
-      aspiration: prev.aspiration.includes(id)
-        ? prev.aspiration.filter((x) => x !== id)
-        : [...prev.aspiration, id],
-    }));
-  };
-
-  const canContinue =
-    (step === 0 && answers.neighborhood !== '') ||
-    (step === 1 && answers.curiosity.length > 0) ||
-    (step === 2 && answers.aspiration.length > 0) ||
-    (step === 3 && answers.give !== '');
+  const skipPhoto = () => finishOnboarding();
 
   return (
-    <div
-      className="min-h-screen flex flex-col"
-      style={{ background: 'var(--color-bg)' }}
-    >
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--color-bg)' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]">
         <div className="flex items-center gap-2">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm text-white"
-            style={{ background: 'var(--color-amber)' }}
-          >
-            SC
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm text-white" style={{ background: 'var(--color-amber)' }}>
+            FC
           </div>
-          <span className="font-heading font-semibold text-navy text-lg">SKILLCLUB</span>
+          <span className="font-heading font-semibold text-navy text-lg">FIGHTCLUB</span>
         </div>
         <button
           onClick={() => navigate('/app/feed')}
@@ -184,32 +192,26 @@ export default function Onboarding() {
         </button>
       </div>
 
-      {/* Progress dots */}
-      <div className="flex items-center justify-center gap-2 pt-8 pb-2">
-        {STEPS.map((_, i) => (
-          <div
-            key={i}
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: i === step ? '24px' : '8px',
-              height: '8px',
-              background: i <= step ? 'var(--color-amber)' : 'var(--color-parchment-dark)',
-            }}
-          />
-        ))}
+      {/* Progress bar */}
+      <div className="px-6 pt-6">
+        <div className="flex items-center gap-1 max-w-lg mx-auto">
+          {STEPS.map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 h-1.5 rounded-full transition-all duration-300"
+              style={{ background: i <= step ? 'var(--color-amber)' : 'var(--color-parchment-dark)' }}
+            />
+          ))}
+        </div>
+        <p className="text-center text-xs font-body mt-2" style={{ color: 'var(--color-text-muted)' }}>
+          Step {step + 1} of {STEPS.length}
+        </p>
       </div>
 
       {/* Content */}
-      <div
-        className={`flex-1 flex flex-col items-center justify-center px-6 transition-opacity duration-250 ${
-          transitioning ? 'opacity-0' : 'opacity-100'
-        }`}
-      >
+      <div className={`flex-1 flex flex-col items-center px-6 pt-8 pb-12 transition-opacity duration-200 ${transitioning ? 'opacity-0' : 'opacity-100'}`}>
         <div className="w-full max-w-lg text-center mb-8">
-          <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3" style={{ color: 'var(--color-amber)' }}>
-            Question {step + 1} of {STEPS.length}
-          </div>
-          <h1 className="font-heading text-navy mb-3" style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>
+          <h1 className="font-heading text-navy mb-2" style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>
             {STEPS[step].question}
           </h1>
           <p className="font-body text-[var(--color-text-secondary)] text-sm">
@@ -217,54 +219,83 @@ export default function Onboarding() {
           </p>
         </div>
 
-        {/* Step 0: Neighborhood + Languages */}
+        {/* Step 0: Name + Bio */}
         {step === 0 && (
+          <div className="w-full max-w-lg space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>First name *</label>
+                <input
+                  value={fields.firstName}
+                  onChange={e => update('firstName', e.target.value)}
+                  placeholder="Youssef"
+                  className="input-sc"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Last name *</label>
+                <input
+                  value={fields.lastName}
+                  onChange={e => update('lastName', e.target.value)}
+                  placeholder="Benali"
+                  className="input-sc"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Bio <span className="normal-case font-normal">(optional)</span></label>
+              <textarea
+                value={fields.bio}
+                onChange={e => update('bio', e.target.value)}
+                placeholder="A sentence or two about who you are. What drives you?"
+                className="input-sc resize-none"
+                rows={3}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Step 1: Neighborhood + Languages */}
+        {step === 1 && (
           <div className="w-full max-w-lg space-y-6">
-            {/* Neighborhood */}
             <div className="grid grid-cols-3 gap-3">
-              {NEIGHBORHOODS.map((n) => {
-                const selected = answers.neighborhood === n.id;
+              {NEIGHBORHOODS.map(n => {
+                const selected = fields.neighborhood === n.id;
                 return (
                   <button
                     key={n.id}
-                    onClick={() => setAnswers((prev) => ({ ...prev, neighborhood: n.id }))}
+                    onClick={() => update('neighborhood', n.id)}
                     className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all border"
-                    style={
-                      selected
-                        ? { background: 'var(--color-navy)', borderColor: 'var(--color-navy)' }
-                        : { background: 'white', borderColor: 'var(--color-border)' }
-                    }
+                    style={selected
+                      ? { background: 'var(--color-navy)', borderColor: 'var(--color-navy)' }
+                      : { background: 'white', borderColor: 'var(--color-border)' }}
                   >
                     <span className="text-2xl">{n.emoji}</span>
-                    <span
-                      className="font-medium font-body text-sm"
-                      style={{ color: selected ? 'white' : 'var(--color-text-secondary)' }}
-                    >
+                    <span className="font-medium font-body text-sm" style={{ color: selected ? 'white' : 'var(--color-text-secondary)' }}>
                       {n.label}
                     </span>
                   </button>
                 );
               })}
             </div>
-
-            {/* Languages */}
             <div>
               <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                What languages do you speak?
+                Languages you speak
               </div>
               <div className="flex flex-wrap justify-center gap-2.5">
-                {LANGUAGES.map((lang) => {
-                  const selected = answers.languages.includes(lang.id);
+                {LANGUAGES.map(lang => {
+                  const selected = fields.languages.includes(lang.id);
                   return (
                     <button
                       key={lang.id}
-                      onClick={() => toggleLanguage(lang.id)}
+                      onClick={() => update('languages', fields.languages.includes(lang.id)
+                        ? fields.languages.filter(l => l !== lang.id)
+                        : [...fields.languages, lang.id])}
                       className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold font-body transition-all border"
-                      style={
-                        selected
-                          ? { background: '#FFF3E0', color: 'var(--color-navy)', borderColor: 'var(--color-amber)' }
-                          : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
-                      }
+                      style={selected
+                        ? { background: '#FFF3E0', color: 'var(--color-navy)', borderColor: 'var(--color-amber)' }
+                        : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}
                     >
                       {lang.emoji} {lang.label}
                       {selected && <Check className="w-3.5 h-3.5" style={{ color: 'var(--color-amber)' }} />}
@@ -276,122 +307,138 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 1: Topic tags */}
-        {step === 1 && (
-          <div className="flex flex-wrap justify-center gap-2.5 max-w-lg mx-auto">
-            {INTEREST_CATEGORIES.map((cat) => {
-              const selected = answers.curiosity.includes(cat.id);
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => toggleCuriosity(cat.id)}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold font-body transition-all border"
-                  style={
-                    selected
-                      ? { background: 'var(--color-navy)', color: 'white', borderColor: 'var(--color-navy)' }
-                      : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
-                  }
-                >
-                  {cat.emoji} {cat.label}
-                  {selected && <Check className="w-3.5 h-3.5" />}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Step 2: Aspirations */}
+        {/* Step 2: What I teach / learn */}
         {step === 2 && (
-          <div className="grid sm:grid-cols-2 gap-3 w-full max-w-lg mx-auto">
-            {LEARN_ASPIRATIONS.map((opt) => {
-              const selected = answers.aspiration.includes(opt.id);
-              return (
-                <button
-                  key={opt.id}
-                  onClick={() => toggleAspiration(opt.id)}
-                  className="flex items-center gap-3 p-4 rounded-2xl text-left transition-all border"
-                  style={
-                    selected
-                      ? { background: '#FFF3E0', borderColor: 'var(--color-amber)', color: 'var(--color-navy)' }
-                      : { background: 'white', borderColor: 'var(--color-border)', color: 'var(--color-text-secondary)' }
-                  }
-                >
-                  <span className="text-xl">{opt.emoji}</span>
-                  <span className="font-medium font-body text-sm">{opt.label}</span>
-                  {selected && (
-                    <Check className="w-4 h-4 ml-auto flex-shrink-0" style={{ color: 'var(--color-amber)' }} />
-                  )}
-                </button>
-              );
-            })}
+          <div className="w-full max-w-lg space-y-6">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3" style={{ color: 'var(--color-amber)' }}>
+                What I can teach
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {SKILL_TAGS.map(tag => {
+                  const selected = fields.teachTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag('teachTags', tag)}
+                      className="px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all border"
+                      style={selected
+                        ? { background: 'var(--color-amber)', color: 'white', borderColor: 'var(--color-amber)' }
+                        : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                value={fields.teachText}
+                onChange={e => update('teachText', e.target.value)}
+                placeholder="Or type your own: Arabic calligraphy, bread making…"
+                className="input-sc"
+              />
+            </div>
+
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3" style={{ color: 'var(--color-plum)' }}>
+                What I want to learn
+              </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {SKILL_TAGS.map(tag => {
+                  const selected = fields.learnTags.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      onClick={() => toggleTag('learnTags', tag)}
+                      className="px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all border"
+                      style={selected
+                        ? { background: 'var(--color-plum)', color: 'white', borderColor: 'var(--color-plum)' }
+                        : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                value={fields.learnText}
+                onChange={e => update('learnText', e.target.value)}
+                placeholder="Or type your own: Darija, chess, yoga…"
+                className="input-sc"
+              />
+            </div>
           </div>
         )}
 
-        {/* Step 3: Give */}
+        {/* Step 3: Photo */}
         {step === 3 && (
-          <div className="w-full max-w-lg space-y-4">
-            <div className="grid sm:grid-cols-2 gap-3">
-              {TEACH_INTERESTS.map((opt) => {
-                const selected = answers.give === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => setAnswers((prev) => ({ ...prev, give: opt.id }))}
-                    className="flex items-start gap-3 p-4 rounded-2xl text-left transition-all border"
-                    style={
-                      selected
-                        ? { background: 'var(--color-navy)', borderColor: 'var(--color-navy)' }
-                        : { background: 'white', borderColor: 'var(--color-border)' }
-                    }
-                  >
-                    <span className="text-xl">{opt.emoji}</span>
-                    <span
-                      className="font-medium font-body text-sm"
-                      style={{ color: selected ? 'white' : 'var(--color-text-secondary)' }}
-                    >
-                      {opt.label}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            {(answers.give === 'yes-skill' || answers.give === 'yes-unsure') && (
-              <input
-                type="text"
-                value={answers.giveText}
-                onChange={(e) => setAnswers((prev) => ({ ...prev, giveText: e.target.value }))}
-                placeholder="What's the skill? (e.g. Arabic calligraphy, chess, bread making…)"
-                className="input-sc"
-                autoFocus
-              />
+          <div className="w-full max-w-sm space-y-4">
+            <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} />
+
+            {avatarPreview ? (
+              <div className="relative mx-auto w-36 h-36">
+                <img
+                  src={avatarPreview}
+                  alt="Avatar preview"
+                  className="w-36 h-36 rounded-full object-cover ring-4 ring-white shadow-card"
+                />
+                <button
+                  onClick={() => { setAvatarFile(null); setAvatarPreview(null); }}
+                  className="absolute top-0 right-0 w-7 h-7 rounded-full bg-white shadow-card flex items-center justify-center hover:bg-red-50 transition-colors border border-[var(--color-border)]"
+                >
+                  <X className="w-3.5 h-3.5 text-red-400" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                className="mx-auto flex flex-col items-center justify-center w-36 h-36 rounded-full border-2 border-dashed hover:bg-parchment transition-colors"
+                style={{ borderColor: 'var(--color-border)' }}
+              >
+                <Upload className="w-7 h-7 mb-2" style={{ color: 'var(--color-text-muted)' }} />
+                <span className="text-xs font-body" style={{ color: 'var(--color-text-muted)' }}>Upload photo</span>
+              </button>
+            )}
+
+            {avatarPreview && (
+              <button
+                onClick={() => avatarInputRef.current?.click()}
+                className="w-full text-center text-xs font-semibold font-body py-2 rounded-lg border border-[var(--color-border)] hover:bg-parchment transition-colors text-navy"
+              >
+                Change photo
+              </button>
             )}
           </div>
         )}
 
         {/* CTA */}
-        <button
-          onClick={goNext}
-          disabled={!canContinue}
-          className="mt-10 flex items-center gap-2 btn-amber disabled:opacity-40 transition-all"
-          style={{ padding: '0.875rem 2.5rem', fontSize: '1rem' }}
-        >
-          {step === STEPS.length - 1 ? (
-            <>Enter the Ring <ArrowRight className="w-4 h-4" /></>
-          ) : (
-            <>Continue <ArrowRight className="w-4 h-4" /></>
-          )}
-        </button>
+        <div className="mt-10 flex flex-col items-center gap-3">
+          <button
+            onClick={goNext}
+            disabled={!canContinue() || saving}
+            className="flex items-center gap-2 btn-amber disabled:opacity-40 transition-all"
+            style={{ padding: '0.875rem 2.5rem', fontSize: '1rem' }}
+          >
+            {saving ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : step === STEPS.length - 1 ? (
+              <>{avatarFile ? 'Upload & Enter the Ring' : 'Enter the Ring'} <ArrowRight className="w-4 h-4" /></>
+            ) : (
+              <>Continue <ArrowRight className="w-4 h-4" /></>
+            )}
+          </button>
 
-        {step === 0 && (
-          <p className="mt-3 text-[11px] font-body" style={{ color: 'var(--color-text-muted)' }}>
-            Select your neighborhood to continue
-          </p>
-        )}
-        {step === 1 && (
-          <p className="mt-3 text-[11px] font-body" style={{ color: 'var(--color-text-muted)' }}>
-            Select at least one to continue
-          </p>
-        )}
+          {step === STEPS.length - 1 && (
+            <button
+              onClick={skipPhoto}
+              disabled={saving}
+              className="text-xs font-body hover:underline disabled:opacity-40"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              Skip for now, I'll add a photo later
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

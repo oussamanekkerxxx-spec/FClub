@@ -1,4 +1,4 @@
-// Shared domain types for SKILLCLUB — derived from the Supabase schema.
+// Shared domain types for FIGHTCLUB — derived from the Supabase schema.
 
 export type Category =
   | 'music' | 'languages' | 'technology' | 'cooking' | 'art'

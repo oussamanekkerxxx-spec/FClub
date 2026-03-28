@@ -410,8 +410,16 @@ export default function Browse() {
                 >
                   {/* Cover */}
                   <div
-                    className={`h-28 bg-gradient-to-br ${skill.cover_gradient} relative flex items-end p-3`}
+                    className={`h-28 relative flex items-end p-3 overflow-hidden ${!skill.cover_image_url ? `bg-gradient-to-br ${skill.cover_gradient}` : 'bg-gray-900'}`}
                   >
+                    {skill.cover_image_url && (
+                      <img
+                        src={skill.cover_image_url}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 w-full h-full object-cover opacity-90"
+                      />
+                    )}
                     {/* Format badge */}
                     <span
                       className="absolute top-2.5 right-2.5 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/80 font-body"

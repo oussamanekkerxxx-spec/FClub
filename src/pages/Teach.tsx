@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import {
   ChevronRight,
   ChevronLeft,
@@ -11,7 +11,21 @@ import {
   Edit3,
   BookOpen,
   Users,
+  Upload,
+  X,
 } from 'lucide-react';
+
+const CATEGORY_GRADIENTS: Record<string, string> = {
+  music: 'from-purple-500 to-pink-500',
+  languages: 'from-blue-500 to-cyan-400',
+  technology: 'from-indigo-500 to-blue-600',
+  cooking: 'from-orange-400 to-red-500',
+  art: 'from-pink-400 to-rose-500',
+  fitness: 'from-green-500 to-teal-400',
+  photography: 'from-slate-600 to-gray-800',
+  business: 'from-amber-500 to-yellow-400',
+  writing: 'from-violet-500 to-purple-600',
+};
 
 const CATEGORIES = [
   { id: 'music', label: 'Music', emoji: '🎵' },
@@ -42,6 +56,13 @@ const LEVEL_OPTIONS = [
 
 export default function Teach() {
   const { user } = useAuth();
+
+  // Gate: only users who completed onboarding can access the Teach page
+  if (user && !user.onboarding_completed && user.id !== 'demo-user-bypass') {
+    toast.error('Complete your profile setup before teaching.');
+    return <Navigate to="/app/profile" replace />;
+  }
+
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
     title: '',
@@ -63,6 +84,18 @@ export default function Teach() {
   const [published, setPublished] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [mySkills, setMySkills] = useState<any[]>([]);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCoverSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) { toast.error('Image must be under 3 MB'); return; }
+    setCoverFile(file);
+    setCoverPreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
 
   // Fetch user's active skills from Supabase
   useEffect(() => {
@@ -89,6 +122,8 @@ export default function Teach() {
   const resetForm = () => {
     setPublished(false);
     setStep(0);
+    setCoverFile(null);
+    setCoverPreview(null);
     setForm({
       title: '', category: '', format: 'both', level: 'all levels',
       description: '', philosophy: '', who_for: '', what_session_looks_like: '',
@@ -106,7 +141,7 @@ export default function Teach() {
         </div>
         <h1 className="font-heading text-2xl text-navy">Your skill is live!</h1>
         <p className="font-body text-[var(--color-text-secondary)]">
-          <strong>{form.title}</strong> is now visible to the SKILLCLUB community in Marrakesh.
+          <strong>{form.title}</strong> is now visible to the FIGHTCLUB community in Marrakesh.
         </p>
         <div className="flex gap-3 justify-center">
           <button onClick={resetForm} className="px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold font-body text-navy hover:bg-parchment">
@@ -125,7 +160,7 @@ export default function Teach() {
       <div>
         <h1 className="font-heading text-2xl text-navy">Share a Skill</h1>
         <p className="font-body text-[var(--color-text-secondary)] mt-1 text-sm">
-          Tell the community what you know. Givers are the heart of SKILLCLUB.
+          Tell the community what you know. Givers are the heart of FIGHTCLUB.
         </p>
       </div>
 
@@ -314,16 +349,48 @@ export default function Teach() {
           {/* Step 3: Media */}
           {step === 3 && (
             <div className="space-y-4">
+              <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverSelect} />
               <p className="font-body text-sm text-[var(--color-text-secondary)]">
-                Add photos that capture the feel of your sessions. Real moments are better than perfect photos.
+                Add a cover photo for your skill. Real moments are better than perfect photos.
               </p>
-              <div className="h-40 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-parchment transition-colors" style={{ borderColor: 'var(--color-border)' }}>
-                <div className="text-3xl">📸</div>
-                <div className="font-body text-sm text-[var(--color-text-secondary)]">Click to upload photos</div>
-                <div className="text-[11px] font-body text-[var(--color-text-muted)]">JPG, PNG up to 5MB each</div>
-              </div>
+
+              {coverPreview ? (
+                <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                  <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => { setCoverFile(null); setCoverPreview(null); }}
+                    className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center hover:bg-black/70 transition-colors"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                  <div className="absolute bottom-2 left-2 px-2 py-1 rounded-lg text-[11px] font-body font-semibold text-white" style={{ background: 'rgba(0,0,0,0.5)' }}>
+                    16:9 recommended
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => coverInputRef.current?.click()}
+                  className="w-full h-44 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-2 hover:bg-parchment transition-colors"
+                  style={{ borderColor: 'var(--color-border)' }}
+                >
+                  <Upload className="w-7 h-7" style={{ color: 'var(--color-text-muted)' }} />
+                  <div className="font-body text-sm text-[var(--color-text-secondary)]">Click to upload cover photo</div>
+                  <div className="text-[11px] font-body text-[var(--color-text-muted)]">JPG, PNG, WebP — up to 3 MB</div>
+                </button>
+              )}
+
+              {/* Preview gradient fallback */}
+              {!coverPreview && form.category && (
+                <div className="p-3 rounded-xl flex items-center gap-3" style={{ background: 'var(--color-bg)' }}>
+                  <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${CATEGORY_GRADIENTS[form.category] || 'from-blue-500 to-purple-600'} flex-shrink-0`} />
+                  <div className="font-body text-xs text-[var(--color-text-secondary)]">
+                    No photo? We'll use this gradient placeholder for your <strong>{form.category}</strong> skill.
+                  </div>
+                </div>
+              )}
+
               <p className="text-[11px] font-body text-center" style={{ color: 'var(--color-text-muted)' }}>
-                You can skip this and add photos later from your profile.
+                You can skip this and add a photo later.
               </p>
             </div>
           )}
@@ -350,14 +417,18 @@ export default function Teach() {
                 </div>
               </div>
               <p className="text-xs font-body text-[var(--color-text-secondary)] leading-relaxed">
-                By publishing, you agree to SKILLCLUB's community guidelines. Your listing will be visible to all verified members in Marrakesh immediately.
+                By publishing, you agree to FIGHTCLUB's community guidelines. Your listing will be visible to all verified members in Marrakesh immediately.
               </p>
               <button
                 onClick={async () => {
                   if (!user || user.id === 'demo-user-bypass') { toast.error('Sign in to publish a skill'); return; }
+                  if (!form.title.trim()) { toast.error('Please add a skill title'); return; }
+                  if (!form.category) { toast.error('Please select a category'); return; }
+                  if (!form.description.trim()) { toast.error('Please write a description'); return; }
                   setPublishing(true);
                   const slug = `${form.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')}-${user.firstName?.toLowerCase() || 'teacher'}`;
-                  const { error } = await supabase.from('skills').insert({
+                  const coverGradient = CATEGORY_GRADIENTS[form.category] || 'from-blue-500 to-purple-600';
+                  const { data: skillData, error } = await supabase.from('skills').insert({
                     teacher_id: user.id,
                     title: form.title,
                     slug,
@@ -378,10 +449,30 @@ export default function Teach() {
                     is_group: form.is_group,
                     max_headcount: form.is_group ? form.max_headcount : null,
                     availability_note: form.availability_note || null,
-                  });
+                    cover_gradient: coverGradient,
+                  }).select('id').single();
+
+                  if (error) {
+                    setPublishing(false);
+                    toast.error('Could not publish skill. Please try again.');
+                    return;
+                  }
+
+                  // Upload cover photo if selected
+                  if (skillData?.id && coverFile) {
+                    const ext = coverFile.name.split('.').pop();
+                    const path = `${skillData.id}/cover.${ext}`;
+                    const { error: uploadErr } = await supabase.storage
+                      .from('skill-covers')
+                      .upload(path, coverFile, { upsert: true });
+                    if (!uploadErr) {
+                      const { data: { publicUrl } } = supabase.storage.from('skill-covers').getPublicUrl(path);
+                      await supabase.from('skills').update({ cover_image_url: publicUrl }).eq('id', skillData.id);
+                    }
+                  }
+
                   setPublishing(false);
-                  if (error) { toast.error('Could not publish skill. Please try again.'); }
-                  else { setPublished(true); }
+                  setPublished(true);
                 }}
                 disabled={publishing}
                 className="w-full btn-amber justify-center disabled:opacity-50"

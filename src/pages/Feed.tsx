@@ -183,8 +183,11 @@ export default function Feed() {
             {skills.slice(0, 4).map((skill) => (
               <Link key={skill.id} to={`/app/skill/${skill.slug}`} className="skill-card group">
                 <div
-                  className={`h-24 bg-gradient-to-br ${skill.cover_gradient} flex items-end p-4`}
+                  className={`h-24 relative flex items-end p-4 overflow-hidden ${!skill.cover_image_url ? `bg-gradient-to-br ${skill.cover_gradient}` : 'bg-gray-900'}`}
                 >
+                  {skill.cover_image_url && (
+                    <img src={skill.cover_image_url} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-90" />
+                  )}
                   <div className="flex items-center gap-2">
                     <Avatar className="w-9 h-9 ring-2 ring-white">
                       <AvatarImage src={skill.teacher.avatar} />

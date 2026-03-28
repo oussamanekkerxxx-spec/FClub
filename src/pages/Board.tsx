@@ -52,6 +52,12 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function daysUntilExpiry(expiresAt: string | null): number | null {
+  if (!expiresAt) return null;
+  const diff = new Date(expiresAt).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
 export default function Board() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<BoardPost[]>([]);
@@ -71,32 +77,36 @@ export default function Board() {
   }, []);
 
   const fetchPosts = async () => {
-    const { data } = await supabase
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
       .from('board_posts')
-      .select('id, author_id, type, title, content, neighborhood, expires_at, created_at')
+      .select('id, author_id, type, title, content, neighborhood, expires_at, created_at, author:profiles!board_posts_author_id_fkey(first_name, last_name, avatar_url)')
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order('created_at', { ascending: false });
 
-    if (!data || data.length === 0) {
-      setPosts([]);
+    if (error) {
+      // Fallback: join failed (FK not named), fetch without join
+      const { data: posts } = await supabase
+        .from('board_posts')
+        .select('id, author_id, type, title, content, neighborhood, expires_at, created_at')
+        .or(`expires_at.is.null,expires_at.gt.${now}`)
+        .order('created_at', { ascending: false });
+
+      if (!posts || posts.length === 0) { setPosts([]); setLoading(false); return; }
+
+      const authorIds = [...new Set(posts.map(p => p.author_id))];
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .in('id', authorIds);
+
+      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+      setPosts(posts.map(p => ({ ...p, author: profileMap.get(p.author_id) || undefined })));
       setLoading(false);
       return;
     }
 
-    // Fetch author profiles
-    const authorIds = [...new Set(data.map(p => p.author_id))];
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, avatar_url')
-      .in('id', authorIds);
-
-    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-
-    const mapped: BoardPost[] = data.map(p => ({
-      ...p,
-      author: profileMap.get(p.author_id) || undefined,
-    }));
-
-    setPosts(mapped);
+    setPosts((data || []) as BoardPost[]);
     setLoading(false);
   };
 
@@ -111,12 +121,14 @@ export default function Board() {
     }
 
     setSubmitting(true);
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const { error } = await supabase.from('board_posts').insert({
       author_id: user.id,
       type: newPost.type,
       title: newPost.title.trim(),
       content: newPost.content.trim(),
       neighborhood: newPost.neighborhood || null,
+      expires_at: expiresAt,
     });
     setSubmitting(false);
 
@@ -349,6 +361,26 @@ export default function Board() {
                     {post.content}
                   </p>
                 </div>
+
+                {/* Expiry badge — own posts only */}
+                {isOwn && post.expires_at && (() => {
+                  const days = daysUntilExpiry(post.expires_at);
+                  if (days === null) return null;
+                  const urgent = days <= 5;
+                  return (
+                    <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+                      <span
+                        className="text-[10px] font-body font-semibold px-2 py-1 rounded-full"
+                        style={{
+                          background: urgent ? '#FFF3E0' : '#F4F0E8',
+                          color: urgent ? 'var(--color-amber)' : 'var(--color-text-muted)',
+                        }}
+                      >
+                        {days === 0 ? 'Expires today' : `Expires in ${days}d`}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}

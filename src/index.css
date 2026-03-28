@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* SKILLCLUB Design Tokens */
+    /* FIGHTCLUB Design Tokens */
     --background: 40 30% 94%;
     --background-secondary: 270 40% 94%;
     --foreground: 220 46% 19%;
@@ -29,7 +29,7 @@
     --ring: 33 58% 50%;
     --radius: 0.75rem;
 
-    /* SKILLCLUB Color Vars */
+    /* FIGHTCLUB Color Vars */
     --color-navy: #1B2A4A;
     --color-amber: #C4873A;
     --color-parchment: #F4F0E8;

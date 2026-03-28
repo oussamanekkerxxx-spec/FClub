@@ -30,7 +30,7 @@ const STEPS = [
 
 export default function HowItWorks({ className }: Props) {
   return (
-    <section className={`py-20 px-6 ${className || ''}`} style={{ background: 'white' }}>
+    <section id="how-it-works" className={`py-20 px-6 ${className || ''}`} style={{ background: 'white' }}>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <div className="text-xs font-semibold uppercase tracking-widest font-body mb-2" style={{ color: 'var(--color-amber)' }}>

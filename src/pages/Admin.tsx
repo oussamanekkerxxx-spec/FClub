@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Shield, Users, BookOpen, Clock, Check, X, Star } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { toast } from 'sonner';
 
 interface MemberRow {
   id: string;
@@ -40,7 +41,7 @@ export default function Admin() {
       const [membersRes, skillsRes, pendingRes] = await Promise.all([
         supabase.from('profiles').select('id, first_name, last_name, avatar_url, trust_tier, trust_score, what_i_teach, created_at').order('created_at', { ascending: false }),
         supabase.from('skills').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('profiles').select('id, first_name, last_name, avatar_url, created_at').eq('id_verified', false).eq('trust_tier', 0),
+        supabase.from('profiles').select('id, first_name, last_name, avatar_url, created_at').eq('id_card_status', 'pending'),
       ]);
 
       if (membersRes.data) setMembers(membersRes.data as MemberRow[]);
@@ -52,6 +53,27 @@ export default function Admin() {
   }, []);
 
   const verifiedCount = members.filter((m) => m.trust_tier >= 2).length;
+
+  const handleApprove = async (id: string) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ id_card_status: 'approved', id_verified: true, trust_tier: 2 })
+      .eq('id', id);
+    if (error) { toast.error('Failed to approve'); return; }
+    setPending((prev) => prev.filter((p) => p.id !== id));
+    setMembers((prev) => prev.map((m) => m.id === id ? { ...m, trust_tier: 2 } : m));
+    toast.success('Member verified');
+  };
+
+  const handleReject = async (id: string) => {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ id_card_status: 'rejected' })
+      .eq('id', id);
+    if (error) { toast.error('Failed to reject'); return; }
+    setPending((prev) => prev.filter((p) => p.id !== id));
+    toast.success('Verification rejected');
+  };
 
   if (isLoading) {
     return (
@@ -117,10 +139,10 @@ export default function Admin() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold font-body text-white" style={{ background: 'var(--color-forest)' }}>
+                  <button onClick={() => handleApprove(pv.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold font-body text-white" style={{ background: 'var(--color-forest)' }}>
                     <Check className="w-3 h-3" /> Approve
                   </button>
-                  <button className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold font-body" style={{ background: '#FEE2E2', color: '#DC2626' }}>
+                  <button onClick={() => handleReject(pv.id)} className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold font-body" style={{ background: '#FEE2E2', color: '#DC2626' }}>
                     <X className="w-3 h-3" /> Reject
                   </button>
                 </div>

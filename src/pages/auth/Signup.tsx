@@ -59,7 +59,7 @@ export default function Signup() {
 
       if (signUpData.session) {
         // Email confirmations disabled — user is already signed in
-        toast.success('Account created! Welcome to SKILLCLUB.');
+        toast.success('Account created! Welcome to FIGHTCLUB.');
         navigate('/onboarding');
       } else {
         // Email confirmations enabled — user must verify via OTP
@@ -82,10 +82,10 @@ export default function Signup() {
              <div className="w-10 h-10 rounded-xl bg-[var(--color-amber)] text-white flex items-center justify-center font-bold text-lg shadow-warm group-hover:scale-105 transition-transform">
               SC
             </div>
-            <span className="font-heading font-semibold text-xl text-[var(--color-navy)]">SKILLCLUB</span>
+            <span className="font-heading font-semibold text-xl text-[var(--color-navy)]">FIGHTCLUB</span>
           </Link>
 
-          <h1 className="text-3xl font-heading text-[var(--color-navy)] mb-2">Join SKILLCLUB</h1>
+          <h1 className="text-3xl font-heading text-[var(--color-navy)] mb-2">Join FIGHTCLUB</h1>
           <p className="text-[var(--color-text-secondary)] mb-8 text-lg">Share what you know. Learn what you don't.</p>
 
           <form onSubmit={handleSubmit} className="space-y-5">

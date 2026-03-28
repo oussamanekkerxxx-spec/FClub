@@ -48,7 +48,7 @@ const navItems = [
   { icon: Compass, label: 'Discover', path: '/app/feed', description: 'What\'s alive right now' },
   { icon: Search, label: 'Browse Skills', path: '/app/browse', description: 'Find a skill or a person' },
   { icon: Map, label: 'City Board', path: '/app/board', description: 'Collaborative canvas' },
-  { icon: MessageCircle, label: 'Messages', path: '/app/messages', description: 'Your conversations', badge: 1 },
+  { icon: MessageCircle, label: 'Messages', path: '/app/messages', description: 'Your conversations' },
   { icon: BookOpen, label: 'Teach', path: '/app/teach', description: 'Share what you know' },
   { icon: User, label: 'My Profile', path: '/app/profile', description: 'Your member card' },
 ];
@@ -99,7 +99,7 @@ export default function AppLayout() {
             </div>
             <div>
               <span className="font-heading font-semibold text-base text-white tracking-wide">
-                SKILLCLUB
+                FIGHTCLUB
               </span>
             </div>
           </Link>

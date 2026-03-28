@@ -16,27 +16,29 @@ export default function Welcome() {
       return;
     }
 
-    // Map aspiration IDs to skill categories
-    const categoryMap: Record<string, string> = {
-      music: 'music',
-      cook: 'cooking',
-      language: 'languages',
-      move: 'fitness',
-      create: 'art',
-      tech: 'technology',
-      photo: 'photography',
-      write: 'writing',
+    // New onboarding stores real tag names (e.g. "Guitar", "Photography").
+    // Match skills that share any of those tags; fall back to category matching for legacy values.
+    const legacyCategoryMap: Record<string, string> = {
+      cook: 'cooking', language: 'languages', move: 'fitness',
+      create: 'art', tech: 'technology', photo: 'photography', write: 'writing',
     };
-    const cats = user.what_i_learn
-      .map((id: string) => categoryMap[id] || id)
-      .filter(Boolean);
+    const tags = user.what_i_learn;
+    const cats = tags.map((t: string) => legacyCategoryMap[t]).filter(Boolean);
 
-    supabase
+    const query = supabase
       .from('skills')
       .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url)')
       .eq('is_active', true)
-      .in('category', cats)
-      .limit(3)
+      .limit(3);
+
+    // Use overlaps on tags (new onboarding) OR category fallback (legacy)
+    if (cats.length > 0) {
+      query.or(`tags.ov.{${tags.join(',')}},category.in.(${cats.join(',')})`);
+    } else {
+      query.overlaps('tags', tags);
+    }
+
+    query
       .then(({ data }) => {
         if (data) {
           setMatchedSkills(data.map((s: any) => ({
@@ -61,7 +63,7 @@ export default function Welcome() {
           <Sparkles className="w-8 h-8" style={{ color: 'var(--color-amber)' }} />
         </div>
         <h1 className="font-heading text-2xl text-navy mb-2">
-          Welcome to SKILLCLUB, {user?.firstName}. ✦
+          Welcome to FIGHTCLUB, {user?.firstName}. ✦
         </h1>
         <p className="font-body text-[var(--color-text-secondary)]">
           {matchedSkills.length > 0
@@ -80,8 +82,11 @@ export default function Welcome() {
               to={`/app/skill/${skill.slug}`}
               className="skill-card group flex overflow-hidden"
             >
-              <div className={`w-24 flex-shrink-0 bg-gradient-to-br ${skill.cover_gradient} flex items-center justify-center`}>
-                <Avatar className="w-12 h-12 ring-2 ring-white/50">
+              <div className={`w-24 flex-shrink-0 relative overflow-hidden ${!skill.cover_image_url ? `bg-gradient-to-br ${skill.cover_gradient}` : 'bg-gray-900'} flex items-center justify-center`}>
+                {skill.cover_image_url && (
+                  <img src={skill.cover_image_url} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-80" />
+                )}
+                <Avatar className="w-12 h-12 ring-2 ring-white/50 relative z-10">
                   <AvatarImage src={skill.teacher.avatar} />
                   <AvatarFallback style={{ background: 'var(--color-amber)', color: 'white' }}>
                     {skill.teacher.firstName[0]}

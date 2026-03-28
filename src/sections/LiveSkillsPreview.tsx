@@ -40,7 +40,7 @@ export default function LiveSkillsPreview({ className }: Props) {
   if (skills.length === 0) return null;
 
   return (
-    <section className={`py-20 px-6 ${className || ''}`} style={{ background: 'var(--color-bg)' }}>
+    <section id="skills" className={`py-20 px-6 ${className || ''}`} style={{ background: 'var(--color-bg)' }}>
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-10">
           <div className="text-xs font-semibold uppercase tracking-widest font-body mb-2" style={{ color: 'var(--color-amber)' }}>

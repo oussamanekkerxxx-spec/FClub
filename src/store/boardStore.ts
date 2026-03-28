@@ -33,7 +33,7 @@ export const useBoardStore = create<BoardState>()(
       clearBoard: () => set({ notes: [] }),
     }),
     {
-      name: 'skillclub-board-storage',
+      name: 'fightclub-board-storage',
     }
   )
 );

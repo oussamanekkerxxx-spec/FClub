@@ -14,11 +14,13 @@ export interface User {
   bio?: string;
   location?: string;
   city?: string;
+  phone?: string;
   trust_tier: TrustTier;
   trust_score: number;
   archetype: UserArchetype;
   phone_verified: boolean;
   id_verified: boolean;
+  id_card_status?: 'not_submitted' | 'pending' | 'approved' | 'rejected';
   onboarding_completed: boolean;
   what_i_teach: string[];
   what_i_learn: string[];
@@ -60,11 +62,13 @@ function mapProfileToUser(profile: Record<string, unknown>, authId: string, emai
     bio: (profile.bio as string) || undefined,
     location: (profile.neighborhood as string) || undefined,
     city: (profile.city as string) || 'Marrakesh',
+    phone: (profile.phone as string) || undefined,
     trust_tier: ((profile.trust_tier as number) || 0) as TrustTier,
     trust_score: (profile.trust_score as number) || 0,
     archetype: ((profile.archetype as string) || 'mixed') as UserArchetype,
     phone_verified: (profile.phone_verified as boolean) || false,
     id_verified: (profile.id_verified as boolean) || false,
+    id_card_status: ((profile.id_card_status as string) || 'not_submitted') as User['id_card_status'],
     onboarding_completed: (profile.onboarding_completed as boolean) || false,
     what_i_teach: (profile.what_i_teach as string[]) || [],
     what_i_learn: (profile.what_i_learn as string[]) || [],

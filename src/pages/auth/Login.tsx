@@ -108,8 +108,12 @@ export default function Login() {
               SC
             </div>
           </Link>
-          <h1 className="mt-6 text-3xl font-heading text-[var(--color-navy)] mb-2">Welcome back</h1>
-          <p className="text-[var(--color-text-secondary)]">Your community awaits.</p>
+          <h1 className="mt-6 text-3xl font-heading text-[var(--color-navy)] mb-2">
+            {showForgotPassword ? 'Reset your password' : 'Welcome back'}
+          </h1>
+          <p className="text-[var(--color-text-secondary)]">
+            {showForgotPassword ? "We'll send a reset link to your email." : 'Your community awaits.'}
+          </p>
         </div>
 
         {/* Card */}
@@ -177,14 +181,16 @@ export default function Login() {
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Log In'}
               </button>
 
-              <button
-                type="button"
-                onClick={handleDemoSignIn}
-                className="w-full btn-outline-navy justify-center"
-                disabled={isLoading}
-              >
-                Bypass (Demo Only)
-              </button>
+              {import.meta.env.DEV && (
+                <button
+                  type="button"
+                  onClick={handleDemoSignIn}
+                  className="w-full btn-outline-navy justify-center"
+                  disabled={isLoading}
+                >
+                  Bypass (Demo Only)
+                </button>
+              )}
             </div>
           </form>
           ) : (

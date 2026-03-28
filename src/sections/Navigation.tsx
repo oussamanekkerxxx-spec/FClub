@@ -21,9 +21,9 @@ export default function Navigation({ className = '' }: NavigationProps) {
   }, []);
 
   const navLinks = [
-    { label: 'Product', href: '#features' },
-    { label: 'Features', href: '#dashboard' },
-    { label: 'Pricing', href: '#pricing' },
+    { label: 'How It Works', href: '#how-it-works' },
+    { label: 'Skills', href: '#skills' },
+    { label: 'Members', href: '#testimonials' },
     { label: 'Support', href: '#footer' },
   ];
 
@@ -43,7 +43,7 @@ export default function Navigation({ className = '' }: NavigationProps) {
               <Flame className="w-6 h-6 text-white" />
             </div>
             <span className="font-heading font-semibold text-xl text-brand-text-primary">
-              SKILLCLUB
+              FIGHTCLUB
             </span>
           </Link>
 

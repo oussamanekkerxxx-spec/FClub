@@ -72,7 +72,7 @@ function AppRouter() {
         {/* Onboarding - Requires auth but no layout yet */}
         <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-        {/* App Routes with SKILLCLUB Layout */}
+        {/* App Routes with FIGHTCLUB Layout */}
         <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           {/* Default → Feed */}
           <Route index element={<Navigate to="/app/feed" replace />} />

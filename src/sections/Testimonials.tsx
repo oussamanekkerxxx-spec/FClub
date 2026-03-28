@@ -93,6 +93,7 @@ export default function Testimonials({ className = '' }: TestimonialsProps) {
 
   return (
     <section
+      id="testimonials"
       ref={sectionRef}
       className={`section-flowing bg-brand-bg py-20 lg:py-28 ${className}`}
     >
@@ -103,7 +104,7 @@ export default function Testimonials({ className = '' }: TestimonialsProps) {
         {/* Header */}
         <div ref={headerRef} className="text-center max-w-2xl mx-auto mb-14">
           <h2 className="font-heading font-bold text-3xl sm:text-4xl text-brand-text-primary">
-            From the SKILLCLUB community
+            From the FIGHTCLUB community
           </h2>
         </div>
 

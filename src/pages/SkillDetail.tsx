@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import NewBookingModal from '@/components/bookings/NewBookingModal';
+import LeaveReviewModal from '@/components/reviews/LeaveReviewModal';
 import {
   Star,
   MapPin,
@@ -47,6 +48,7 @@ interface SkillData {
   reviews_count: number;
   tags: string[];
   cover_gradient: string;
+  cover_image_url: string | null;
   is_group: boolean;
   max_headcount: number | null;
   current_headcount: number;
@@ -93,6 +95,7 @@ export default function SkillDetail() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [skill, setSkill] = useState<SkillData | null>(null);
   const [skillReviews, setSkillReviews] = useState<ReviewData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -122,6 +125,7 @@ export default function SkillDetail() {
           ...data,
           tags: data.tags || [],
           cover_gradient: data.cover_gradient || 'from-blue-500 to-purple-600',
+          cover_image_url: data.cover_image_url || null,
           format: data.format || 'in-person',
           languages: data.languages || [],
           teacher: {
@@ -272,8 +276,11 @@ export default function SkillDetail() {
 
           {/* Hero Card */}
           <div className="sc-card overflow-hidden">
-            <div className={`h-48 bg-gradient-to-br ${skill.cover_gradient} flex items-end p-6`}>
-              <div>
+            <div className={`h-48 relative flex items-end p-6 ${!skill.cover_image_url ? `bg-gradient-to-br ${skill.cover_gradient}` : 'bg-gray-900'}`}>
+              {skill.cover_image_url && (
+                <img src={skill.cover_image_url} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-85" />
+              )}
+              <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
                   <span
                     className="text-[10px] font-semibold uppercase tracking-widest font-body px-2 py-1 rounded-full bg-white/20 text-white inline-block"
@@ -376,11 +383,27 @@ export default function SkillDetail() {
           </div>
 
           {/* Reviews */}
-          {skillReviews.length > 0 && (
+          {(skillReviews.length > 0 || (user && user.id !== skill.teacher_id)) && (
             <div className="sc-card p-6">
-              <h3 className="font-heading text-navy mb-5" style={{ fontSize: '1.1rem' }}>
-                What members say ({skillReviews.length})
-              </h3>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="font-heading text-navy" style={{ fontSize: '1.1rem' }}>
+                  What members say{skillReviews.length > 0 ? ` (${skillReviews.length})` : ''}
+                </h3>
+                {user && user.id !== skill.teacher_id && (
+                  <button
+                    onClick={() => setIsReviewOpen(true)}
+                    className="text-xs font-semibold font-body px-3 py-1.5 rounded-lg"
+                    style={{ background: 'var(--color-amber)', color: 'white' }}
+                  >
+                    Leave a Review
+                  </button>
+                )}
+              </div>
+              {skillReviews.length === 0 && (
+                <p className="text-sm font-body text-center py-4" style={{ color: 'var(--color-text-muted)' }}>
+                  No reviews yet. Be the first to leave one!
+                </p>
+              )}
               <div className="space-y-5">
                 {skillReviews.map((review) => (
                   <div key={review.id} className="pb-5 border-b border-[var(--color-border)] last:border-0 last:pb-0">
@@ -573,6 +596,18 @@ export default function SkillDetail() {
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}
       />
+
+      {isReviewOpen && (
+        <LeaveReviewModal
+          skillId={skill.id}
+          skillTitle={skill.title}
+          onClose={() => setIsReviewOpen(false)}
+          onSubmitted={(review) => {
+            setSkillReviews((prev) => [review, ...prev]);
+            setSkill((prev) => prev ? { ...prev, reviews_count: prev.reviews_count + 1 } : prev);
+          }}
+        />
+      )}
     </div>
   );
 }
