@@ -64,7 +64,7 @@ export default function Login() {
       await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/app/feed',
+          redirectTo: window.location.origin + '/auth/callback',
         },
       });
     } catch (err: any) {
