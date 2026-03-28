@@ -90,20 +90,22 @@ export default function Onboarding() {
     if (!user || user.id === 'demo-user-bypass') return true;
 
     if (step === 0) {
-      const { error } = await supabase.from('profiles').update({
+      const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
         first_name: fields.firstName.trim(),
         last_name: fields.lastName.trim(),
         bio: fields.bio.trim() || null,
-      }).eq('id', user.id);
+      }, { onConflict: 'id' });
       if (error) { toast.error('Could not save. Please try again.'); return false; }
       updateUser({ firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), bio: fields.bio.trim() || undefined });
     }
 
     if (step === 1) {
-      const { error } = await supabase.from('profiles').update({
+      const { error } = await supabase.from('profiles').upsert({
+        id: user.id,
         neighborhood: fields.neighborhood,
         languages: fields.languages,
-      }).eq('id', user.id);
+      }, { onConflict: 'id' });
       if (error) { toast.error('Could not save. Please try again.'); return false; }
       updateUser({ location: fields.neighborhood, languages: fields.languages });
     }
@@ -117,7 +119,7 @@ export default function Onboarding() {
         ...fields.learnTags,
         ...fields.learnText.split(',').map(s => s.trim()).filter(Boolean),
       ];
-      const { error } = await supabase.from('profiles').update({ what_i_teach, what_i_learn }).eq('id', user.id);
+      const { error } = await supabase.from('profiles').upsert({ id: user.id, what_i_teach, what_i_learn }, { onConflict: 'id' });
       if (error) { toast.error('Could not save. Please try again.'); return false; }
       updateUser({ what_i_teach, what_i_learn });
     }
@@ -145,8 +147,7 @@ export default function Onboarding() {
 
     // Set onboarding complete
     const { error } = await supabase.from('profiles')
-      .update({ onboarding_completed: true })
-      .eq('id', user.id);
+      .upsert({ id: user.id, onboarding_completed: true }, { onConflict: 'id' });
 
     if (error) {
       toast.error('Could not complete setup. Please try again.');
