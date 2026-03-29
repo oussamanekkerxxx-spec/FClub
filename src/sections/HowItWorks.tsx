@@ -8,7 +8,7 @@ const STEPS = [
   {
     icon: Search,
     title: 'Browse skills in your city',
-    description: 'Find real people teaching piano, yoga, cooking, photography, and more — right here in Marrakesh.',
+    description: 'Find real people teaching piano, yoga, cooking, photography, and more — right in your city across Morocco.',
     color: 'var(--color-amber)',
     bg: '#FFF3E0',
   },

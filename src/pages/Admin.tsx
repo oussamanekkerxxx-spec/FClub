@@ -88,7 +88,7 @@ export default function Admin() {
       <div>
         <h1 className="font-heading text-2xl text-navy">Admin Dashboard</h1>
         <p className="font-body text-[var(--color-text-secondary)] mt-1 text-sm">
-          Marrakesh · Live data
+          Morocco · Live data
         </p>
       </div>
 

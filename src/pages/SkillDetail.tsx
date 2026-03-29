@@ -134,8 +134,8 @@ export default function SkillDetail() {
             lastName: p?.last_name || '',
             avatar: p?.avatar_url || '',
             bio: p?.bio || '',
-            location: p?.neighborhood ? `${p.neighborhood}, ${p.city || 'Marrakesh'}` : p?.city || 'Marrakesh',
-            city: p?.city || 'Marrakesh',
+            location: p?.city ? `${p.city}${p?.neighborhood ? `, ${p.neighborhood}` : ''}` : p?.neighborhood || '',
+            city: p?.city || '',
             trust_tier: p?.trust_tier || 0,
             trust_score: p?.trust_score || 0,
             sessions_completed: p?.sessions_completed || 0,
@@ -163,7 +163,7 @@ export default function SkillDetail() {
                   firstName: r.profiles?.first_name || '',
                   lastName: r.profiles?.last_name || '',
                   avatar: r.profiles?.avatar_url || '',
-                  city: r.profiles?.city || 'Marrakesh',
+                  city: r.profiles?.city || '',
                 },
               }));
               setSkillReviews(mappedReviews);

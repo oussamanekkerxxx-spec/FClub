@@ -38,7 +38,6 @@ const POST_TYPES = [
   { value: 'question', label: 'Question', icon: HelpCircle, color: 'var(--color-navy)', bg: '#E8EFF5' },
 ] as const;
 
-const NEIGHBORHOODS = ['Medina', 'Guéliz', 'Hivernage', 'Mellah', 'Palmeraie', 'Kasbah'];
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -259,16 +258,12 @@ export default function Board() {
               className="input-sc resize-none"
               rows={4}
             />
-            <select
+            <input
               value={newPost.neighborhood}
               onChange={(e) => setNewPost(prev => ({ ...prev, neighborhood: e.target.value }))}
+              placeholder="City or area (optional, e.g. Casablanca, Agadir…)"
               className="input-sc"
-            >
-              <option value="">Neighborhood (optional)</option>
-              {NEIGHBORHOODS.map(n => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+            />
 
             <div className="flex justify-end gap-2 pt-2">
               <button

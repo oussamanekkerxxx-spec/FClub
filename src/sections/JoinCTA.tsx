@@ -30,7 +30,7 @@ export default function JoinCTA({ className }: Props) {
         </h2>
         <p className="font-body text-white/60 text-lg mb-6">
           Join {counts.members > 0 ? `${counts.members}+` : 'a growing'} members sharing{' '}
-          {counts.skills > 0 ? `${counts.skills}+` : ''} skills in Marrakesh.
+          {counts.skills > 0 ? `${counts.skills}+` : ''} skills across Morocco.
         </p>
         <Link
           to="/signup"

@@ -1,7 +1,3 @@
--- Fix board_posts: enable RLS, add policies, and add a default for expires_at
--- Root cause: table had no RLS policies (all writes silently blocked) and
--- expires_at was NOT NULL with no default (inserts without it fail).
-
 ALTER TABLE board_posts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Anyone can read board posts"

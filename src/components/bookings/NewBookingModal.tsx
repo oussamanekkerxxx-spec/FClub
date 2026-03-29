@@ -7,7 +7,6 @@ import { toast } from 'sonner';
 import type { Skill } from '@/types/fightclub';
 import { MapPin, Clock, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 
-const NEIGHBORHOODS = ['Medina', 'Guéliz', 'Hivernage', 'Mellah', 'Palmeraie', 'Other'];
 const TIMES = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
 const STEP_LABELS = ['Overview', 'Location', 'Date & Time', 'Your Note'];
 
@@ -143,28 +142,21 @@ export default function NewBookingModal({ skill, isOpen, onClose }: Props) {
           </div>
         )}
 
-        {/* Step 1: Neighborhood */}
+        {/* Step 1: Location */}
         {step === 1 && (
           <div className="space-y-3">
             <p className="text-sm font-body" style={{ color: 'var(--color-text-secondary)' }}>
-              Where in Marrakesh would you like to meet?
+              Where would you like to meet?
             </p>
-            <div className="grid grid-cols-2 gap-2">
-              {NEIGHBORHOODS.map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setNeighborhood(n)}
-                  className="flex items-center gap-2 p-3 rounded-xl border text-sm font-body font-medium transition-all"
-                  style={
-                    neighborhood === n
-                      ? { borderColor: 'var(--color-amber)', background: '#FFF3E0', color: 'var(--color-navy)' }
-                      : { borderColor: 'var(--color-border)', background: 'white', color: 'var(--color-text-secondary)' }
-                  }
-                >
-                  <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                  {n}
-                </button>
-              ))}
+            <div className="relative">
+              <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
+              <input
+                value={neighborhood}
+                onChange={(e) => setNeighborhood(e.target.value)}
+                placeholder="City, neighbourhood or café…"
+                className="input-sc pl-10"
+                autoFocus
+              />
             </div>
           </div>
         )}

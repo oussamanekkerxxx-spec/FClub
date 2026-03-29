@@ -1,4 +1,3 @@
--- Create bookings table (referenced by NewBookingModal but never migrated)
 
 CREATE TABLE IF NOT EXISTS bookings (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),

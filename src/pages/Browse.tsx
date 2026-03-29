@@ -29,7 +29,7 @@ const CATEGORIES = [
   { id: 'writing', label: 'Writing', emoji: '✍️' },
 ];
 
-const NEIGHBORHOODS = ['Medina', 'Guéliz', 'Hivernage', 'Mellah', 'Palmeraie', 'Kasbah'];
+import { MOROCCO_REGIONS } from '@/lib/morocco';
 
 const FORMAT_LABELS: Record<Format, string> = {
   online: 'Online',
@@ -126,7 +126,7 @@ export default function Browse() {
     const matchPrice = skill.price_per_hour <= maxPrice;
     const matchFree = !showFreeOnly || skill.price_per_hour === 0 || skill.is_free;
     const matchGroups = !showGroupsOnly || skill.is_group;
-    const matchNeighborhood = selectedNeighborhood === 'all' || (skill.neighborhood || skill.location || '').toLowerCase().includes(selectedNeighborhood.toLowerCase());
+    const matchNeighborhood = selectedNeighborhood === 'all' || (skill.region || skill.neighborhood || skill.location || '').toLowerCase().includes(selectedNeighborhood.toLowerCase());
     const matchLanguage = selectedLanguage === 'all' || (skill.languages || []).includes(selectedLanguage);
     return matchSearch && matchCat && matchFormat && matchPrice && matchFree && matchGroups && matchNeighborhood && matchLanguage;
   });
@@ -149,7 +149,7 @@ export default function Browse() {
       <div className="mb-6">
         <h1 className="font-heading text-2xl text-navy">Browse Skills</h1>
         <p className="mt-1 font-body text-[var(--color-text-secondary)]">
-          {filtered.length} skill{filtered.length !== 1 ? 's' : ''} available in Marrakesh
+          {filtered.length} skill{filtered.length !== 1 ? 's' : ''} available in Morocco
         </p>
       </div>
 
@@ -241,10 +241,10 @@ export default function Browse() {
         {/* Filter Sidebar (desktop) */}
         <aside className="hidden lg:block w-56 flex-shrink-0 space-y-5">
           <div className="sc-card p-4 space-y-5">
-            {/* Neighborhood */}
+            {/* Region */}
             <div>
               <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">
-                Neighborhood
+                Region
               </div>
               <div className="space-y-2">
                 <button
@@ -255,18 +255,18 @@ export default function Browse() {
                   style={selectedNeighborhood === 'all' ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
                 >
                   <MapPin className="w-3.5 h-3.5" />
-                  All Marrakesh
+                  All Morocco
                 </button>
-                {NEIGHBORHOODS.map((n) => (
+                {MOROCCO_REGIONS.map((r) => (
                   <button
-                    key={n}
-                    onClick={() => setSelectedNeighborhood(n)}
+                    key={r}
+                    onClick={() => setSelectedNeighborhood(r)}
                     className={`flex items-center gap-2 w-full text-left px-2.5 py-2 rounded-lg text-sm font-body transition-all ${
-                      selectedNeighborhood === n ? 'font-semibold' : 'text-[var(--color-text-secondary)] hover:bg-parchment'
+                      selectedNeighborhood === r ? 'font-semibold' : 'text-[var(--color-text-secondary)] hover:bg-parchment'
                     }`}
-                    style={selectedNeighborhood === n ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
+                    style={selectedNeighborhood === r ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
                   >
-                    {n}
+                    {r}
                   </button>
                 ))}
               </div>

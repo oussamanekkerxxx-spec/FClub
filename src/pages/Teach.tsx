@@ -43,7 +43,7 @@ const STEPS = ['Basics', 'Description', 'Pricing', 'Media', 'Publish'];
 
 const FORMAT_OPTIONS = [
   { value: 'online', label: '💻 Online', desc: 'Video call sessions' },
-  { value: 'in-person', label: '📍 In-person', desc: 'Meet in Marrakesh' },
+  { value: 'in-person', label: '📍 In-person', desc: 'Meet in person' },
   { value: 'both', label: '🌐 Both', desc: 'Student chooses' },
 ];
 
@@ -141,7 +141,7 @@ export default function Teach() {
         </div>
         <h1 className="font-heading text-2xl text-navy">Your skill is live!</h1>
         <p className="font-body text-[var(--color-text-secondary)]">
-          <strong>{form.title}</strong> is now visible to the FIGHTCLUB community in Marrakesh.
+          <strong>{form.title}</strong> is now visible to the FIGHTCLUB community across Morocco.
         </p>
         <div className="flex gap-3 justify-center">
           <button onClick={resetForm} className="px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold font-body text-navy hover:bg-parchment">
@@ -336,7 +336,7 @@ export default function Teach() {
 
               <div>
                 <label className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] block mb-2">Location (for in-person sessions)</label>
-                <input value={form.location} onChange={(e) => update('location', e.target.value)} placeholder="Your neighbourhood in Marrakesh" className="input-sc" />
+                <input value={form.location} onChange={(e) => update('location', e.target.value)} placeholder="Your city or neighbourhood in Morocco" className="input-sc" />
               </div>
 
               <div>
@@ -417,7 +417,7 @@ export default function Teach() {
                 </div>
               </div>
               <p className="text-xs font-body text-[var(--color-text-secondary)] leading-relaxed">
-                By publishing, you agree to FIGHTCLUB's community guidelines. Your listing will be visible to all verified members in Marrakesh immediately.
+                By publishing, you agree to FIGHTCLUB's community guidelines. Your listing will be visible to all verified members across Morocco immediately.
               </p>
               <button
                 onClick={async () => {
@@ -438,7 +438,7 @@ export default function Teach() {
                     what_session_looks_like: form.what_session_looks_like || null,
                     category: form.category,
                     neighborhood: form.location,
-                    location: form.location ? `${form.location}, Marrakesh` : null,
+                    location: form.location || null,
                     price_per_hour: form.price,
                     currency: form.currency,
                     is_free: form.price === 0,

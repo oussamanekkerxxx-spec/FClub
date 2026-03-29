@@ -27,7 +27,7 @@ export default function LiveSkillsPreview({ className }: Props) {
               lastName: s.profiles?.last_name || '',
               avatar: s.profiles?.avatar_url || '',
               neighborhood: s.profiles?.neighborhood || '',
-              city: s.profiles?.city || 'Marrakesh',
+              city: s.profiles?.city || '',
             },
             slug: s.slug || s.id,
             cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
@@ -47,7 +47,7 @@ export default function LiveSkillsPreview({ className }: Props) {
             Live right now
           </div>
           <h2 className="font-heading text-3xl text-navy mb-3">
-            Skills being shared in Marrakesh
+            Skills being shared across Morocco
           </h2>
           <p className="font-body text-[var(--color-text-secondary)] max-w-xl mx-auto">
             Real people teaching real skills. Browse without signing up — join when you find something you love.
@@ -80,7 +80,7 @@ export default function LiveSkillsPreview({ className }: Props) {
                 </div>
                 <div className="flex items-center gap-1 text-[10px] font-body text-[var(--color-text-muted)] mb-2">
                   <MapPin className="w-3 h-3" />
-                  {skill.teacher.neighborhood || skill.teacher.city}
+                  {skill.teacher.city || skill.teacher.neighborhood}
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">

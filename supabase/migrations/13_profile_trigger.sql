@@ -1,6 +1,3 @@
--- Auto-create a profiles row when a new user signs up via Supabase Auth.
--- Without this, new real users have no profile row and the app breaks silently.
-
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN

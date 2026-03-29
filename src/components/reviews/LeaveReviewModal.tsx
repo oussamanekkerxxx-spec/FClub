@@ -55,7 +55,7 @@ export default function LeaveReviewModal({ skillId, skillTitle, onClose, onSubmi
         firstName: data.profiles?.first_name || user.firstName,
         lastName: data.profiles?.last_name || user.lastName,
         avatar: data.profiles?.avatar_url || user.avatar || '',
-        city: data.profiles?.city || user.city || 'Marrakesh',
+        city: data.profiles?.city || user.city || '',
       },
     };
 

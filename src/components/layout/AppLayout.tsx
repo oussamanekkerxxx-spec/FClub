@@ -115,7 +115,7 @@ export default function AppLayout() {
         <div className="px-5 py-3 border-b border-white/8">
           <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span>Marrakesh · 47 active members</span>
+            <span>Morocco · FIGHTCLUB</span>
           </div>
         </div>
 

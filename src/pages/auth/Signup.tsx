@@ -222,7 +222,7 @@ export default function Signup() {
              </div>
              <div>
                <div className="text-white font-semibold">Amina Berrada</div>
-               <div className="text-[var(--color-amber)] text-sm">Founding Member, Marrakesh</div>
+               <div className="text-[var(--color-amber)] text-sm">Founding Member, Morocco</div>
              </div>
           </div>
         </div>

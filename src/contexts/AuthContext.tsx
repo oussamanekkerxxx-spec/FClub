@@ -14,6 +14,7 @@ export interface User {
   bio?: string;
   location?: string;
   city?: string;
+  region?: string;
   phone?: string;
   trust_tier: TrustTier;
   trust_score: number;
@@ -60,8 +61,9 @@ function mapProfileToUser(profile: Record<string, unknown>, authId: string, emai
     lastName: (profile.last_name as string) || '',
     avatar: (profile.avatar_url as string) || undefined,
     bio: (profile.bio as string) || undefined,
-    location: (profile.neighborhood as string) || undefined,
-    city: (profile.city as string) || 'Marrakesh',
+    location: (profile.city as string) || (profile.neighborhood as string) || undefined,
+    city: (profile.city as string) || undefined,
+    region: (profile.region as string) || undefined,
     phone: (profile.phone as string) || undefined,
     trust_tier: ((profile.trust_tier as number) || 0) as TrustTier,
     trust_score: (profile.trust_score as number) || 0,
@@ -157,8 +159,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         lastName: 'Fighter',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',
         bio: 'I am here to test the platform.',
-        location: 'Medina',
-        city: 'Marrakesh',
+        location: undefined,
+        city: undefined,
+        region: undefined,
         trust_tier: 2,
         trust_score: 85,
         archetype: 'mixed',

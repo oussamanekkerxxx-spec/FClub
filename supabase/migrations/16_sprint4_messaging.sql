@@ -1,4 +1,3 @@
--- Sprint 4: Conversations, Messages, Group Enrollments, Feed Events
 
 -- Conversations
 CREATE TABLE IF NOT EXISTS conversations (

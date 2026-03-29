@@ -88,7 +88,7 @@ export default function Feed() {
               avatar: s.profiles?.avatar_url || '',
               trust_tier: s.profiles?.trust_tier || 0,
               trust_score: s.profiles?.trust_score || 0,
-              city: s.profiles?.city || 'Marrakesh',
+              city: s.profiles?.city || '',
             },
             slug: s.slug || s.id,
             tags: s.tags || [],
@@ -122,7 +122,7 @@ export default function Feed() {
           {greeting}, {user?.firstName}. ✦
         </h1>
         <p className="text-[var(--color-text-secondary)] mt-1 font-body">
-          Here's what's alive in Marrakesh today.
+          Here's what's alive across Morocco today.
         </p>
       </div>
 

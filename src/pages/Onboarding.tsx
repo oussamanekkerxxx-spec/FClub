@@ -4,15 +4,7 @@ import { ArrowRight, Check, Upload, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-
-const NEIGHBORHOODS = [
-  { id: 'Medina', label: 'Medina', emoji: '🕌' },
-  { id: 'Guéliz', label: 'Guéliz', emoji: '🏙️' },
-  { id: 'Hivernage', label: 'Hivernage', emoji: '🌴' },
-  { id: 'Mellah', label: 'Mellah', emoji: '✡️' },
-  { id: 'Palmeraie', label: 'Palmeraie', emoji: '🌿' },
-  { id: 'Kasbah', label: 'Kasbah', emoji: '🏰' },
-];
+import { MOROCCO_REGIONS } from '@/lib/morocco';
 
 const LANGUAGES = [
   { id: 'Arabic', label: 'Arabic', emoji: '🇲🇦' },
@@ -30,7 +22,7 @@ const SKILL_TAGS = [
 
 const STEPS = [
   { id: 'identity', question: 'Tell us who you are', subtext: 'This is how the community will know you.' },
-  { id: 'location', question: 'Where in Marrakesh are you?', subtext: 'We use this to show you nearby skills and people.' },
+  { id: 'location', question: 'Where in Morocco are you?', subtext: 'We use this to show you nearby skills and people.' },
   { id: 'skills', question: 'What do you teach and learn?', subtext: 'You can add more any time from your profile.' },
   { id: 'photo', question: 'Add a profile photo', subtext: 'Members with photos get 3× more connections. You can skip for now.' },
 ];
@@ -47,7 +39,8 @@ export default function Onboarding() {
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     bio: '',
-    neighborhood: '',
+    city: user?.city || '',
+    region: user?.region || '',
     languages: [] as string[],
     teachText: '',
     learnText: '',
@@ -81,7 +74,7 @@ export default function Onboarding() {
 
   const canContinue = () => {
     if (step === 0) return fields.firstName.trim().length > 0 && fields.lastName.trim().length > 0;
-    if (step === 1) return fields.neighborhood !== '';
+    if (step === 1) return fields.city.trim().length > 0 && fields.region !== '';
     if (step === 2) return true; // optional
     return true; // photo is optional
   };
@@ -96,18 +89,19 @@ export default function Onboarding() {
         last_name: fields.lastName.trim(),
         bio: fields.bio.trim() || null,
       }, { onConflict: 'id' });
-      if (error) { toast.error('Could not save. Please try again.'); return false; }
+      if (error) { console.error('Onboarding step 0 error:', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
       updateUser({ firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), bio: fields.bio.trim() || undefined });
     }
 
     if (step === 1) {
       const { error } = await supabase.from('profiles').upsert({
         id: user.id,
-        neighborhood: fields.neighborhood,
+        city: fields.city.trim(),
+        region: fields.region,
         languages: fields.languages,
       }, { onConflict: 'id' });
-      if (error) { toast.error('Could not save. Please try again.'); return false; }
-      updateUser({ location: fields.neighborhood, languages: fields.languages });
+      if (error) { console.error('Onboarding step 1 error:', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      updateUser({ city: fields.city.trim(), region: fields.region, location: fields.city.trim(), languages: fields.languages });
     }
 
     if (step === 2) {
@@ -120,7 +114,7 @@ export default function Onboarding() {
         ...fields.learnText.split(',').map(s => s.trim()).filter(Boolean),
       ];
       const { error } = await supabase.from('profiles').upsert({ id: user.id, what_i_teach, what_i_learn }, { onConflict: 'id' });
-      if (error) { toast.error('Could not save. Please try again.'); return false; }
+      if (error) { console.error('Onboarding step 2 error:', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
       updateUser({ what_i_teach, what_i_learn });
     }
 
@@ -150,7 +144,8 @@ export default function Onboarding() {
       .upsert({ id: user.id, onboarding_completed: true }, { onConflict: 'id' });
 
     if (error) {
-      toast.error('Could not complete setup. Please try again.');
+      console.error('Onboarding finish error:', error);
+      toast.error(error.message || 'Could not complete setup. Please try again.');
       setSaving(false);
       return;
     }
@@ -257,28 +252,33 @@ export default function Onboarding() {
           </div>
         )}
 
-        {/* Step 1: Neighborhood + Languages */}
+        {/* Step 1: City + Region + Languages */}
         {step === 1 && (
           <div className="w-full max-w-lg space-y-6">
-            <div className="grid grid-cols-3 gap-3">
-              {NEIGHBORHOODS.map(n => {
-                const selected = fields.neighborhood === n.id;
-                return (
-                  <button
-                    key={n.id}
-                    onClick={() => update('neighborhood', n.id)}
-                    className="flex flex-col items-center gap-2 p-4 rounded-2xl transition-all border"
-                    style={selected
-                      ? { background: 'var(--color-navy)', borderColor: 'var(--color-navy)' }
-                      : { background: 'white', borderColor: 'var(--color-border)' }}
-                  >
-                    <span className="text-2xl">{n.emoji}</span>
-                    <span className="font-medium font-body text-sm" style={{ color: selected ? 'white' : 'var(--color-text-secondary)' }}>
-                      {n.label}
-                    </span>
-                  </button>
-                );
-              })}
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>City *</label>
+                <input
+                  value={fields.city}
+                  onChange={e => update('city', e.target.value)}
+                  placeholder="e.g. Casablanca, Rabat, Fès…"
+                  className="input-sc"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Region *</label>
+                <select
+                  value={fields.region}
+                  onChange={e => update('region', e.target.value)}
+                  className="input-sc"
+                >
+                  <option value="">Select your region…</option>
+                  {MOROCCO_REGIONS.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3 text-center" style={{ color: 'var(--color-text-muted)' }}>

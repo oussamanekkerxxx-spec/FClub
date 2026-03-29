@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth, TRUST_TIER_LABELS, type TrustTier } from '@/contexts/AuthContext';
+import { MOROCCO_REGIONS } from '@/lib/morocco';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -43,7 +44,8 @@ export default function Profile() {
   const [mySkills, setMySkills] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
-  const [editNeighborhood, setEditNeighborhood] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editRegion, setEditRegion] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editLanguages, setEditLanguages] = useState('');
   const [editTeach, setEditTeach] = useState('');
@@ -69,7 +71,8 @@ export default function Profile() {
   const openEditModal = () => {
     if (user) {
       setEditBio(user.bio || '');
-      setEditNeighborhood(user.location || '');
+      setEditCity(user.city || '');
+      setEditRegion(user.region || '');
       setEditPhone(user.phone || '');
       setEditLanguages(user.languages?.join(', ') || '');
       setEditTeach(user.what_i_teach?.join(', ') || '');
@@ -86,7 +89,8 @@ export default function Profile() {
         .from('profiles')
         .update({
           bio: editBio,
-          neighborhood: editNeighborhood,
+          city: editCity || null,
+          region: editRegion || null,
           phone: editPhone || null,
           languages: editLanguages.split(',').map(l => l.trim()).filter(l => l),
           what_i_teach: editTeach.split(',').map(s => s.trim()).filter(s => s),
@@ -100,7 +104,9 @@ export default function Profile() {
         toast.success('Profile updated!');
         updateUser({
           bio: editBio,
-          location: editNeighborhood,
+          city: editCity || undefined,
+          region: editRegion || undefined,
+          location: editCity || undefined,
           phone: editPhone || undefined,
           languages: editLanguages.split(',').map(l => l.trim()).filter(l => l),
           what_i_teach: editTeach.split(',').map(s => s.trim()).filter(s => s),
@@ -526,14 +532,25 @@ export default function Profile() {
               </div>
 
               <div>
-                <label className="block text-sm font-body font-semibold text-navy mb-1">Neighborhood</label>
+                <label className="block text-sm font-body font-semibold text-navy mb-1">City</label>
                 <input
                   type="text"
-                  value={editNeighborhood}
-                  onChange={(e) => setEditNeighborhood(e.target.value)}
-                  placeholder="e.g., Medina, Gueliz"
+                  value={editCity}
+                  onChange={(e) => setEditCity(e.target.value)}
+                  placeholder="e.g. Casablanca, Rabat, Fès…"
                   className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-sc/20"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-body font-semibold text-navy mb-1">Region</label>
+                <select
+                  value={editRegion}
+                  onChange={(e) => setEditRegion(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] font-body text-sm focus:outline-none focus:ring-2 focus:ring-amber-sc/20"
+                >
+                  <option value="">Select region…</option>
+                  {MOROCCO_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                </select>
               </div>
 
               <div>
