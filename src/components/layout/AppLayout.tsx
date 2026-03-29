@@ -148,12 +148,12 @@ export default function AppLayout() {
                     <div className="font-medium text-sm leading-none">{item.label}</div>
                     <div className="text-[11px] mt-0.5 text-white/35 leading-none truncate">{item.description}</div>
                   </div>
-                  {item.badge && (
+                  {(item as any).badge && (
                     <span
                       className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white"
                       style={{ background: 'var(--color-amber)', fontSize: '10px' }}
                     >
-                      {item.badge}
+                      {(item as any).badge}
                     </span>
                   )}
                 </Link>

@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
 
-    if (email === 'demo@fightclub.test' && password === 'bypass') {
+    if (import.meta.env.DEV && email === 'demo@fightclub.test' && password === 'bypass') {
       // Demo bypass logic
       const demoUser: User = {
         id: 'demo-user-bypass',

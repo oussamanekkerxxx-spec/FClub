@@ -10,7 +10,9 @@ import {
   Star,
   Clock,
   Search,
+  X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Feed() {
   const { user } = useAuth();
@@ -18,40 +20,88 @@ export default function Feed() {
   const [feedEvents, setFeedEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [skillCount, setSkillCount] = useState(0);
+  const [, setDismissedIds] = useState<Set<string>>(new Set());
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
+  const handleDismiss = async (skillId: string) => {
+    if (user?.isDemo) return;
+    setSkills(prev => prev.filter(s => s.id !== skillId));
+    setDismissedIds(prev => new Set(prev).add(skillId));
+    await supabase.from('dismissed_skills').insert({ user_id: user!.id, skill_id: skillId });
+    toast('Skill hidden from your feed');
+  };
+
   useEffect(() => {
+    const dismissedPromise = user && !user.isDemo
+      ? supabase.from('dismissed_skills').select('skill_id').eq('user_id', user.id)
+      : Promise.resolve({ data: [] });
+
     Promise.all([
       supabase
         .from('skills')
         .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, trust_tier, trust_score, city)')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(6),
+        .eq('is_active', true),
       supabase
         .from('feed_events')
         .select('*, profiles!feed_events_member_id_fkey(id, first_name, last_name, avatar_url), skills!feed_events_skill_id_fkey(id, slug)')
         .order('created_at', { ascending: false })
-        .limit(5)
-    ]).then(([skillsRes, eventsRes]) => {
+        .limit(5),
+      dismissedPromise,
+    ]).then(([skillsRes, eventsRes, dismissedRes]) => {
+      const dismissed = new Set((dismissedRes.data || []).map((d: any) => d.skill_id));
+      setDismissedIds(dismissed);
+
       if (skillsRes.data) {
-        const mapped = skillsRes.data.map((s: any) => ({
-          ...s,
-          teacher: {
-            id: s.profiles?.id,
-            firstName: s.profiles?.first_name || '',
-            lastName: s.profiles?.last_name || '',
-            avatar: s.profiles?.avatar_url || '',
-            trust_tier: s.profiles?.trust_tier || 0,
-            trust_score: s.profiles?.trust_score || 0,
-            city: s.profiles?.city || 'Marrakesh',
-          },
-          slug: s.slug || s.id,
-          tags: s.tags || [],
-          cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
-        }));
+        const userInterests = (user?.what_i_learn || []).map(s => s.toLowerCase());
+        const userNeighborhood = (user?.location || '').toLowerCase();
+        const userLanguages = (user?.languages || []).map(s => s.toLowerCase());
+
+        const mapped = skillsRes.data.filter((s: any) => !dismissed.has(s.id)).map((s: any) => {
+          let relevance = 0;
+          const category = (s.category || '').toLowerCase();
+          const tags = ((s.tags as string[]) || []).map(t => t.toLowerCase());
+          const neighborhood = (s.neighborhood || s.location || '').toLowerCase();
+          const skillLangs = ((s.languages as string[]) || []).map(l => l.toLowerCase());
+
+          // +2 for category or tag matching user interests
+          if (userInterests.some(i => category.includes(i) || i.includes(category) || tags.some(t => t.includes(i) || i.includes(t)))) {
+            relevance += 2;
+          }
+          // +1 for same neighborhood
+          if (userNeighborhood && neighborhood && neighborhood === userNeighborhood) {
+            relevance += 1;
+          }
+          // +1 for language overlap
+          if (userLanguages.some(l => skillLangs.includes(l))) {
+            relevance += 1;
+          }
+
+          return {
+            ...s,
+            relevance,
+            teacher: {
+              id: s.profiles?.id,
+              firstName: s.profiles?.first_name || '',
+              lastName: s.profiles?.last_name || '',
+              avatar: s.profiles?.avatar_url || '',
+              trust_tier: s.profiles?.trust_tier || 0,
+              trust_score: s.profiles?.trust_score || 0,
+              city: s.profiles?.city || 'Marrakesh',
+            },
+            slug: s.slug || s.id,
+            tags: s.tags || [],
+            cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
+          };
+        });
+
+        // Sort by relevance first, then recency
+        mapped.sort((a: any, b: any) => {
+          if (b.relevance !== a.relevance) return b.relevance - a.relevance;
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+
         setSkills(mapped);
         setSkillCount(skillsRes.data.length);
       }
@@ -60,7 +110,8 @@ export default function Feed() {
       }
       setLoading(false);
     });
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.what_i_learn, user?.location, user?.languages]);
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -155,7 +206,7 @@ export default function Feed() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-heading text-navy" style={{ fontSize: '1.1rem' }}>
-            Skills worth discovering
+            {skills.some(s => s.relevance > 0) ? 'Picked for you' : 'Skills worth discovering'}
           </h2>
           <Link
             to="/app/browse"
@@ -181,7 +232,15 @@ export default function Feed() {
         ) : skills.length > 0 ? (
           <div className="grid sm:grid-cols-2 gap-3">
             {skills.slice(0, 4).map((skill) => (
-              <Link key={skill.id} to={`/app/skill/${skill.slug}`} className="skill-card group">
+              <div key={skill.id} className="skill-card group relative">
+                <button
+                  onClick={(e) => { e.preventDefault(); handleDismiss(skill.id); }}
+                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Not interested"
+                >
+                  <X className="w-3.5 h-3.5 text-white" />
+                </button>
+                <Link to={`/app/skill/${skill.slug}`}>
                 <div
                   className={`h-24 relative flex items-end p-4 overflow-hidden ${!skill.cover_image_url ? `bg-gradient-to-br ${skill.cover_gradient}` : 'bg-gray-900'}`}
                 >
@@ -227,7 +286,8 @@ export default function Feed() {
                     </div>
                   </div>
                 </div>
-              </Link>
+                </Link>
+              </div>
             ))}
           </div>
         ) : (

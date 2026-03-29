@@ -106,7 +106,10 @@ export default function Board() {
       return;
     }
 
-    setPosts((data || []) as BoardPost[]);
+    setPosts((data || []).map((d: any) => ({
+      ...d,
+      author: Array.isArray(d.author) ? d.author[0] : d.author,
+    })) as BoardPost[]);
     setLoading(false);
   };
 

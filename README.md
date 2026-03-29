@@ -1,4 +1,4 @@
-# SkillClub
+# FIGHTCLUB
 
 A membership-based community platform where people teach what they know, learn what they want, and connect around shared interests. Not a course marketplace — a living club.
 

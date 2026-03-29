@@ -34,7 +34,6 @@ import VerifyEmail from './pages/auth/VerifyEmail';
 import AuthCallback from './pages/auth/AuthCallback';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
-// Landing Page Component — streamlined to 5 sections
 function LandingPage() {
   return (
     <div className="relative">
