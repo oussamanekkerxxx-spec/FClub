@@ -263,3 +263,48 @@ export interface Skill {
   created_at: string;
   teacher: SkillTeacher;
 }
+
+// ============================================================
+// TRUST LEDGER TYPES
+// ============================================================
+
+export interface SessionLedger {
+  id: string;
+  teacher_id: string;
+  learner_id: string;
+  skill_id: string | null;
+  completed_at: string;
+  duration_hours: number;
+  price_paid: number;
+  currency: string;
+  review_given: boolean;
+  created_at: string;
+  teacher?: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  };
+  learner?: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+  };
+  skill?: {
+    title: string;
+  };
+}
+
+export interface Vouch {
+  id: string;
+  voucher_id: string;
+  recipient_id: string;
+  skill_tag: string;
+  vouch_text: string | null;
+  created_at: string;
+  voucher?: {
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+    trust_tier: number;
+  };
+}
