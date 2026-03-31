@@ -2,11 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import type { Club } from '@/types/fightclub';
 import {
   Search, X, Users, MapPin, Lock, Globe, Flame,
-  TrendingUp, Sparkles, ArrowRight, SlidersHorizontal,
+  TrendingUp, Sparkles,
 } from 'lucide-react';
 
 const CATEGORIES = [
@@ -353,14 +352,14 @@ export default function Discover() {
           <p className="text-white/50 text-sm font-body mb-4">
             Start your own and invite your people.
           </p>
-          <button
-            onClick={() => alert('Club creation — coming soon!')}
+          <Link
+            to="/app/create-club"
             className="inline-flex items-center gap-2 btn-amber text-sm"
             style={{ padding: '0.625rem 1.25rem' }}
           >
             <TrendingUp className="w-4 h-4" />
             Start a Club
-          </button>
+          </Link>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { SessionLedger } from '@/types/fightclub';
+import type { SessionLedger } from '@/types/fightclub';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Clock, Star, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';

@@ -2,23 +2,13 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { X, Search, MapPin, Plus, AlertCircle, ShieldCheck } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Search,
-  HandHelping,
-  CalendarDays,
-  HelpCircle,
-  Plus,
-  X,
-  MapPin,
-  Clock,
-  Loader2,
-} from 'lucide-react';
 
 interface BoardPost {
   id: string;
   author_id: string;
-  type: 'looking_for' | 'offering' | 'event' | 'question';
+  type: 'looking_for' | 'offering' | 'event' | 'question' | 'bounty';
   title: string;
   content: string;
   neighborhood: string | null;
@@ -28,16 +18,17 @@ interface BoardPost {
     first_name: string;
     last_name: string;
     avatar_url: string;
+    trust_tier?: number;
   };
 }
 
 const POST_TYPES = [
-  { value: 'looking_for', label: 'Looking for', icon: Search, color: 'var(--color-amber)', bg: '#FFF3E0' },
-  { value: 'offering', label: 'Offering', icon: HandHelping, color: 'var(--color-forest)', bg: '#E8F5EE' },
-  { value: 'event', label: 'Event', icon: CalendarDays, color: 'var(--color-plum)', bg: '#F3E8FF' },
-  { value: 'question', label: 'Question', icon: HelpCircle, color: 'var(--color-navy)', bg: '#E8EFF5' },
+  { value: 'looking_for', label: 'Looking for', color: 'var(--color-plum)', bg: '#F3E8FF' },
+  { value: 'offering', label: 'Offering', color: 'var(--color-forest)', bg: '#E8F5EE' },
+  { value: 'bounty', label: 'Bounty', color: 'var(--color-amber)', bg: '#FFF3E0' },
+  { value: 'event', label: 'Event', color: 'var(--color-navy)', bg: '#E3F2FD' },
+  { value: 'question', label: 'Question', color: 'var(--color-text-secondary)', bg: '#F1F5F9' },
 ] as const;
-
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -48,22 +39,16 @@ function timeAgo(dateStr: string): string {
   if (hrs < 24) return `${hrs}h ago`;
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
-
-function daysUntilExpiry(expiresAt: string | null): number | null {
-  if (!expiresAt) return null;
-  const diff = new Date(expiresAt).getTime() - Date.now();
-  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  return new Date(dateStr).toLocaleDateString();
 }
 
 export default function Board() {
   const { user } = useAuth();
   const [posts, setPosts] = useState<BoardPost[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState<string | null>(null);
   const [showNewPost, setShowNewPost] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [viewMode, setViewMode] = useState<'feed' | 'map'>('map');
   const [newPost, setNewPost] = useState({
     type: 'looking_for' as string,
     title: '',
@@ -79,36 +64,16 @@ export default function Board() {
     const now = new Date().toISOString();
     const { data, error } = await supabase
       .from('board_posts')
-      .select('id, author_id, type, title, content, neighborhood, expires_at, created_at, author:profiles!board_posts_author_id_fkey(first_name, last_name, avatar_url)')
+      .select('id, author_id, type, title, content, neighborhood, expires_at, created_at, author:profiles!board_posts_author_id_fkey(first_name, last_name, avatar_url, trust_tier)')
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      // Fallback: join failed (FK not named), fetch without join
-      const { data: posts } = await supabase
-        .from('board_posts')
-        .select('id, author_id, type, title, content, neighborhood, expires_at, created_at')
-        .or(`expires_at.is.null,expires_at.gt.${now}`)
-        .order('created_at', { ascending: false });
-
-      if (!posts || posts.length === 0) { setPosts([]); setLoading(false); return; }
-
-      const authorIds = [...new Set(posts.map(p => p.author_id))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .in('id', authorIds);
-
-      const profileMap = new Map((profiles || []).map(p => [p.id, p]));
-      setPosts(posts.map(p => ({ ...p, author: profileMap.get(p.author_id) || undefined })));
-      setLoading(false);
-      return;
+    if (!error && data) {
+      setPosts(data.map((d: any) => ({
+        ...d,
+        author: Array.isArray(d.author) ? d.author[0] : d.author,
+      })) as BoardPost[]);
     }
-
-    setPosts((data || []).map((d: any) => ({
-      ...d,
-      author: Array.isArray(d.author) ? d.author[0] : d.author,
-    })) as BoardPost[]);
     setLoading(false);
   };
 
@@ -149,97 +114,52 @@ export default function Board() {
     const { error } = await supabase.from('board_posts').delete().eq('id', postId);
     if (!error) {
       setPosts(prev => prev.filter(p => p.id !== postId));
-      toast.success('Post deleted');
+      toast.success('Flare removed');
     }
   };
 
-  const filtered = filterType ? posts.filter(p => p.type === filterType) : posts;
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-6rem)]">
-        <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--color-amber)' }} />
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-3xl mx-auto space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      {/* Hero Section */}
+      <section className="flex flex-col md:flex-row justify-between items-start gap-6 mt-6">
         <div>
-          <h1 className="font-heading text-2xl text-navy">Community Board</h1>
-          <p className="font-body text-sm mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-            Ask, offer, find — the neighbourhood bulletin.
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[var(--color-border)] shadow-sm text-xs font-semibold text-[var(--color-amber)] mb-4">
+            <span className="w-2 h-2 rounded-full bg-[var(--color-amber)] animate-pulse" />
+            Community Pulse
+          </div>
+          <h1 className="font-heading text-4xl text-navy leading-tight mb-2">City Board</h1>
+          <p className="font-body text-[var(--color-text-secondary)] max-w-2xl text-[15px] leading-relaxed">
+            The heartbeat of the local skill-sharing ecosystem. Discover requests, offers, bounties, and trusted helpers around you.
           </p>
         </div>
-        <button
-          onClick={() => setShowNewPost(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold font-body text-white transition-all hover:scale-105"
-          style={{ background: 'var(--color-amber)' }}
-        >
-          <Plus className="w-4 h-4" /> New Post
+        <button onClick={() => setShowNewPost(true)} className="btn-amber whitespace-nowrap">
+          <Plus className="w-4 h-4" /> Drop a Flare
         </button>
-      </div>
-
-      {/* Type Filters */}
-      <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={() => setFilterType(null)}
-          className="px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all border"
-          style={
-            filterType === null
-              ? { background: 'var(--color-navy)', color: 'white', borderColor: 'var(--color-navy)' }
-              : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
-          }
-        >
-          All ({posts.length})
-        </button>
-        {POST_TYPES.map((pt) => {
-          const count = posts.filter(p => p.type === pt.value).length;
-          return (
-            <button
-              key={pt.value}
-              onClick={() => setFilterType(filterType === pt.value ? null : pt.value)}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all border"
-              style={
-                filterType === pt.value
-                  ? { background: pt.color, color: 'white', borderColor: pt.color }
-                  : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
-              }
-            >
-              <pt.icon className="w-3 h-3" />
-              {pt.label} ({count})
-            </button>
-          );
-        })}
-      </div>
+      </section>
 
       {/* New Post Modal */}
       {showNewPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg p-6 space-y-4" style={{ boxShadow: 'var(--shadow-card)' }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm px-4">
+          <div className="sc-card w-full max-w-lg p-6 space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between">
-              <h2 className="font-heading text-navy text-lg">New Post</h2>
-              <button onClick={() => setShowNewPost(false)} className="p-1.5 rounded-lg hover:bg-parchment">
-                <X className="w-4 h-4 text-navy" />
+              <h2 className="font-heading text-xl text-navy">New Flare</h2>
+              <button onClick={() => setShowNewPost(false)} className="p-1.5 rounded-lg hover:bg-parchment text-[var(--color-text-muted)]">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Type selector */}
             <div className="flex gap-2 flex-wrap">
               {POST_TYPES.map((pt) => (
                 <button
                   key={pt.value}
                   onClick={() => setNewPost(prev => ({ ...prev, type: pt.value }))}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-body font-medium transition-all border"
-                  style={
-                    newPost.type === pt.value
-                      ? { background: pt.color, color: 'white', borderColor: pt.color }
-                      : { background: 'white', color: 'var(--color-text-secondary)', borderColor: 'var(--color-border)' }
-                  }
+                  className="px-3 py-1.5 rounded-full text-xs font-body font-semibold transition-all"
+                  style={{
+                    background: newPost.type === pt.value ? pt.color : 'transparent',
+                    color: newPost.type === pt.value ? 'white' : 'var(--color-text-secondary)',
+                    border: `1px solid ${newPost.type === pt.value ? pt.color : 'var(--color-border)'}`
+                  }}
                 >
-                  <pt.icon className="w-3 h-3" />
                   {pt.label}
                 </button>
               ))}
@@ -254,136 +174,273 @@ export default function Board() {
             <textarea
               value={newPost.content}
               onChange={(e) => setNewPost(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="What's on your mind?"
+              placeholder="What do you need or have to offer?"
               className="input-sc resize-none"
               rows={4}
             />
             <input
               value={newPost.neighborhood}
               onChange={(e) => setNewPost(prev => ({ ...prev, neighborhood: e.target.value }))}
-              placeholder="City or area (optional, e.g. Casablanca, Agadir…)"
+              placeholder="City or area (optional)"
               className="input-sc"
             />
 
-            <div className="flex justify-end gap-2 pt-2">
-              <button
-                onClick={() => setShowNewPost(false)}
-                className="px-4 py-2 rounded-xl text-sm font-body font-semibold border border-[var(--color-border)] text-navy hover:bg-parchment"
-              >
+            <div className="flex justify-end gap-3 pt-2">
+              <button onClick={() => setShowNewPost(false)} className="btn-outline-navy py-2 px-4 shadow-none">
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={submitting || !newPost.title.trim() || !newPost.content.trim()}
-                className="px-5 py-2 rounded-xl text-sm font-body font-semibold text-white disabled:opacity-40"
-                style={{ background: 'var(--color-amber)' }}
+                className="btn-amber py-2 px-6 disabled:opacity-50"
               >
-                {submitting ? 'Posting…' : 'Post'}
+                {submitting ? 'Dropping...' : 'Drop Flare'}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Posts */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-4xl mb-3">📋</div>
-          <div className="font-heading text-xl text-navy mb-2">No posts yet</div>
-          <p className="font-body text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            Be the first to post something on the community board.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((post) => {
-            const typeInfo = POST_TYPES.find(pt => pt.value === post.type) || POST_TYPES[0];
-            const TypeIcon = typeInfo.icon;
-            const isOwn = post.author_id === user?.id;
-
-            return (
-              <div
-                key={post.id}
-                className="sc-card p-5 space-y-3"
+      {/* TOP GRID: MAP & STATS */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+        
+        {/* Glow Map Panel */}
+        <section className="sc-card overflow-hidden flex flex-col">
+          <div className="p-5 border-b border-[var(--color-border)] flex flex-wrap justify-between items-center gap-4 bg-[rgba(255,255,255,0.5)]">
+            <div>
+              <h2 className="font-heading text-lg text-navy">Local Glow Map</h2>
+              <p className="font-body text-[13px] text-[var(--color-text-secondary)]">Active flares based on your proximity.</p>
+            </div>
+            <div className="flex bg-parchment p-1 rounded-xl shadow-inner border border-[var(--color-border)]">
+              <button 
+                onClick={() => setViewMode('map')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold font-body transition-all ${viewMode === 'map' ? 'bg-white text-navy shadow-sm' : 'text-[var(--color-text-muted)] hover:text-navy'}`}
               >
-                {/* Header row */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Avatar className="w-9 h-9 flex-shrink-0">
-                      <AvatarImage src={post.author?.avatar_url} />
-                      <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white', fontSize: '11px' }}>
-                        {post.author?.first_name?.[0] || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                      <div className="font-body font-semibold text-navy text-sm truncate">
-                        {post.author?.first_name} {post.author?.last_name}
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] font-body" style={{ color: 'var(--color-text-muted)' }}>
-                        <Clock className="w-2.5 h-2.5" />
-                        {timeAgo(post.created_at)}
-                        {post.neighborhood && (
-                          <>
-                            <span>·</span>
-                            <MapPin className="w-2.5 h-2.5" />
-                            {post.neighborhood}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-body font-semibold"
-                      style={{ background: typeInfo.bg, color: typeInfo.color }}
-                    >
-                      <TypeIcon className="w-3 h-3" />
-                      {typeInfo.label}
-                    </span>
-                    {isOwn && (
-                      <button
-                        onClick={() => handleDelete(post.id)}
-                        className="p-1 rounded-lg hover:bg-red-50 transition-colors"
-                        title="Delete post"
-                      >
-                        <X className="w-3.5 h-3.5 text-red-400" />
-                      </button>
-                    )}
-                  </div>
-                </div>
+                Map View
+              </button>
+              <button 
+                onClick={() => setViewMode('feed')}
+                className={`px-4 py-1.5 rounded-lg text-xs font-semibold font-body transition-all ${viewMode === 'feed' ? 'bg-white text-navy shadow-sm' : 'text-[var(--color-text-muted)] hover:text-navy'}`}
+              >
+                Feed Only
+              </button>
+            </div>
+          </div>
 
-                {/* Content */}
-                <div>
-                  <h3 className="font-heading text-navy text-base mb-1">{post.title}</h3>
-                  <p className="font-body text-sm leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
-                    {post.content}
-                  </p>
-                </div>
+          <div className="p-5 flex-1 flex flex-col bg-white">
+            {viewMode === 'map' ? (
+              <div className="relative w-full h-[360px] rounded-2xl border border-[var(--color-border)] bg-slate-50 overflow-hidden flex-1 shrink-0">
+                {/* CSS Mock Map Grid */}
+                <div 
+                  className="absolute inset-0 opacity-20 transition-opacity" 
+                  style={{
+                    backgroundImage: 'radial-gradient(var(--color-navy) 1px, transparent 1px)',
+                    backgroundSize: '20px 20px',
+                    maskImage: 'radial-gradient(circle at center, black 40%, transparent 100%)'
+                  }}
+                />
+                
+                {/* Map "Glows" - hardcoded placeholders for visual effect */}
+                <div className="absolute top-[30%] left-[20%] w-6 h-6 rounded-full bg-[var(--color-plum)] blur-md opacity-30 animate-pulse" />
+                <div className="absolute top-[32%] left-[21%] w-3 h-3 rounded-full bg-white border-2 border-[var(--color-plum)] shadow-lg z-10" />
 
-                {/* Expiry badge — own posts only */}
-                {isOwn && post.expires_at && (() => {
-                  const days = daysUntilExpiry(post.expires_at);
-                  if (days === null) return null;
-                  const urgent = days <= 5;
-                  return (
-                    <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
-                      <span
-                        className="text-[10px] font-body font-semibold px-2 py-1 rounded-full"
-                        style={{
-                          background: urgent ? '#FFF3E0' : '#F4F0E8',
-                          color: urgent ? 'var(--color-amber)' : 'var(--color-text-muted)',
-                        }}
-                      >
-                        {days === 0 ? 'Expires today' : `Expires in ${days}d`}
-                      </span>
+                <div className="absolute top-[60%] left-[50%] w-6 h-6 rounded-full bg-[var(--color-amber)] blur-md opacity-30 animate-pulse" />
+                <div className="absolute top-[62%] left-[51%] w-3 h-3 rounded-full bg-white border-2 border-[var(--color-amber)] shadow-lg z-10" />
+
+                <div className="absolute top-[40%] left-[70%] w-6 h-6 rounded-full bg-[var(--color-forest)] blur-md opacity-30 animate-pulse" />
+                <div className="absolute top-[42%] left-[71%] w-3 h-3 rounded-full bg-white border-2 border-[var(--color-forest)] shadow-lg z-10" />
+
+                <div className="absolute top-[20%] left-[60%] w-6 h-6 rounded-full bg-[var(--color-navy)] blur-md opacity-20 animate-pulse" />
+                <div className="absolute top-[22%] left-[61%] w-3 h-3 rounded-full bg-white border-2 border-[var(--color-navy)] shadow-lg z-10" />
+                
+                <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2 justify-center z-20">
+                  {POST_TYPES.map(pt => (
+                    <div key={pt.value} className="px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-sm border border-[var(--color-border)] text-[10px] font-semibold flex items-center gap-1.5 shadow-sm">
+                      <span className="w-2 h-2 rounded-full" style={{ background: pt.color }} />
+                      <span className="text-navy">{pt.label}</span>
                     </div>
-                  );
-                })()}
+                  ))}
+                </div>
               </div>
-            );
-          })}
+            ) : (
+              <div className="w-full h-[360px] rounded-2xl border border-dashed border-[var(--color-border)] bg-gray-50 flex items-center justify-center flex-col shrink-0">
+                <MapPin className="w-8 h-8 text-[var(--color-text-muted)] mb-3" />
+                <span className="text-sm font-semibold text-navy font-body">Map functionality paused</span>
+                <span className="text-xs text-[var(--color-text-secondary)] font-body mt-1">Activate Map View to see geographic flares.</span>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Sidebar Stack */}
+        <div className="flex flex-col gap-6">
+          <section className="sc-card">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.5)]">
+              <h2 className="font-heading text-base text-navy">Board Signals</h2>
+              <p className="font-body text-xs text-[var(--color-text-secondary)]">Live metrics & trust.</p>
+            </div>
+            <div className="p-4 grid grid-cols-2 gap-3">
+              <div className="bg-parchment p-3 rounded-xl border border-[var(--color-border)]">
+                <strong className="block font-heading text-xl text-navy">{posts.length}</strong>
+                <span className="font-body text-xs text-[var(--color-text-secondary)]">Active Flares</span>
+              </div>
+              <div className="bg-parchment p-3 rounded-xl border border-[var(--color-border)]">
+                <strong className="block font-heading text-xl text-navy">93%</strong>
+                <span className="font-body text-xs text-[var(--color-text-secondary)]">Trusted Replies</span>
+              </div>
+              <div className="bg-parchment p-3 rounded-xl border border-[var(--color-border)]">
+                <strong className="block font-heading text-xl text-navy">14m</strong>
+                <span className="font-body text-xs text-[var(--color-text-secondary)]">Avg Response</span>
+              </div>
+              <div className="bg-parchment p-3 rounded-xl border border-[var(--color-border)]">
+                <strong className="block font-heading text-xl text-navy">{posts.filter(p => p.type === 'bounty').length}</strong>
+                <span className="font-body text-xs text-[var(--color-text-secondary)]">Open Bounties</span>
+              </div>
+            </div>
+          </section>
+
+          <section className="sc-card flex-1">
+            <div className="p-4 border-b border-[var(--color-border)] bg-[rgba(255,255,255,0.5)]">
+              <h2 className="font-heading text-base text-navy">Smart Matches</h2>
+              <p className="font-body text-xs text-[var(--color-text-secondary)]">Helpers matching your profile.</p>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-[var(--color-border)] shadow-sm">
+                <div>
+                  <strong className="block text-sm font-semibold text-navy font-body mb-0.5">Spanish tutor needed</strong>
+                  <span className="text-[11px] text-[var(--color-text-secondary)] font-body">Matched to 4 nearby users</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-[#FFEBEE] text-[#E53935]">HOT</span>
+              </div>
+              <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-[var(--color-border)] shadow-sm">
+                <div>
+                  <strong className="block text-sm font-semibold text-navy font-body mb-0.5">Guitar basics</strong>
+                  <span className="text-[11px] text-[var(--color-text-secondary)] font-body">2 trusted creators available</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-green-50 text-green-700">10km</span>
+              </div>
+            </div>
+          </section>
         </div>
-      )}
+      </div>
+
+      {/* BOTTOM GRID: COMMUNITY FEED */}
+      <section className="sc-card overflow-hidden">
+        <div className="p-5 border-b border-[var(--color-border)] bg-slate-50">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h2 className="font-heading text-lg text-navy">Community Feed</h2>
+              <p className="font-body text-[13px] text-[var(--color-text-secondary)]">Color-coded by intent, trust, and urgency.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <span className="px-3 py-1 rounded-full border border-[var(--color-border)] bg-white text-xs font-semibold text-navy font-body shadow-sm">Nearby First</span>
+              <span className="px-3 py-1 rounded-full border border-[var(--color-border)] bg-white text-xs font-semibold text-navy font-body shadow-sm">Direct Booking</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5">
+          {loading ? (
+             <div className="py-12 text-center text-[var(--color-text-muted)] font-body text-sm flex flex-col items-center">
+               <span className="w-6 h-6 border-2 border-[var(--color-amber)] border-t-transparent rounded-full animate-spin mb-3"></span>
+               Loading flares...
+             </div>
+          ) : posts.length === 0 ? (
+            <div className="py-16 text-center bg-gray-50 border border-dashed border-[var(--color-border)] rounded-2xl my-4">
+              <Search className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-3" />
+              <div className="font-heading text-lg text-navy mb-1">No flares active in your area</div>
+              <p className="font-body text-sm text-[var(--color-text-secondary)] max-w-sm mx-auto">Be the first to drop a flare on the map and start building the local network.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {posts.map(post => {
+                const typeInfo = POST_TYPES.find(pt => pt.value === post.type) || POST_TYPES[0];
+                const isTrusted = post.author?.trust_tier && post.author.trust_tier >= 3;
+                const isExpiring = post.expires_at && new Date(post.expires_at).getTime() - Date.now() < 86400000;
+                const isOwn = user?.id === post.author_id;
+
+                const ringColor = 
+                  post.author?.trust_tier === 4 ? 'ring-[var(--color-amber)]' : 
+                  post.author?.trust_tier === 3 ? 'ring-[var(--color-plum)]' : 
+                  post.author?.trust_tier === 2 ? 'ring-[var(--color-forest)]' : 'ring-gray-200';
+
+                return (
+                  <article 
+                    key={post.id} 
+                    className={`p-5 rounded-2xl border transition-all ${isTrusted ? 'border-[#C4873A]/30 bg-[#FFF3E0]/20 shadow-sm' : 'border-[var(--color-border)] bg-white hover:border-[var(--color-amber)]'}`}
+                  >
+                    {/* Header */}
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className={`w-11 h-11 flex-shrink-0 ring-2 ring-offset-2 ${ringColor}`}>
+                          <AvatarImage src={post.author?.avatar_url} />
+                          <AvatarFallback style={{ background: 'var(--color-navy)', color: 'white' }}>
+                            {post.author?.first_name?.[0] || '?'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <strong className="block text-sm font-bold text-navy font-body truncate">
+                            {post.author?.first_name} {post.author?.last_name}
+                          </strong>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-body text-[var(--color-text-secondary)] mt-0.5">
+                            {post.neighborhood && <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{post.neighborhood}</span>}
+                            <span>• {timeAgo(post.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {isTrusted && (
+                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-amber)] text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                          <ShieldCheck className="w-3 h-3" /> Tier {post.author?.trust_tier}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <h3 className="font-heading text-lg text-navy mb-2 line-clamp-1">{post.title}</h3>
+                    <p className="font-body text-sm leading-relaxed text-[var(--color-text-secondary)] line-clamp-3 mb-4 h-16">
+                      {post.content}
+                    </p>
+
+                    {/* Meta Chips */}
+                    <div className="flex flex-wrap gap-2 mb-5">
+                      <span 
+                        className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                        style={{ background: typeInfo.bg, color: typeInfo.color }}
+                      >
+                        {typeInfo.label}
+                      </span>
+                      {isExpiring && (
+                        <span className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-600 text-[10px] font-bold uppercase tracking-wider">
+                          <AlertCircle className="w-3 h-3" /> Expiring
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-4 border-t border-[var(--color-border)]">
+                      {isOwn ? (
+                        <button onClick={() => handleDelete(post.id)} className="w-full py-2 btn-outline-navy !text-xs">
+                          Remove Flare
+                        </button>
+                      ) : (
+                        <>
+                          <button className={`flex-1 py-2 shadow-sm !text-xs ${post.type === 'bounty' ? 'btn-navy bg-[var(--color-plum)] hover:bg-[#4a2e7a]' : 'btn-amber'}`}>
+                            {post.type === 'offering' ? 'Book Session' : post.type === 'bounty' ? 'Claim Bounty' : 'Connect'}
+                          </button>
+                          <button className="flex-1 py-2 btn-outline-navy !text-xs font-semibold">
+                            View Profile
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -28,6 +28,9 @@ import Settings from './pages/Settings';
 import Onboarding from './pages/Onboarding';
 import Board from './pages/Board';
 import Welcome from './pages/Welcome';
+import CreateClub from './pages/CreateClub';
+import RoomCreate from './pages/RoomCreate';
+import RoomChat from './pages/RoomChat';
 import AppLayout from './components/layout/AppLayout';
 
 // Auth Pages
@@ -92,6 +95,9 @@ function AppRouter() {
           <Route path="profile" element={<Profile />} />
           <Route path="teach" element={<Teach />} />
           <Route path="board" element={<Board />} />
+          <Route path="create-club" element={<CreateClub />} />
+          <Route path="room/new" element={<RoomCreate />} />
+          <Route path="room/:id" element={<RoomChat />} />
           <Route path="admin" element={<Admin />} />
           <Route path="member/:id" element={<MemberProfile />} />
           <Route path="settings" element={<Settings />} />
