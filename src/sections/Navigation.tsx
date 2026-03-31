@@ -22,9 +22,9 @@ export default function Navigation({ className = '' }: NavigationProps) {
 
   const navLinks = [
     { label: 'How It Works', href: '#how-it-works' },
-    { label: 'Skills', href: '#skills' },
-    { label: 'Members', href: '#testimonials' },
-    { label: 'Support', href: '#footer' },
+    { label: 'Clubs',        href: '#discovery' },
+    { label: 'Community',    href: '#testimonials' },
+    { label: 'Trust & Safety', href: '#trust-safety' },
   ];
 
   return (
@@ -68,7 +68,7 @@ export default function Navigation({ className = '' }: NavigationProps) {
               </Button>
             </Link>
             <Link to="/signup">
-              <Button className="btn-amber border-0">Join the Fight</Button>
+              <Button className="btn-amber border-0">Find Your People</Button>
             </Link>
           </div>
 
@@ -107,7 +107,7 @@ export default function Navigation({ className = '' }: NavigationProps) {
                   </Button>
                 </Link>
                 <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Button className="w-full btn-amber border-0">Join the Fight</Button>
+                  <Button className="w-full btn-amber border-0">Find Your People</Button>
                 </Link>
               </div>
             </div>

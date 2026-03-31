@@ -6,8 +6,9 @@ import { Toaster } from '@/components/ui/sonner';
 // Landing Page Sections
 import Navigation from './sections/Navigation';
 import Hero from './sections/Hero';
-import LiveSkillsPreview from './sections/LiveSkillsPreview';
+import DiscoveryPreview from './sections/DiscoveryPreview';
 import HowItWorks from './sections/HowItWorks';
+import TrustSafety from './sections/TrustSafety';
 import Testimonials from './sections/Testimonials';
 import JoinCTA from './sections/JoinCTA';
 import Footer from './sections/Footer';
@@ -15,6 +16,8 @@ import Footer from './sections/Footer';
 // App Pages
 import Feed from './pages/Feed';
 import Browse from './pages/Browse';
+import Discover from './pages/Discover';
+import ClubHome from './pages/ClubHome';
 import SkillDetail from './pages/SkillDetail';
 import Messages from './pages/Messages';
 import Profile from './pages/Profile';
@@ -39,11 +42,12 @@ function LandingPage() {
     <div className="relative">
       <Navigation />
       <Hero className="z-10" />
-      <LiveSkillsPreview className="z-20" />
+      <DiscoveryPreview className="z-20" />
       <HowItWorks className="z-30" />
-      <Testimonials className="z-40" />
-      <JoinCTA className="z-50" />
-      <Footer className="z-60" />
+      <TrustSafety className="z-40" />
+      <Testimonials className="z-50" />
+      <JoinCTA className="z-60" />
+      <Footer className="z-70" />
     </div>
   );
 }
@@ -71,10 +75,16 @@ function AppRouter() {
         {/* Onboarding - Requires auth but no layout yet */}
         <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-        {/* App Routes with FIGHTCLUB Layout */}
+        {/* Club routes — no app shell, full width */}
+        <Route path="/club/:id" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route index element={<ClubHome />} />
+        </Route>
+
+        {/* App Routes with Layout */}
         <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          {/* Default → Feed */}
-          <Route index element={<Navigate to="/app/feed" replace />} />
+          {/* Default → Discover */}
+          <Route index element={<Navigate to="/app/discover" replace />} />
+          <Route path="discover" element={<Discover />} />
           <Route path="feed" element={<Feed />} />
           <Route path="browse" element={<Browse />} />
           <Route path="skill/:slug" element={<SkillDetail />} />
@@ -86,8 +96,8 @@ function AppRouter() {
           <Route path="member/:id" element={<MemberProfile />} />
           <Route path="settings" element={<Settings />} />
           <Route path="welcome" element={<Welcome />} />
-          {/* Legacy dashboard redirect */}
-          <Route path="dashboard" element={<Navigate to="/app/feed" replace />} />
+          {/* Legacy redirects */}
+          <Route path="dashboard" element={<Navigate to="/app/discover" replace />} />
           {/* 404 fallback inside app */}
           <Route path="*" element={<Navigate to="/app/feed" replace />} />
         </Route>

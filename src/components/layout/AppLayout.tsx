@@ -26,6 +26,8 @@ import {
   Sparkles,
   BookOpen,
   Map,
+  Flame,
+  Users,
 } from 'lucide-react';
 
 const TIER_COLORS: Record<TrustTier, string> = {
@@ -45,13 +47,14 @@ const TIER_ICONS: Record<TrustTier, React.ReactNode> = {
 };
 
 const navItems = [
-  { icon: Compass, label: 'Discover', path: '/app/feed', description: 'What\'s alive right now' },
-  { icon: Search, label: 'Browse Skills', path: '/app/browse', description: 'Find a skill or a person' },
-  { icon: Map, label: 'City Board', path: '/app/board', description: 'Collaborative canvas' },
-  { icon: MessageCircle, label: 'Messages', path: '/app/messages', description: 'Your conversations' },
-  { icon: BookOpen, label: 'Teach', path: '/app/teach', description: 'Share what you know' },
-  { icon: User, label: 'My Profile', path: '/app/profile', description: 'Your member card' },
-];
+  { icon: Flame,         label: 'Discover',     path: '/app/discover',  description: 'Find clubs & people' },
+  { icon: Users,         label: 'Clubs',         path: '/app/discover',  description: 'All clubs in Morocco', hide: true },
+  { icon: Search,        label: 'Browse Skills', path: '/app/browse',    description: 'Find a skill or a person' },
+  { icon: Map,           label: 'City Board',    path: '/app/board',     description: 'Community board' },
+  { icon: MessageCircle, label: 'Messages',      path: '/app/messages',  description: 'Your conversations' },
+  { icon: BookOpen,      label: 'Teach',         path: '/app/teach',     description: 'Share what you know' },
+  { icon: User,          label: 'My Profile',    path: '/app/profile',   description: 'Your member card' },
+].filter(i => !i.hide);
 
 export default function AppLayout() {
   const { user, logout, getTrustLabel } = useAuth();
@@ -123,7 +126,8 @@ export default function AppLayout() {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {navItems.map((item) => {
-              const isActive = location.pathname.startsWith(item.path);
+              const isActive = location.pathname.startsWith(item.path) ||
+                (item.path === '/app/discover' && location.pathname.startsWith('/club/'));
               return (
                 <Link
                   key={item.path}
