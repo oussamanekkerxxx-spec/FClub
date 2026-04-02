@@ -28,3 +28,6 @@ nul
 .idea/
 
 .vercel
+
+# Supabase CLI temp files
+supabase/.temp/

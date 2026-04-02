@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -11,6 +11,7 @@ export interface User {
   firstName: string;
   lastName: string;
   avatar?: string;
+  cover_url?: string;
   bio?: string;
   location?: string;
   city?: string;
@@ -60,6 +61,7 @@ function mapProfileToUser(profile: Record<string, unknown>, authId: string, emai
     firstName: (profile.first_name as string) || '',
     lastName: (profile.last_name as string) || '',
     avatar: (profile.avatar_url as string) || undefined,
+    cover_url: (profile.cover_url as string) || undefined,
     bio: (profile.bio as string) || undefined,
     location: (profile.city as string) || (profile.neighborhood as string) || undefined,
     city: (profile.city as string) || undefined,
@@ -86,8 +88,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const loadedUserIdRef = useRef<string | null>(null);
 
   const loadProfile = async (supabaseSession: Session) => {
+    // Skip reload if we already loaded this user's profile (e.g. tab focus re-triggers onAuthStateChange)
+    if (loadedUserIdRef.current === supabaseSession.user.id) {
+      setIsLoading(false);
+      return;
+    }
+    loadedUserIdRef.current = supabaseSession.user.id;
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('*')
@@ -191,6 +201,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    loadedUserIdRef.current = null;
     await supabase.auth.signOut();
   }, []);
 
@@ -202,10 +213,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return TRUST_TIER_LABELS[tier];
   }, []);
 
+  const value = useMemo(() => ({
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    isEmailVerified,
+    login,
+    logout,
+    updateUser,
+    getTrustLabel,
+  }), [user, isLoading, isEmailVerified, login, logout, updateUser, getTrustLabel]);
+
   return (
-    <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, isLoading, isEmailVerified, login, logout, updateUser, getTrustLabel }}
-    >
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

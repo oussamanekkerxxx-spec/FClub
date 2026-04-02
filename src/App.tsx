@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 
-// Landing Page Sections
+// Landing Page Sections (always needed on first load — keep eager)
 import Navigation from './sections/Navigation';
 import Hero from './sections/Hero';
 import DiscoveryPreview from './sections/DiscoveryPreview';
@@ -13,32 +13,41 @@ import Testimonials from './sections/Testimonials';
 import JoinCTA from './sections/JoinCTA';
 import Footer from './sections/Footer';
 
-// App Pages
-import Feed from './pages/Feed';
-import Browse from './pages/Browse';
-import Discover from './pages/Discover';
-import ClubHome from './pages/ClubHome';
-import SkillDetail from './pages/SkillDetail';
-import Messages from './pages/Messages';
-import Profile from './pages/Profile';
-import Teach from './pages/Teach';
-import Admin from './pages/Admin';
-import MemberProfile from './pages/MemberProfile';
-import Settings from './pages/Settings';
-import Onboarding from './pages/Onboarding';
-import Board from './pages/Board';
-import Welcome from './pages/Welcome';
-import CreateClub from './pages/CreateClub';
-import RoomCreate from './pages/RoomCreate';
-import RoomChat from './pages/RoomChat';
-import AppLayout from './components/layout/AppLayout';
-
-// Auth Pages
+// Auth pages (small, keep eager so login is instant)
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
 import VerifyEmail from './pages/auth/VerifyEmail';
 import AuthCallback from './pages/auth/AuthCallback';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AppLayout from './components/layout/AppLayout';
+
+// Heavy app pages — lazy loaded, only downloaded when visited
+const Feed        = lazy(() => import('./pages/Feed'));
+const Browse      = lazy(() => import('./pages/Browse'));
+const Discover    = lazy(() => import('./pages/Discover'));
+const ClubHome    = lazy(() => import('./pages/ClubHome'));
+const ClubChat    = lazy(() => import('./pages/ClubChat'));
+const SkillDetail = lazy(() => import('./pages/SkillDetail'));
+const Messages    = lazy(() => import('./pages/Messages'));
+const Profile     = lazy(() => import('./pages/Profile'));
+const Teach       = lazy(() => import('./pages/Teach'));
+const Admin       = lazy(() => import('./pages/Admin'));
+const MemberProfile = lazy(() => import('./pages/MemberProfile'));
+const Settings    = lazy(() => import('./pages/Settings'));
+const Onboarding  = lazy(() => import('./pages/Onboarding'));
+const Board       = lazy(() => import('./pages/Board'));
+const Welcome     = lazy(() => import('./pages/Welcome'));
+const RoomCreate  = lazy(() => import('./pages/RoomCreate'));
+const RoomChat    = lazy(() => import('./pages/RoomChat'));
+
+// Minimal spinner shown while a lazy chunk is loading
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-screen w-full bg-parchment">
+      <div className="w-8 h-8 rounded-full border-4 border-amber-300 border-t-amber-600 animate-spin" />
+    </div>
+  );
+}
 
 function LandingPage() {
   return (
@@ -65,51 +74,50 @@ function AppRouter() {
   return (
     <Router>
       <ScrollToTop />
-      <Routes>
-        {/* Landing Page */}
-        <Route path="/" element={<LandingPage />} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          {/* Landing Page */}
+          <Route path="/" element={<LandingPage />} />
 
-        {/* Auth Pages */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        <Route path="/verify-email" element={<VerifyEmail />} />
-        <Route path="/auth/callback" element={<AuthCallback />} />
+          {/* Auth Pages */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* Onboarding - Requires auth but no layout yet */}
-        <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
+          {/* Onboarding */}
+          <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-        {/* Club routes — no app shell, full width */}
-        <Route path="/club/:id" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          <Route index element={<ClubHome />} />
-        </Route>
+          {/* Club routes — no app shell */}
+          <Route path="/club/:id" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route index element={<ClubHome />} />
+          </Route>
 
-        {/* App Routes with Layout */}
-        <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-          {/* Default → Discover */}
-          <Route index element={<Navigate to="/app/discover" replace />} />
-          <Route path="discover" element={<Discover />} />
-          <Route path="feed" element={<Feed />} />
-          <Route path="browse" element={<Browse />} />
-          <Route path="skill/:slug" element={<SkillDetail />} />
-          <Route path="messages" element={<Messages />} />
-          <Route path="profile" element={<Profile />} />
-          <Route path="teach" element={<Teach />} />
-          <Route path="board" element={<Board />} />
-          <Route path="create-club" element={<CreateClub />} />
-          <Route path="room/new" element={<RoomCreate />} />
-          <Route path="room/:id" element={<RoomChat />} />
-          <Route path="admin" element={<Admin />} />
-          <Route path="member/:id" element={<MemberProfile />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="welcome" element={<Welcome />} />
-          {/* Legacy redirects */}
-          <Route path="dashboard" element={<Navigate to="/app/discover" replace />} />
-          {/* 404 fallback inside app */}
-          <Route path="*" element={<Navigate to="/app/feed" replace />} />
-        </Route>
-        {/* Global 404 */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* App Routes with Layout */}
+          <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+            <Route index element={<Navigate to="/app/discover" replace />} />
+            <Route path="discover"        element={<Discover />} />
+            <Route path="feed"            element={<Feed />} />
+            <Route path="browse"          element={<Browse />} />
+            <Route path="skill/:slug"     element={<SkillDetail />} />
+            <Route path="messages"        element={<Messages />} />
+            <Route path="profile"         element={<Profile />} />
+            <Route path="teach"           element={<Teach />} />
+            <Route path="board"           element={<Board />} />
+            <Route path="room/new"        element={<RoomCreate />} />
+            <Route path="room/:id"        element={<RoomChat />} />
+            <Route path="admin"           element={<Admin />} />
+            <Route path="club/:id/chat"   element={<ClubChat />} />
+            <Route path="member/:id"      element={<MemberProfile />} />
+            <Route path="settings"        element={<Settings />} />
+            <Route path="welcome"         element={<Welcome />} />
+            <Route path="dashboard"       element={<Navigate to="/app/discover" replace />} />
+            <Route path="*"               element={<Navigate to="/app/feed" replace />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
       <Toaster position="top-right" richColors />
     </Router>
   );

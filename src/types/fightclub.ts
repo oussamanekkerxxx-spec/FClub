@@ -93,6 +93,8 @@ export interface ClubPost {
   author_id: string;
   content: string;
   image_url: string | null;
+  video_url: string | null;
+  pdf_url: string | null;
   is_pinned: boolean;
   reaction_count: number;
   comment_count: number;

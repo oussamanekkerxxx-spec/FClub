@@ -64,6 +64,7 @@ interface UseClubActionsOptions {
   hasActiveRoom: boolean;
   onMembershipChange?: (m: ClubMembership | null) => void;
   onClubCountChange?: (delta: number) => void;
+  onJoinRequestChange?: (pending: boolean) => void;
 }
 
 export function useClubActions({
@@ -74,6 +75,7 @@ export function useClubActions({
   hasActiveRoom,
   onMembershipChange,
   onClubCountChange,
+  onJoinRequestChange,
 }: UseClubActionsOptions): ClubActionsResult {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -107,36 +109,60 @@ export function useClubActions({
     setBusy(true);
 
     if (club.is_private) {
-      // Private club → submit join request
-      const { error } = await supabase
+      // Check for an existing request (any status) first
+      const { data: existing } = await supabase
         .from('join_requests')
-        .upsert({ club_id: club.id, user_id: userId, status: 'pending' });
+        .select('id, status')
+        .eq('club_id', club.id)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existing?.status === 'pending') {
+        toast.info('You already have a pending request for this club.');
+        onJoinRequestChange?.(true);
+        setBusy(false);
+        return;
+      }
+
+      // If a previous (denied/rejected) request exists → update it back to pending
+      // Otherwise → fresh insert
+      const { error } = existing
+        ? await supabase
+            .from('join_requests')
+            .update({ status: 'pending' })
+            .eq('id', existing.id)
+        : await supabase
+            .from('join_requests')
+            .insert({ club_id: club.id, user_id: userId, status: 'pending' });
 
       if (error) {
         toast.error('Could not send request. Please try again.');
       } else {
         toast.success('Request sent! A moderator will review it soon.');
-        // Notify moderators
-        const { data: mods } = await supabase
+        onMembershipChange?.(null);
+        onJoinRequestChange?.(true); // flip button to "Pending…"
+
+        // Notify moderators — fire and forget, never block the join flow
+        supabase
           .from('club_memberships')
           .select('user_id')
           .eq('club_id', club.id)
           .in('role', ['moderator', 'admin'])
-          .eq('status', 'active');
-
-        if (mods && mods.length > 0) {
-          await supabase.from('notifications').insert(
-            mods.map(m => ({
-              user_id: m.user_id,
-              type: 'join_request',
-              title: 'New join request',
-              body: `Someone wants to join ${club.name}`,
-              link: `/club/${club.slug ?? club.id}`,
-              actor_id: userId,
-            }))
-          );
-        }
-        onMembershipChange?.(null); // keep null — pending state via joinRequestPending
+          .eq('status', 'active')
+          .then(({ data: mods }) => {
+            if (mods && mods.length > 0) {
+              supabase.from('notifications').insert(
+                mods.map(m => ({
+                  user_id: m.user_id,
+                  type: 'join_request',
+                  title: 'New join request',
+                  body: `Someone wants to join ${club.name}`,
+                  link: `/club/${club.slug ?? club.id}`,
+                  actor_id: userId,
+                }))
+              );
+            }
+          });
       }
     } else {
       // Public club → immediate join
@@ -182,14 +208,19 @@ export function useClubActions({
   // ── handleCancelRequest ───────────────────────────────────
   const handleCancelRequest = useCallback(async (clubId: string) => {
     if (!userId) return;
-    await supabase
+    const { error } = await supabase
       .from('join_requests')
       .delete()
       .eq('club_id', clubId)
       .eq('user_id', userId);
+    if (error) {
+      toast.error('Could not cancel request.');
+      return;
+    }
     toast('Request withdrawn.');
     onMembershipChange?.(null);
-  }, [userId, onMembershipChange]);
+    onJoinRequestChange?.(false); // flip button back to "Request to Join"
+  }, [userId, onMembershipChange, onJoinRequestChange]);
 
   // ── handleRequestRoom ─────────────────────────────────────
   const handleRequestRoom = useCallback(async (clubId: string, roomHint = '') => {

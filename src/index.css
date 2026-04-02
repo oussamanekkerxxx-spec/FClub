@@ -354,3 +354,10 @@
 ::-webkit-scrollbar-track { background: var(--color-parchment); }
 ::-webkit-scrollbar-thumb { background: var(--color-parchment-dark); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(27, 42, 74, 0.3); }
+
+/* Chat Wallpapers */
+.wall-default { background-color: #FAFAFA; }
+.wall-1 { background-image: url('https://images.unsplash.com/photo-1557683316-973673baf926?auto=format&fit=crop&q=80'); background-size: cover; background-position: center; }
+.wall-2 { background-image: url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80'); background-size: cover; background-position: center; }
+.wall-3 { background-image: url('https://images.unsplash.com/photo-1550684848-fac1c5b4e853?auto=format&fit=crop&q=80'); background-size: cover; background-position: center; }
+

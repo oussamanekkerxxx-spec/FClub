@@ -7,6 +7,7 @@ import {
   Search, X, Users, MapPin, Lock, Globe, Flame,
   TrendingUp, Sparkles,
 } from 'lucide-react';
+import CreateClubModal from '@/components/clubs/CreateClubModal';
 
 const CATEGORIES = [
   { id: 'music',       label: 'Music',        emoji: '🎵' },
@@ -19,6 +20,12 @@ const CATEGORIES = [
   { id: 'business',    label: 'Business',     emoji: '📊' },
   { id: 'writing',     label: 'Writing',      emoji: '✍️' },
   { id: 'crafts',      label: 'Crafts',       emoji: '🧵' },
+  { id: 'events',            label: 'Events',                    emoji: '📅' },
+  { id: 'student',           label: 'Student',                   emoji: '🎓' },
+  { id: 'club_lounge',       label: 'Club Lounge',               emoji: '🛋️' },
+  { id: 'deve_sandbox',      label: 'Deve Sandbox',              emoji: '🛠️' },
+  { id: 'wellness_support',  label: 'Wellness & Support Room',   emoji: '🧘' },
+  { id: 'connection_lounge', label: 'Connection Lounge',         emoji: '🤝' },
 ];
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
@@ -32,6 +39,12 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
   business:    'from-yellow-500 to-amber-500',
   writing:     'from-violet-500 to-purple-600',
   crafts:      'from-pink-500 to-rose-500',
+  events:            'from-orange-500 to-red-600',
+  student:           'from-blue-400 to-indigo-600',
+  club_lounge:       'from-rose-400 to-orange-300',
+  deve_sandbox:      'from-gray-700 to-gray-900',
+  wellness_support:  'from-teal-400 to-emerald-500',
+  connection_lounge: 'from-violet-400 to-fuchsia-500',
 };
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
@@ -45,6 +58,12 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
   business:    { bg: '#FEF9C3', text: '#CA8A04' },
   writing:     { bg: '#EDE9FE', text: '#6D28D9' },
   crafts:      { bg: '#FDF2F8', text: '#BE185D' },
+  events:            { bg: '#FFEDD5', text: '#EA580C' },
+  student:           { bg: '#DBEAFE', text: '#2563EB' },
+  club_lounge:       { bg: '#FFE4E6', text: '#E11D48' },
+  deve_sandbox:      { bg: '#F3F4F6', text: '#374151' },
+  wellness_support:  { bg: '#CCFBF1', text: '#0D9488' },
+  connection_lounge: { bg: '#F3E8FF', text: '#9333EA' },
 };
 
 function ClubCard({ club, myMembershipIds }: { club: Club; myMembershipIds: Set<string> }) {
@@ -143,6 +162,7 @@ export default function Discover() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPrivate, setShowPrivate] = useState<'all' | 'public' | 'private'>('all');
   const [myMembershipIds, setMyMembershipIds] = useState<Set<string>>(new Set());
+  const [isCreateClubModalOpen, setIsCreateClubModalOpen] = useState(false);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -352,15 +372,19 @@ export default function Discover() {
           <p className="text-white/50 text-sm font-body mb-4">
             Start your own and invite your people.
           </p>
-          <Link
-            to="/app/create-club"
+          <button
+            onClick={() => setIsCreateClubModalOpen(true)}
             className="inline-flex items-center gap-2 btn-amber text-sm"
             style={{ padding: '0.625rem 1.25rem' }}
           >
             <TrendingUp className="w-4 h-4" />
             Start a Club
-          </Link>
+          </button>
         </div>
+      )}
+
+      {isCreateClubModalOpen && (
+        <CreateClubModal onClose={() => setIsCreateClubModalOpen(false)} />
       )}
     </div>
   );
