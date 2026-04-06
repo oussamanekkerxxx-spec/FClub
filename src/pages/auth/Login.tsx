@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { errMsg } from '@/lib/errors';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -29,15 +30,15 @@ export default function Login() {
       await login(email, password);
       toast.success('Welcome back to the club!');
       navigate(from, { replace: true });
-    } catch (err: any) {
-      if (err.message.includes('Invalid login credentials')) {
+    } catch (err) {
+      const msg = errMsg(err);
+      if (msg.includes('Invalid login credentials')) {
         setError('We couldn\'t find an account with those details. Want to join instead?');
-      } else if (err.message.includes('email') && err.message.includes('not confirmed')) {
-        // Email not verified - redirect to verification page
+      } else if (msg.includes('email') && msg.includes('not confirmed')) {
         toast.info('Please verify your email before logging in');
         navigate('/verify-email', { state: { email } });
       } else {
-        setError(err.message || 'Something went wrong. Please try again.');
+        setError(msg || 'Something went wrong. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -50,7 +51,7 @@ export default function Login() {
     try {
       await login('demo@fightclub.test', 'bypass');
       navigate(from, { replace: true });
-    } catch (err) {
+    } catch {
       setError('Demo login failed.');
     } finally {
       setIsLoading(false);
@@ -67,8 +68,8 @@ export default function Login() {
           redirectTo: window.location.origin + '/auth/callback',
         },
       });
-    } catch (err: any) {
-      setError(err.message || 'Google sign-in failed.');
+    } catch (err) {
+      setError(errMsg(err) || 'Google sign-in failed.');
       setIsLoading(false);
     }
   };
@@ -88,8 +89,8 @@ export default function Login() {
       toast.success('Password reset link sent! Check your email.');
       setForgotEmail('');
       setShowForgotPassword(false);
-    } catch (err: any) {
-      setError(err.message || 'Could not send reset link. Please try again.');
+    } catch (err) {
+      setError(errMsg(err) || 'Could not send reset link. Please try again.');
     } finally {
       setIsSendingReset(false);
     }

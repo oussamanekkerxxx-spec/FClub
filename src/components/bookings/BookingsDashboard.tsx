@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +18,16 @@ interface Booking {
   isTeacher: boolean;
 }
 
+interface BookingRow {
+  id: string; status: Booking['status'];
+  proposed_time: string | null; neighborhood: string | null;
+  student_note: string | null; created_at: string;
+  skill_id: string; student_id: string; teacher_id: string;
+  skills: { id: string; slug: string; title: string }[] | null;
+  student: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] | null;
+  teacher: { id: string; first_name: string; last_name: string; avatar_url: string | null }[] | null;
+}
+
 const STATUS_STYLE: Record<string, { label: string; bg: string; color: string }> = {
   pending:   { label: 'Pending',   bg: '#FFF3E0', color: '#C4873A' },
   agreed:    { label: 'Agreed',    bg: '#E8F5EE', color: '#2D7A4F' },
@@ -31,12 +41,7 @@ export default function BookingsDashboard() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchBookings();
-  }, [user]);
-
-  const fetchBookings = async () => {
+  const fetchBookings = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
@@ -48,7 +53,7 @@ export default function BookingsDashboard() {
 
     if (error) { setLoading(false); return; }
 
-    const mapped: Booking[] = (data || []).map((b: any) => {
+    const mapped: Booking[] = (data as BookingRow[] || []).map((b) => {
       const isTeacher = b.teacher_id === user.id;
       return {
         id: b.id,
@@ -57,15 +62,20 @@ export default function BookingsDashboard() {
         neighborhood: b.neighborhood,
         student_note: b.student_note,
         created_at: b.created_at,
-        skill: b.skills ? { id: b.skills.id, slug: b.skills.slug, title: b.skills.title } : null,
-        other: isTeacher ? b.student : b.teacher,
+        skill: b.skills?.[0] ? { id: b.skills[0].id, slug: b.skills[0].slug, title: b.skills[0].title } : null,
+        other: isTeacher ? b.student?.[0] ?? null : b.teacher?.[0] ?? null,
         isTeacher,
       };
     });
 
     setBookings(mapped);
     setLoading(false);
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchBookings();
+  }, [user, fetchBookings]);
 
   const updateStatus = async (id: string, status: 'agreed' | 'cancelled') => {
     setUpdating(id);

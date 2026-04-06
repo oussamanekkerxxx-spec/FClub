@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { mapSkillRow, type SkillRow } from '@/mappers/skills';
+import type { Skill } from '@/types/skills';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowRight, Star, Sparkles } from 'lucide-react';
 
 export default function Welcome() {
   const { user } = useAuth();
-  const [matchedSkills, setMatchedSkills] = useState<any[]>([]);
+  const [matchedSkills, setMatchedSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,18 +42,7 @@ export default function Welcome() {
 
     query
       .then(({ data }) => {
-        if (data) {
-          setMatchedSkills(data.map((s: any) => ({
-            ...s,
-            teacher: {
-              firstName: s.profiles?.first_name || '',
-              lastName: s.profiles?.last_name || '',
-              avatar: s.profiles?.avatar_url || '',
-            },
-            slug: s.slug || s.id,
-            cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
-          })));
-        }
+        if (data) setMatchedSkills((data as SkillRow[]).map(mapSkillRow));
         setLoading(false);
       });
   }, [user]);
@@ -63,7 +54,7 @@ export default function Welcome() {
           <Sparkles className="w-8 h-8" style={{ color: 'var(--color-amber)' }} />
         </div>
         <h1 className="font-heading text-2xl text-navy mb-2">
-          Welcome to FIGHTCLUB, {user?.firstName}. ✦
+          Welcome to FightClub, {user?.firstName}. ✦
         </h1>
         <p className="font-body text-[var(--color-text-secondary)]">
           {matchedSkills.length > 0

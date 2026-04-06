@@ -124,7 +124,7 @@ export default function TrustSafety({ className }: Props) {
             A community you can actually trust
           </h2>
           <p className="text-white/60 leading-relaxed">
-            Lumina is built around accountability. Every member has a visible reputation, every club has clear rules,
+            FightClub is built around accountability. Every member has a visible reputation, every club has clear rules,
             and every moderation decision is transparent.
           </p>
         </div>

@@ -29,7 +29,7 @@ export default defineConfig({
           // All Radix UI primitives in one chunk
           'vendor-radix': [
             '@radix-ui/react-accordion', '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-avatar', '@radix-ui/react-checkbox',
+            '@radix-ui/react-aspect-ratio', '@radix-ui/react-avatar', '@radix-ui/react-checkbox',
             '@radix-ui/react-collapsible', '@radix-ui/react-context-menu',
             '@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu',
             '@radix-ui/react-hover-card', '@radix-ui/react-label',
@@ -45,8 +45,8 @@ export default defineConfig({
           'vendor-icons': ['lucide-react'],
           // Date utilities
           'vendor-dates': ['date-fns'],
-          // Animation / charting libraries
-          'vendor-extras': ['gsap', '@gsap/react', 'recharts'],
+          // Animation libraries (GSAP for landing page animations)
+          'vendor-extras': ['gsap', '@gsap/react'],
         },
       },
     },

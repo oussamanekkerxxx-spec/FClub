@@ -12,7 +12,7 @@ export default function SessionHistoryTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user || user.id === 'demo-user-bypass') {
+    if (!user || user.isDemo) {
       setLoading(false);
       return;
     }

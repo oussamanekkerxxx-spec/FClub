@@ -119,7 +119,7 @@ export default function Hero({ className = '' }: HeroProps) {
               </div>
 
               <p ref={subheadRef} className="mt-6 text-lg text-brand-text-secondary leading-relaxed">
-                Lumina is a community platform where people with shared passions find each other,
+                FightClub is a community platform where people with shared passions find each other,
                 run quests, host live rooms, and grow — right in your city.
               </p>
 

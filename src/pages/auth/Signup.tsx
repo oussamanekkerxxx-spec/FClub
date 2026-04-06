@@ -34,7 +34,7 @@ export default function Signup() {
             <div className="w-10 h-10 rounded-xl bg-[var(--color-amber)] text-white flex items-center justify-center font-bold text-lg shadow-warm group-hover:scale-105 transition-transform">
               SC
             </div>
-            <span className="font-heading font-semibold text-xl text-[var(--color-navy)]">FIGHTCLUB</span>
+            <span className="font-heading font-semibold text-xl text-[var(--color-navy)]">FightClub</span>
           </Link>
 
           {/* Coming soon badge */}

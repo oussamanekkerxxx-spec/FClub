@@ -1,35 +1,26 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/lib/supabase';
+import type { Skill, Format } from '@/types/skills';
+import { mapSkillRow, type SkillRow } from '@/mappers/skills';
+import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
+import { queryKeys } from '@/lib/queryKeys';
+import { CATEGORIES } from '@/constants/categories';
+import { MOROCCO_REGIONS } from '@/lib/morocco';
 import {
-  Search,
   SlidersHorizontal,
   Star,
   MapPin,
   Wifi,
   Users,
-  X,
   Gift,
   Globe,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
-
-type Category = 'music' | 'languages' | 'technology' | 'cooking' | 'art' | 'fitness' | 'photography' | 'business' | 'writing';
-type Format = 'online' | 'in-person' | 'both';
-
-const CATEGORIES = [
-  { id: 'music', label: 'Music', emoji: '🎵' },
-  { id: 'languages', label: 'Languages', emoji: '🌍' },
-  { id: 'technology', label: 'Technology', emoji: '💻' },
-  { id: 'cooking', label: 'Cooking', emoji: '🍳' },
-  { id: 'art', label: 'Art & Craft', emoji: '🎨' },
-  { id: 'fitness', label: 'Fitness', emoji: '💪' },
-  { id: 'photography', label: 'Photography', emoji: '📷' },
-  { id: 'business', label: 'Business', emoji: '📊' },
-  { id: 'writing', label: 'Writing', emoji: '✍️' },
-];
-
-import { MOROCCO_REGIONS } from '@/lib/morocco';
+import { SearchBar } from '@/components/ui/search-bar';
+import { CardSkeletonGrid } from '@/components/ui/card-skeleton';
 
 const FORMAT_LABELS: Record<Format, string> = {
   online: 'Online',
@@ -37,28 +28,9 @@ const FORMAT_LABELS: Record<Format, string> = {
   both: 'Online & In-person',
 };
 
-const LoadingSkeleton = () => (
-  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-    {[...Array(6)].map((_, i) => (
-      <div key={i} className="skill-card bg-white rounded-xl overflow-hidden animate-pulse">
-        <div className="h-28 bg-gray-200" />
-        <div className="p-4 space-y-3">
-          <div className="h-4 bg-gray-200 rounded w-3/4" />
-          <div className="h-3 bg-gray-100 rounded w-full" />
-          <div className="h-3 bg-gray-100 rounded w-full" />
-          <div className="flex justify-between pt-2">
-            <div className="h-4 bg-gray-200 rounded w-1/4" />
-            <div className="h-4 bg-gray-200 rounded w-1/4" />
-          </div>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
 export default function Browse() {
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<Category | 'all'>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedFormat, setSelectedFormat] = useState<Format | 'all'>('all');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState<string>('all');
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
@@ -66,38 +38,15 @@ export default function Browse() {
   const [showFreeOnly, setShowFreeOnly] = useState(false);
   const [showGroupsOnly, setShowGroupsOnly] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [skills, setSkills] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
-    supabase
+  const { data: skills, loading, error, refetch: fetchSkills } = useSupabaseQuery<SkillRow, Skill>(
+    queryKeys.skills.active(),
+    () => supabase
       .from('skills')
-      .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, trust_tier, trust_score)')
-      .eq('is_active', true)
-      .then(({ data }) => {
-        if (data) {
-          const mapped = data.map((s: any) => ({
-            ...s,
-            teacher: {
-              id: s.profiles?.id,
-              firstName: s.profiles?.first_name || '',
-              lastName: s.profiles?.last_name || '',
-              avatar: s.profiles?.avatar_url || '',
-              trust_tier: s.profiles?.trust_tier || 0,
-              trust_score: s.profiles?.trust_score || 0,
-            },
-            slug: s.slug || s.id,
-            tags: s.tags || [],
-            cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
-            format: s.format || 'in-person',
-            languages: s.languages || [],
-          }));
-          setSkills(mapped);
-        }
-        setLoading(false);
-      });
-  }, []);
+      .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, bio, neighborhood, city, trust_tier, trust_score, sessions_completed, reviews_count)')
+      .eq('is_active', true),
+    { transform: mapSkillRow, errorMessage: 'Failed to load skills' }
+  );
 
   // Compute dynamic category counts from fetched data
   const categoriesWithCounts = useMemo(() => {
@@ -114,7 +63,7 @@ export default function Browse() {
     return Array.from(langs).sort();
   }, [skills]);
 
-  const filtered = skills.filter((skill) => {
+  const filtered = useMemo(() => skills.filter((skill) => {
     const matchSearch =
       !search ||
       skill.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -124,12 +73,12 @@ export default function Browse() {
     const matchCat = selectedCategory === 'all' || skill.category === selectedCategory;
     const matchFormat = selectedFormat === 'all' || skill.format === selectedFormat || skill.format === 'both';
     const matchPrice = skill.price_per_hour <= maxPrice;
-    const matchFree = !showFreeOnly || skill.price_per_hour === 0 || skill.is_free;
+    const matchFree = !showFreeOnly || skill.price_per_hour === 0;
     const matchGroups = !showGroupsOnly || skill.is_group;
-    const matchNeighborhood = selectedNeighborhood === 'all' || (skill.region || skill.neighborhood || skill.location || '').toLowerCase().includes(selectedNeighborhood.toLowerCase());
-    const matchLanguage = selectedLanguage === 'all' || (skill.languages || []).includes(selectedLanguage);
+    const matchNeighborhood = selectedNeighborhood === 'all' || (skill.neighborhood || skill.location || '').toLowerCase().includes(selectedNeighborhood.toLowerCase());
+    const matchLanguage = selectedLanguage === 'all' || skill.languages.includes(selectedLanguage);
     return matchSearch && matchCat && matchFormat && matchPrice && matchFree && matchGroups && matchNeighborhood && matchLanguage;
-  });
+  }), [skills, search, selectedCategory, selectedFormat, maxPrice, showFreeOnly, showGroupsOnly, selectedNeighborhood, selectedLanguage]);
 
   const hasActiveFilters = selectedCategory !== 'all' || selectedFormat !== 'all' || maxPrice < 500 || showFreeOnly || showGroupsOnly || selectedNeighborhood !== 'all' || selectedLanguage !== 'all';
 
@@ -154,25 +103,12 @@ export default function Browse() {
       </div>
 
       {/* Search Bar */}
-      <div className="relative mb-5">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-muted)' }} />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="What do you want to learn? Try 'piano', 'Python', 'cooking'…"
-          className="input-sc pl-12 py-3.5 text-base"
-          style={{ background: 'white', fontSize: '15px' }}
-        />
-        {search && (
-          <button
-            onClick={() => setSearch('')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100"
-          >
-            <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-          </button>
-        )}
-      </div>
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="What do you want to learn? Try 'piano', 'Python', 'cooking'…"
+        className="mb-5"
+      />
 
       {/* Quick Filter Chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
@@ -222,7 +158,7 @@ export default function Browse() {
         {categoriesWithCounts.map((cat) => (
           <button
             key={cat.id}
-            onClick={() => setSelectedCategory(cat.id as Category)}
+            onClick={() => setSelectedCategory(cat.id)}
             className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${
               selectedCategory === cat.id
                 ? 'text-white'
@@ -388,7 +324,16 @@ export default function Browse() {
           </button>
 
           {loading ? (
-            <LoadingSkeleton />
+            <CardSkeletonGrid count={6} variant="skill" />
+          ) : error ? (
+            <div className="sc-card p-12 text-center">
+              <AlertCircle className="w-8 h-8 mx-auto mb-3 text-red-400" />
+              <div className="font-heading text-xl text-navy mb-2">Failed to load skills</div>
+              <p className="font-body text-[var(--color-text-secondary)] text-sm mb-4">{error?.message}</p>
+              <button onClick={fetchSkills} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-amber)] hover:underline">
+                <RefreshCw className="w-3.5 h-3.5" /> Try again
+              </button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="sc-card p-12 text-center">
               <div className="font-heading text-xl text-navy mb-2">

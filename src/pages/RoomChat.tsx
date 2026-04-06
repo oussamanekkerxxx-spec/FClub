@@ -24,7 +24,7 @@ export default function RoomChat() {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  const roomName = (location.state as any)?.roomName || 'Room';
+  const roomName = (location.state as { roomName?: string } | null)?.roomName || 'Room';
 
   // Fetch messages and subscribe to realtime
   useEffect(() => {
@@ -38,9 +38,10 @@ export default function RoomChat() {
         .order('created_at', { ascending: true });
 
       if (data) {
-        setMessages(data.map((m: any) => ({
+        type MsgRow = Omit<Message, 'sender'> & { sender: Message['sender'] | Message['sender'][] | null };
+        setMessages((data as MsgRow[]).map(m => ({
           ...m,
-          sender: Array.isArray(m.sender) ? m.sender[0] : m.sender,
+          sender: Array.isArray(m.sender) ? m.sender[0] : m.sender ?? undefined,
         })));
       }
     };

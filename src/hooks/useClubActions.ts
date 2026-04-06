@@ -226,6 +226,26 @@ export function useClubActions({
   const handleRequestRoom = useCallback(async (clubId: string, roomHint = '') => {
     if (!userId) return;
 
+    const requestPayload = {
+      club_id: clubId,
+      request_type: 'room',
+      requested_by: userId,
+      title: roomHint.trim() ? `Room request: ${roomHint.trim()}` : 'Room request',
+      details: roomHint.trim() || null,
+      context: roomHint.trim() ? { topic_hint: roomHint.trim() } : {},
+    };
+
+    // Persist request in unified inbox (new migration). If the table is missing,
+    // continue with legacy notifications so the action still works.
+    const { error: requestError } = await supabase
+      .from('club_requests')
+      .insert(requestPayload);
+
+    if (requestError && requestError.code !== '42P01') {
+      toast.error('Could not submit room request.');
+      return;
+    }
+
     // Fetch mods/admins to notify
     const { data: mods } = await supabase
       .from('club_memberships')

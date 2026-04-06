@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/lib/supabase';
+import { mapSkillRow, type SkillRow } from '@/mappers/skills';
+import type { Skill } from '@/types/skills';
 import {
   Sparkles,
   ArrowRight,
@@ -14,10 +16,21 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+type FeedSkill = Skill & { relevance: number };
+
+interface FeedEvent {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  created_at: string;
+  profiles?: { avatar_url: string | null; first_name: string } | null;
+  skills?: { id: string; slug: string | null } | null;
+}
+
 export default function Feed() {
   const { user } = useAuth();
-  const [skills, setSkills] = useState<any[]>([]);
-  const [feedEvents, setFeedEvents] = useState<any[]>([]);
+  const [skills, setSkills] = useState<FeedSkill[]>([]);
+  const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [skillCount, setSkillCount] = useState(0);
   const [, setDismissedIds] = useState<Set<string>>(new Set());
@@ -41,7 +54,7 @@ export default function Feed() {
     Promise.all([
       supabase
         .from('skills')
-        .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, trust_tier, trust_score, city)')
+        .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, bio, neighborhood, city, trust_tier, trust_score, sessions_completed, reviews_count)')
         .eq('is_active', true),
       supabase
         .from('feed_events')
@@ -50,54 +63,42 @@ export default function Feed() {
         .limit(5),
       dismissedPromise,
     ]).then(([skillsRes, eventsRes, dismissedRes]) => {
-      const dismissed = new Set((dismissedRes.data || []).map((d: any) => d.skill_id));
+      const dismissed = new Set((dismissedRes.data ?? []).map((d: { skill_id: string }) => d.skill_id));
       setDismissedIds(dismissed);
 
       if (skillsRes.data) {
-        const userInterests = (user?.what_i_learn || []).map(s => s.toLowerCase());
-        const userNeighborhood = (user?.location || '').toLowerCase();
-        const userLanguages = (user?.languages || []).map(s => s.toLowerCase());
+        const userInterests = (user?.what_i_learn ?? []).map(s => s.toLowerCase());
+        const userNeighborhood = (user?.location ?? '').toLowerCase();
+        const userLanguages = (user?.languages ?? []).map(s => s.toLowerCase());
 
-        const mapped = skillsRes.data.filter((s: any) => !dismissed.has(s.id)).map((s: any) => {
-          let relevance = 0;
-          const category = (s.category || '').toLowerCase();
-          const tags = ((s.tags as string[]) || []).map(t => t.toLowerCase());
-          const neighborhood = (s.neighborhood || s.location || '').toLowerCase();
-          const skillLangs = ((s.languages as string[]) || []).map(l => l.toLowerCase());
+        const mapped: FeedSkill[] = (skillsRes.data as SkillRow[])
+          .filter(s => !dismissed.has(s.id))
+          .map(s => {
+            const skill = mapSkillRow(s);
+            let relevance = 0;
+            const category = skill.category.toLowerCase();
+            const tags = skill.tags.map(t => t.toLowerCase());
+            const neighborhood = (s.neighborhood ?? s.location ?? '').toLowerCase();
+            const skillLangs = skill.languages.map(l => l.toLowerCase());
 
-          // +2 for category or tag matching user interests
-          if (userInterests.some(i => category.includes(i) || i.includes(category) || tags.some(t => t.includes(i) || i.includes(t)))) {
-            relevance += 2;
-          }
-          // +1 for same neighborhood
-          if (userNeighborhood && neighborhood && neighborhood === userNeighborhood) {
-            relevance += 1;
-          }
-          // +1 for language overlap
-          if (userLanguages.some(l => skillLangs.includes(l))) {
-            relevance += 1;
-          }
+            // +2 for category or tag matching user interests
+            if (userInterests.some(i => category.includes(i) || i.includes(category) || tags.some(t => t.includes(i) || i.includes(t)))) {
+              relevance += 2;
+            }
+            // +1 for same neighborhood
+            if (userNeighborhood && neighborhood && neighborhood === userNeighborhood) {
+              relevance += 1;
+            }
+            // +1 for language overlap
+            if (userLanguages.some(l => skillLangs.includes(l))) {
+              relevance += 1;
+            }
 
-          return {
-            ...s,
-            relevance,
-            teacher: {
-              id: s.profiles?.id,
-              firstName: s.profiles?.first_name || '',
-              lastName: s.profiles?.last_name || '',
-              avatar: s.profiles?.avatar_url || '',
-              trust_tier: s.profiles?.trust_tier || 0,
-              trust_score: s.profiles?.trust_score || 0,
-              city: s.profiles?.city || '',
-            },
-            slug: s.slug || s.id,
-            tags: s.tags || [],
-            cover_gradient: s.cover_gradient || 'from-blue-500 to-purple-600',
-          };
-        });
+            return { ...skill, relevance };
+          });
 
         // Sort by relevance first, then recency
-        mapped.sort((a: any, b: any) => {
+        mapped.sort((a, b) => {
           if (b.relevance !== a.relevance) return b.relevance - a.relevance;
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
@@ -106,7 +107,7 @@ export default function Feed() {
         setSkillCount(skillsRes.data.length);
       }
       if (eventsRes.data) {
-        setFeedEvents(eventsRes.data);
+        setFeedEvents(eventsRes.data as FeedEvent[]);
       }
       setLoading(false);
     });
@@ -176,7 +177,7 @@ export default function Feed() {
             {feedEvents.map((event) => (
               <div key={event.id} className="sc-card p-4 flex gap-3 items-start">
                 <Avatar className="w-10 h-10 ring-2 ring-white flex-shrink-0">
-                  <AvatarImage src={event.profiles?.avatar_url} />
+                  <AvatarImage src={event.profiles?.avatar_url ?? undefined} />
                   <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white' }}>
                     {event.profiles?.first_name?.[0] || '?'}
                   </AvatarFallback>

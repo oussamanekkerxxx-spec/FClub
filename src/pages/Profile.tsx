@@ -1,12 +1,13 @@
-import { useState, useEffect, useRef } from 'react';
-import { useAuth, TRUST_TIER_LABELS, type TrustTier } from '@/contexts/AuthContext';
+import { useState, useRef } from 'react';
+import { useAuth, TRUST_TIER_LABELS } from '@/contexts/AuthContext';
 import { MOROCCO_REGIONS } from '@/lib/morocco';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+// supabase used directly for profile updates + cover preset
+import { useStorageUpload } from '@/hooks/useStorageUpload';
 import TrustProgress from '@/components/profile/TrustProgress';
 import BookingsDashboard from '@/components/bookings/BookingsDashboard';
 import {
-  Star,
   Shield,
   Edit3,
   Globe,
@@ -21,14 +22,6 @@ import {
   Palette,
 } from 'lucide-react';
 import '@/styles/ProfileCard.css';
-
-const TIER_COLORS: Record<TrustTier, { bg: string; text: string; label: string }> = {
-  0: { bg: '#EDF2FF', text: '#4C6EF5', label: 'Explorer' },
-  1: { bg: '#E3F2FD', text: '#1976D2', label: 'Member' },
-  2: { bg: '#E8F5EE', text: '#2D7A4F', label: 'Verified' },
-  3: { bg: '#FFF3E0', text: '#C4873A', label: 'Teacher' },
-  4: { bg: '#EDE8F7', text: '#5C3D8F', label: 'Connector' },
-};
 
 const COVER_GRADIENTS = [
   { label: 'Navy Glow',      value: 'linear-gradient(135deg,#1B2A4A 0%,#3a4b70 100%)' },
@@ -52,17 +45,10 @@ const COVER_PHOTOS = [
   { label: 'Morocco',    url: 'https://images.unsplash.com/photo-1489493887464-892be6d1daae?w=800&h=320&fit=crop' },
 ];
 
-const ID_STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  not_submitted: { label: 'Not submitted', color: '#9BAAC4', bg: '#F4F0E8' },
-  pending:       { label: 'Under review', color: '#C4873A', bg: '#FFF3E0' },
-  approved:      { label: 'Approved',     color: '#2D7A4F', bg: '#E8F5EE' },
-  rejected:      { label: 'Rejected',     color: '#E53935', bg: '#FFEBEE' },
-};
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'#about' | '#bookings' | '#verification'>('#about');
-  const [mySkills, setMySkills] = useState<any[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editBio, setEditBio] = useState('');
   const [editCity, setEditCity] = useState('');
@@ -72,26 +58,28 @@ export default function Profile() {
   const [editTeach, setEditTeach] = useState('');
   const [editLearn, setEditLearn] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [isUploadingCover, setIsUploadingCover] = useState(false);
-  const [isUploadingId, setIsUploadingId] = useState(false);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
+
+  const avatarUpload = useStorageUpload({
+    bucket: 'avatars',
+    maxBytes: 2 * 1024 * 1024,
+    profileField: 'avatar_url',
+    onSuccess: (url) => updateUser({ avatar: url }),
+  });
+  const coverUpload = useStorageUpload({
+    bucket: 'avatars',
+    profileField: 'cover_url',
+    onSuccess: (url) => { updateUser({ cover_url: url }); setShowCoverPicker(false); },
+  });
+  const idUpload = useStorageUpload({
+    bucket: 'id-documents',
+    onSuccess: () => updateUser({ id_card_status: 'pending' }),
+  });
   const [coverPickerTab, setCoverPickerTab] = useState<'gradients' | 'photos'>('gradients');
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const idInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!user || user.id === 'demo-user-bypass') return;
-    supabase
-      .from('skills')
-      .select('*')
-      .eq('teacher_id', user.id)
-      .then(({ data }) => {
-        if (data) setMySkills(data);
-      });
-  }, [user]);
 
   const openEditModal = () => {
     if (user) {
@@ -149,78 +137,15 @@ export default function Profile() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image must be under 2 MB');
-      return;
-    }
-
-    setIsUploadingAvatar(true);
-    try {
-      const ext = file.name.split('.').pop();
-      const path = `${user.id}/profile.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      updateUser({ avatar: publicUrl });
-      toast.success('Profile photo updated!');
-    } catch {
-      toast.error('Failed to upload photo');
-    } finally {
-      setIsUploadingAvatar(false);
-      e.target.value = '';
-    }
+    await avatarUpload.upload(file, user.id, `${user.id}/profile`, 'Profile photo updated!');
+    e.target.value = '';
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be under 5 MB');
-      return;
-    }
-
-    setIsUploadingCover(true);
-    try {
-      const ext = file.name.split('.').pop();
-      const path = `${user.id}/cover.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ cover_url: publicUrl })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      updateUser({ cover_url: publicUrl });
-      toast.success('Cover photo updated!');
-      setShowCoverPicker(false);
-    } catch {
-      toast.error('Failed to upload cover photo');
-    } finally {
-      setIsUploadingCover(false);
-      e.target.value = '';
-    }
+    await coverUpload.upload(file, user.id, `${user.id}/cover`, 'Cover photo updated!');
+    e.target.value = '';
   };
 
   const handleCoverPreset = async (gradient: string) => {
@@ -241,42 +166,16 @@ export default function Profile() {
   const handleIdUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be under 5 MB');
-      return;
+    const url = await idUpload.upload(file, user.id, `${user.id}/id`, 'ID submitted for review!');
+    if (url) {
+      // Also write id_card_status = 'pending' alongside the URL
+      await supabase.from('profiles').update({ id_card_status: 'pending' }).eq('id', user.id);
     }
-
-    setIsUploadingId(true);
-    try {
-      const ext = file.name.split('.').pop();
-      const path = `${user.id}/id.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('id-documents')
-        .upload(path, file, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ id_card_url: path, id_card_status: 'pending' })
-        .eq('id', user.id);
-
-      if (updateError) throw updateError;
-
-      updateUser({ id_card_status: 'pending' });
-      toast.success('ID submitted for review!');
-    } catch {
-      toast.error('Failed to upload ID');
-    } finally {
-      setIsUploadingId(false);
-      e.target.value = '';
-    }
+    e.target.value = '';
   };
 
   if (!user) return null;
 
-  const idStatus = ID_STATUS_LABEL[user.id_card_status || 'not_submitted'];
 
   return (
     <div className="profile-container-wrapper">
@@ -318,9 +217,9 @@ export default function Profile() {
           <button
             className="cover-change-btn"
             onClick={() => setShowCoverPicker(true)}
-            disabled={isUploadingCover}
+            disabled={coverUpload.uploading}
           >
-            {isUploadingCover
+            {coverUpload.uploading
               ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
               : <Camera className="w-3 h-3" />}
             Change cover
@@ -333,10 +232,10 @@ export default function Profile() {
               <button
                 className="card-avatar-edit-btn"
                 onClick={() => avatarInputRef.current?.click()}
-                disabled={isUploadingAvatar}
+                disabled={avatarUpload.uploading}
                 title="Change photo"
               >
-                {isUploadingAvatar
+                {avatarUpload.uploading
                   ? <div className="w-2.5 h-2.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                   : <Edit3 className="w-2.5 h-2.5 text-navy" />}
               </button>
@@ -447,10 +346,10 @@ export default function Profile() {
               {(!user.id_card_status || user.id_card_status === 'not_submitted' || user.id_card_status === 'rejected') && !user.id_verified && (
                 <button
                   onClick={() => idInputRef.current?.click()}
-                  disabled={isUploadingId}
+                  disabled={idUpload.uploading}
                   className="w-full mt-8 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all disabled:opacity-50"
                 >
-                  {isUploadingId ? (
+                  {idUpload.uploading ? (
                     <><div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" /> Uploading...</>
                   ) : (
                     <><Upload className="w-4 h-4" /> {user.id_card_status === 'rejected' ? 'Re-submit Government ID' : 'Submit ID for Verification'}</>

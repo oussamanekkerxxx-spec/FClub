@@ -24,6 +24,11 @@ export function uploadToCloudinary(
     );
   }
 
+  const MAX_BYTES = 100 * 1024 * 1024; // 100 MB
+  if (file.size > MAX_BYTES) {
+    return Promise.reject(new Error('File is too large. Maximum size is 100 MB.'));
+  }
+
   const resourceType = getResourceType(file);
   const endpoint = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/${resourceType}/upload`;
 

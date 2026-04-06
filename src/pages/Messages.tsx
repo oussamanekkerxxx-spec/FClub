@@ -3,24 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, ArrowLeft, MessageCircle, Loader2 } from 'lucide-react';
-
-interface Conversation {
-  id: string;
-  skill_id: string | null;
-  participant_ids: string[];
-  updated_at: string;
-  skill_title?: string;
-  other_user: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar: string;
-  };
-  last_message?: string;
-  last_message_at?: string;
-  unread_count: number;
-}
+import { Send, ArrowLeft, MessageCircle, Loader2, AlertCircle } from 'lucide-react';
+import { useConversations } from '@/hooks/useConversations';
 
 interface Message {
   id: string;
@@ -46,105 +30,27 @@ function dayLabel(dateStr: string): string {
 export default function Messages() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const { conversations, setConversations, loading, error } = useConversations(user?.id, user?.isDemo ?? false);
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
-  const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selected = conversations.find((c) => c.id === selectedConvId);
 
-  // Load conversations
+  // Auto-select conversation from URL param or default to first
   useEffect(() => {
-    if (!user || user.id === 'demo-user-bypass') {
-      setLoading(false);
-      return;
+    if (conversations.length === 0) return;
+    const convParam = searchParams.get('conv');
+    if (convParam && conversations.some(c => c.id === convParam)) {
+      setSelectedConvId(convParam);
+      setMobileView('chat');
+    } else if (!selectedConvId) {
+      setSelectedConvId(conversations[0].id);
     }
-
-    const fetchConversations = async () => {
-      const { data: convs } = await supabase
-        .from('conversations')
-        .select('id, skill_id, participant_ids, updated_at')
-        .contains('participant_ids', [user.id])
-        .order('updated_at', { ascending: false });
-
-      if (!convs || convs.length === 0) {
-        setLoading(false);
-        return;
-      }
-
-      // Get other participant profiles and skill titles
-      const otherIds = convs.map(c =>
-        c.participant_ids.find((pid: string) => pid !== user.id) || c.participant_ids[0]
-      );
-      const skillIds = convs.filter(c => c.skill_id).map(c => c.skill_id);
-
-      const [profilesRes, skillsRes, messagesRes] = await Promise.all([
-        supabase.from('profiles').select('id, first_name, last_name, avatar_url').in('id', otherIds),
-        skillIds.length > 0
-          ? supabase.from('skills').select('id, title').in('id', skillIds)
-          : Promise.resolve({ data: [] }),
-        supabase
-          .from('messages')
-          .select('conversation_id, content, created_at')
-          .in('conversation_id', convs.map(c => c.id))
-          .order('created_at', { ascending: false }),
-      ]);
-
-      const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
-      const skillMap = new Map((skillsRes.data || []).map(s => [s.id, s]));
-
-      // Get latest message per conversation
-      const latestMsgMap = new Map<string, any>();
-      (messagesRes.data || []).forEach(m => {
-        if (!latestMsgMap.has(m.conversation_id)) {
-          latestMsgMap.set(m.conversation_id, m);
-        }
-      });
-
-      const mapped: Conversation[] = convs.map(c => {
-        const otherId = c.participant_ids.find((pid: string) => pid !== user.id) || c.participant_ids[0];
-        const profile = profileMap.get(otherId);
-        const skill = c.skill_id ? skillMap.get(c.skill_id) : null;
-        const latestMsg = latestMsgMap.get(c.id);
-
-        return {
-          id: c.id,
-          skill_id: c.skill_id,
-          participant_ids: c.participant_ids,
-          updated_at: c.updated_at,
-          skill_title: skill?.title,
-          other_user: {
-            id: otherId,
-            firstName: profile?.first_name || 'Unknown',
-            lastName: profile?.last_name || '',
-            avatar: profile?.avatar_url || '',
-          },
-          last_message: latestMsg?.content,
-          last_message_at: latestMsg?.created_at || c.updated_at,
-          unread_count: 0,
-        };
-      });
-
-      setConversations(mapped);
-
-      // Auto-select from URL param
-      const convParam = searchParams.get('conv');
-      if (convParam && mapped.some(c => c.id === convParam)) {
-        setSelectedConvId(convParam);
-        setMobileView('chat');
-      } else if (mapped.length > 0) {
-        setSelectedConvId(mapped[0].id);
-      }
-
-      setLoading(false);
-    };
-
-    fetchConversations();
-  }, [user, searchParams]);
+  }, [conversations, searchParams, selectedConvId]);
 
   // Load messages for selected conversation
   useEffect(() => {
@@ -233,6 +139,18 @@ export default function Messages() {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-6rem)]">
         <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--color-amber)' }} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-6rem)]">
+        <div className="text-center">
+          <AlertCircle className="w-10 h-10 mx-auto mb-3 text-red-400" />
+          <div className="font-heading text-lg text-navy mb-1">Could not load conversations</div>
+          <p className="text-sm font-body text-[var(--color-text-secondary)]">{error}</p>
+        </div>
       </div>
     );
   }

@@ -76,11 +76,6 @@ export default function MemberProfile() {
   const [notFound, setNotFound] = useState(false);
   const [messaging, setMessaging] = useState(false);
 
-  // Redirect to own profile
-  if (id === user?.id) {
-    return <Navigate to="/app/profile" replace />;
-  }
-
   useEffect(() => {
     if (!id) return;
     Promise.all([
@@ -106,7 +101,7 @@ export default function MemberProfile() {
   }, [id]);
 
   const handleMessage = async () => {
-    if (!user || user.id === 'demo-user-bypass' || !member) {
+    if (!user || user.isDemo || !member) {
       toast.error('Sign in to message members');
       return;
     }
@@ -140,6 +135,11 @@ export default function MemberProfile() {
 
     navigate(`/app/messages?conv=${newConv.id}`);
   };
+
+  // Redirect to own profile (after all hooks)
+  if (id === user?.id) {
+    return <Navigate to="/app/profile" replace />;
+  }
 
   if (isLoading) {
     return (

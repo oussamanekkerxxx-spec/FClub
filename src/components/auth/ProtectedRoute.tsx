@@ -26,9 +26,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const publicPaths = ['/verify-email', '/onboarding'];
   const isPublicPath = publicPaths.some(path => location.pathname.startsWith(path));
   
-  const isDemoUser = user?.id === 'demo-user-bypass';
-
-  if (!isEmailVerified && !isPublicPath && !isDemoUser) {
+  if (!isEmailVerified && !isPublicPath && !user?.isDemo) {
     // Redirect to verify email page with user's email
     return <Navigate to="/verify-email" state={{ email: location.state?.email }} replace />;
   }

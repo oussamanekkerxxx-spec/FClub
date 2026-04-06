@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, X, Check, Clock, MessageCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Users, X, Check, Clock, MessageCircle, AlertCircle, Loader2 } from 'lucide-react';
 import type { ClubProject, ProjectApplication } from './ProjectBubble';
 
 // Extended type dynamically assigned by the parent query

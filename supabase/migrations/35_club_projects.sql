@@ -1,4 +1,3 @@
--- 35_club_projects.sql
 
 -- 1. club_projects
 CREATE TABLE IF NOT EXISTS club_projects (

@@ -5,23 +5,11 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 import { Users, MapPin, Mic2, ArrowRight, Globe, Lock, Flame } from 'lucide-react';
+import { CATEGORY_GRADIENTS } from '@/constants/categories';
 
 interface Props {
   className?: string;
 }
-
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  music:       'from-purple-600 to-pink-500',
-  languages:   'from-blue-500 to-cyan-400',
-  technology:  'from-indigo-600 to-blue-500',
-  cooking:     'from-orange-400 to-red-500',
-  art:         'from-amber-500 to-orange-600',
-  fitness:     'from-green-500 to-teal-400',
-  photography: 'from-slate-600 to-gray-700',
-  business:    'from-yellow-500 to-amber-500',
-  writing:     'from-violet-500 to-purple-600',
-  crafts:      'from-pink-500 to-rose-500',
-};
 
 const CATEGORY_EMOJIS: Record<string, string> = {
   music: '🎵', languages: '🌍', technology: '💻', cooking: '🍳',

@@ -128,6 +128,21 @@ npm run dev
 # http://localhost:5173
 ```
 
+### QA Seed Account (Complete Club Data)
+
+The local seed now includes a full club scenario for end-to-end manual testing:
+
+- Email: `oussama.nekker.xxx@gmail.com`
+- Password: `skillclub2025`
+- Seed file: `supabase/seeds/complete_account_oussama.sql`
+
+If you use local Supabase reset/seed flow, it loads:
+
+1. `supabase/seed.sql`
+2. `supabase/seeds/complete_account_oussama.sql`
+
+This fixture includes chat poll data, project cards + applications, events (workshop/sprint/showcase), quests, voice rooms, resources, playlists, unified requests, and leaderboard points.
+
 ### Build
 
 ```bash
@@ -155,6 +170,8 @@ For the email confirmation flow to work correctly:
 | `npm run build` | TypeScript check + production build |
 | `npm run preview` | Preview production build locally |
 | `npm run lint` | Run ESLint |
+| `npm run test` | Run all Vitest tests |
+| `npm run test:contracts` | Run contract/fixture tests only |
 
 ---
 

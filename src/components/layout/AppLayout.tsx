@@ -46,7 +46,16 @@ const TIER_ICONS: Record<TrustTier, React.ReactNode> = {
   4: <Sparkles className="w-2.5 h-2.5" />,
 };
 
-const navItems = [
+interface NavItem {
+  icon: React.FC<{ className?: string }>;
+  label: string;
+  path: string;
+  description: string;
+  hide?: boolean;
+  badge?: string | number;
+}
+
+const navItems: NavItem[] = [
   { icon: Flame,         label: 'Discover',     path: '/app/discover',  description: 'Find clubs & people' },
   { icon: Users,         label: 'Clubs',         path: '/app/discover',  description: 'All clubs in Morocco', hide: true },
   { icon: Search,        label: 'Browse Skills', path: '/app/browse',    description: 'Find a skill or a person' },
@@ -102,7 +111,7 @@ export default function AppLayout() {
             </div>
             <div>
               <span className="font-heading font-semibold text-base text-white tracking-wide">
-                FIGHTCLUB
+                FightClub
               </span>
             </div>
           </Link>
@@ -118,7 +127,7 @@ export default function AppLayout() {
         <div className="px-5 py-3 border-b border-white/8">
           <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span>Morocco · FIGHTCLUB</span>
+            <span>Morocco · FightClub</span>
           </div>
         </div>
 
@@ -152,12 +161,12 @@ export default function AppLayout() {
                     <div className="font-medium text-sm leading-none">{item.label}</div>
                     <div className="text-[11px] mt-0.5 text-white/35 leading-none truncate">{item.description}</div>
                   </div>
-                  {(item as any).badge && (
+                  {item.badge && (
                     <span
                       className="text-xs font-bold px-1.5 py-0.5 rounded-full text-white"
                       style={{ background: 'var(--color-amber)', fontSize: '10px' }}
                     >
-                      {(item as any).badge}
+                      {item.badge}
                     </span>
                   )}
                 </Link>

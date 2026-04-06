@@ -80,7 +80,7 @@ export default function Onboarding() {
   };
 
   const saveStep = async () => {
-    if (!user || user.id === 'demo-user-bypass') return true;
+    if (!user || user.isDemo) return true;
 
     if (step === 0) {
       const { error } = await supabase.from('profiles').upsert({
@@ -122,7 +122,7 @@ export default function Onboarding() {
   };
 
   const finishOnboarding = async () => {
-    if (!user || user.id === 'demo-user-bypass') { navigate('/app/welcome'); return; }
+    if (!user || user.isDemo) { navigate('/app/welcome'); return; }
     setSaving(true);
 
     // Upload avatar if selected
@@ -151,7 +151,7 @@ export default function Onboarding() {
     }
 
     updateUser({ onboarding_completed: true });
-    toast.success('Welcome to FIGHTCLUB!');
+    toast.success('Welcome to FightClub!');
     navigate('/app/welcome');
   };
 
@@ -178,7 +178,7 @@ export default function Onboarding() {
           <div className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm text-white" style={{ background: 'var(--color-amber)' }}>
             FC
           </div>
-          <span className="font-heading font-semibold text-navy text-lg">FIGHTCLUB</span>
+          <span className="font-heading font-semibold text-navy text-lg">FightClub</span>
         </div>
         <button
           onClick={() => navigate('/app/feed')}

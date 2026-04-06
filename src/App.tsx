@@ -27,6 +27,7 @@ const Browse      = lazy(() => import('./pages/Browse'));
 const Discover    = lazy(() => import('./pages/Discover'));
 const ClubHome    = lazy(() => import('./pages/ClubHome'));
 const ClubChat    = lazy(() => import('./pages/ClubChat'));
+const ProjectDetails = lazy(() => import('./pages/ProjectDetails'));
 const SkillDetail = lazy(() => import('./pages/SkillDetail'));
 const Messages    = lazy(() => import('./pages/Messages'));
 const Profile     = lazy(() => import('./pages/Profile'));
@@ -108,6 +109,7 @@ function AppRouter() {
             <Route path="room/:id"        element={<RoomChat />} />
             <Route path="admin"           element={<Admin />} />
             <Route path="club/:id/chat"   element={<ClubChat />} />
+            <Route path="club/:clubId/projects/:projectId" element={<ProjectDetails />} />
             <Route path="member/:id"      element={<MemberProfile />} />
             <Route path="settings"        element={<Settings />} />
             <Route path="welcome"         element={<Welcome />} />

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Link, Navigate } from 'react-router-dom';
@@ -14,30 +15,18 @@ import {
   Upload,
   X,
 } from 'lucide-react';
+import { CATEGORIES, CATEGORY_GRADIENTS } from '@/constants/categories';
+import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
+import { queryKeys } from '@/lib/queryKeys';
 
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  music: 'from-purple-500 to-pink-500',
-  languages: 'from-blue-500 to-cyan-400',
-  technology: 'from-indigo-500 to-blue-600',
-  cooking: 'from-orange-400 to-red-500',
-  art: 'from-pink-400 to-rose-500',
-  fitness: 'from-green-500 to-teal-400',
-  photography: 'from-slate-600 to-gray-800',
-  business: 'from-amber-500 to-yellow-400',
-  writing: 'from-violet-500 to-purple-600',
-};
-
-const CATEGORIES = [
-  { id: 'music', label: 'Music', emoji: '🎵' },
-  { id: 'languages', label: 'Languages', emoji: '🌍' },
-  { id: 'technology', label: 'Technology', emoji: '💻' },
-  { id: 'cooking', label: 'Cooking', emoji: '🍳' },
-  { id: 'art', label: 'Art & Craft', emoji: '🎨' },
-  { id: 'fitness', label: 'Fitness', emoji: '💪' },
-  { id: 'photography', label: 'Photography', emoji: '📷' },
-  { id: 'business', label: 'Business', emoji: '📊' },
-  { id: 'writing', label: 'Writing', emoji: '✍️' },
-];
+interface TeacherSkillSummary {
+  id: string;
+  title: string;
+  slug: string | null;
+  avg_rating: number;
+  reviews_count: number;
+  cover_gradient: string | null;
+}
 
 const STEPS = ['Basics', 'Description', 'Pricing', 'Media', 'Publish'];
 
@@ -56,12 +45,7 @@ const LEVEL_OPTIONS = [
 
 export default function Teach() {
   const { user } = useAuth();
-
-  // Gate: only users who completed onboarding can access the Teach page
-  if (user && !user.onboarding_completed && user.id !== 'demo-user-bypass') {
-    toast.error('Complete your profile setup before teaching.');
-    return <Navigate to="/app/profile" replace />;
-  }
+  const qc = useQueryClient();
 
   const [step, setStep] = useState(0);
   const [form, setForm] = useState({
@@ -83,7 +67,6 @@ export default function Teach() {
   });
   const [published, setPublished] = useState(false);
   const [publishing, setPublishing] = useState(false);
-  const [mySkills, setMySkills] = useState<any[]>([]);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -97,18 +80,20 @@ export default function Teach() {
     e.target.value = '';
   };
 
-  // Fetch user's active skills from Supabase
-  useEffect(() => {
-    if (!user || user.id === 'demo-user-bypass') return;
-    supabase
+  const { data: mySkills } = useSupabaseQuery<TeacherSkillSummary>(
+    queryKeys.skills.byTeacher(user?.id ?? ''),
+    () => supabase
       .from('skills')
       .select('id, title, slug, avg_rating, reviews_count, cover_gradient')
-      .eq('teacher_id', user.id)
-      .eq('is_active', true)
-      .then(({ data }) => {
-        if (data) setMySkills(data);
-      });
-  }, [user, published]);
+      .eq('teacher_id', user!.id)
+      .eq('is_active', true),
+    { enabled: !!user && !user.isDemo, errorMessage: false }
+  );
+
+  // Gate: only users who completed onboarding can access the Teach page
+  if (user && !user.onboarding_completed && !user.isDemo) {
+    return <Navigate to="/app/profile" replace />;
+  }
 
   const update = (key: string, value: unknown) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -141,7 +126,7 @@ export default function Teach() {
         </div>
         <h1 className="font-heading text-2xl text-navy">Your skill is live!</h1>
         <p className="font-body text-[var(--color-text-secondary)]">
-          <strong>{form.title}</strong> is now visible to the FIGHTCLUB community across Morocco.
+          <strong>{form.title}</strong> is now visible to the FightClub community across Morocco.
         </p>
         <div className="flex gap-3 justify-center">
           <button onClick={resetForm} className="px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold font-body text-navy hover:bg-parchment">
@@ -160,7 +145,7 @@ export default function Teach() {
       <div>
         <h1 className="font-heading text-2xl text-navy">Share a Skill</h1>
         <p className="font-body text-[var(--color-text-secondary)] mt-1 text-sm">
-          Tell the community what you know. Givers are the heart of FIGHTCLUB.
+          Tell the community what you know. Givers are the heart of FightClub.
         </p>
       </div>
 
@@ -417,11 +402,11 @@ export default function Teach() {
                 </div>
               </div>
               <p className="text-xs font-body text-[var(--color-text-secondary)] leading-relaxed">
-                By publishing, you agree to FIGHTCLUB's community guidelines. Your listing will be visible to all verified members across Morocco immediately.
+                By publishing, you agree to FightClub's community guidelines. Your listing will be visible to all verified members across Morocco immediately.
               </p>
               <button
                 onClick={async () => {
-                  if (!user || user.id === 'demo-user-bypass') { toast.error('Sign in to publish a skill'); return; }
+                  if (!user || user.isDemo) { toast.error('Sign in to publish a skill'); return; }
                   if (!form.title.trim()) { toast.error('Please add a skill title'); return; }
                   if (!form.category) { toast.error('Please select a category'); return; }
                   if (!form.description.trim()) { toast.error('Please write a description'); return; }
@@ -473,6 +458,7 @@ export default function Teach() {
 
                   setPublishing(false);
                   setPublished(true);
+                  void qc.invalidateQueries({ queryKey: queryKeys.skills.byTeacher(user!.id) });
                 }}
                 disabled={publishing}
                 className="w-full btn-amber justify-center disabled:opacity-50"

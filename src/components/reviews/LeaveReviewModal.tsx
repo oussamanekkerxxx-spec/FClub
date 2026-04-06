@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Star, X, Loader2 } from 'lucide-react';
+import type { Review } from '@/types/skills';
 
 const REVIEW_TAGS = ['Prepared', 'Patient', 'Expert', 'Encouraging', 'Creative', 'Helpful'];
 
@@ -10,7 +11,7 @@ interface Props {
   skillId: string;
   skillTitle: string;
   onClose: () => void;
-  onSubmitted: (review: any) => void;
+  onSubmitted: (review: Review) => void;
 }
 
 export default function LeaveReviewModal({ skillId, skillTitle, onClose, onSubmitted }: Props) {

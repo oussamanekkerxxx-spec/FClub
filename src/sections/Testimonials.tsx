@@ -22,7 +22,7 @@ const testimonials = [
     name: 'Karim Bensouda',
     role: 'Quest Lead',
     department: 'Code Builders Casablanca',
-    quote: 'We shipped a real open-source project through a Lumina quest. Four strangers from different cities, all connected through the club. That wouldn\'t have happened anywhere else.',
+    quote: 'We shipped a real open-source project through a FightClub quest. Four strangers from different cities, all connected through the club. That wouldn\'t have happened anywhere else.',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face',
   },
   {
@@ -83,7 +83,7 @@ export default function Testimonials({ className = '' }: TestimonialsProps) {
             Stories
           </div>
           <h2 className="font-heading font-bold text-3xl sm:text-4xl text-brand-text-primary">
-            From the Lumina community
+            From the FightClub community
           </h2>
         </div>
 

@@ -38,7 +38,7 @@ export default function JoinCTA({ className }: Props) {
       <div className="max-w-2xl mx-auto text-center">
 
         <div className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'var(--color-amber)' }}>
-          Join Lumina
+          Join FightClub
         </div>
 
         <h2 className="font-heading text-3xl sm:text-4xl text-white mb-4 leading-tight">

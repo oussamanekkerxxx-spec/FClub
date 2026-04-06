@@ -141,9 +141,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       if (s) {
+        // Only re-enter loading for a fresh SIGNED_IN where we haven't loaded
+        // this user yet (e.g. OAuth callback). TOKEN_REFRESHED / USER_UPDATED
+        // etc. must NOT flip isLoading=true — that causes an infinite spinner.
+        if (event === 'SIGNED_IN' && loadedUserIdRef.current !== s.user.id) {
+          setIsLoading(true);
+        }
         loadProfile(s).finally(() => setIsLoading(false));
       } else {
         setUser(null);

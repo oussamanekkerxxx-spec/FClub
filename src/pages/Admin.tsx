@@ -32,11 +32,12 @@ export default function Admin() {
   const [skillCount, setSkillCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  if (user?.role !== 'admin') {
-    return <Navigate to="/app/feed" replace />;
-  }
-
   useEffect(() => {
+    if (user?.role !== 'admin') {
+      setIsLoading(false);
+      return;
+    }
+
     async function fetchAdminData() {
       const [membersRes, skillsRes, pendingRes] = await Promise.all([
         supabase.from('profiles').select('id, first_name, last_name, avatar_url, trust_tier, trust_score, what_i_teach, created_at').order('created_at', { ascending: false }),
@@ -50,7 +51,11 @@ export default function Admin() {
       setIsLoading(false);
     }
     fetchAdminData();
-  }, []);
+  }, [user]);
+
+  if (user?.role !== 'admin') {
+    return <Navigate to="/app/feed" replace />;
+  }
 
   const verifiedCount = members.filter((m) => m.trust_tier >= 2).length;
 

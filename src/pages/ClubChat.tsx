@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+﻿import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -8,7 +8,7 @@ import {
   Plus, X, AlertCircle, Paperclip, Image as ImageIcon, FileText, BarChart2, Mic, Film, ExternalLink,
   Phone, Video, Search, MoreVertical, Pin, CheckCheck, BellOff, Info,
   Download, Share2, Calendar, Code2, PlayCircle, Trash2, Layers,
-  Reply, Edit2, CornerUpLeft, ArrowDown, ChevronDown, Check, MoreHorizontal,
+  Reply, Edit2, CornerUpLeft, ArrowDown, Check,
   Smile, PanelRightClose, PanelRightOpen, Users, MapPin, StopCircle, Settings, Clock,
   CornerDownRight, ChevronUp
 } from 'lucide-react';
@@ -20,6 +20,8 @@ import { ProjectBubble, type ClubProject } from '@/components/chat/ProjectBubble
 import { ProjectWizard, type ProjectWizardPayload } from '@/components/chat/ProjectWizard';
 import { ProjectApplicationForm, type ProjectApplicationPayload } from '@/components/chat/ProjectApplicationForm';
 import { ProjectApplicantsDashboard } from '@/components/chat/ProjectApplicantsDashboard';
+import type { ClubEvent } from '@/types/fightclub';
+import { extractFileNameFromUrl, normalizeHttpUrl } from '@/lib/safeUrl';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 export interface PollOption {
@@ -44,6 +46,23 @@ export interface Poll {
   multiple_answers: boolean;
   options?: PollOption[];
 }
+
+type EventMessagePayload = Pick<
+  ClubEvent,
+  | 'id'
+  | 'title'
+  | 'description'
+  | 'starts_at'
+  | 'format'
+  | 'event_style'
+  | 'meeting_link'
+  | 'location'
+  | 'duration_mins'
+  | 'rsvp_count'
+  | 'attendee_count'
+  | 'host_label'
+  | 'outcomes'
+>;
 
 interface Channel {
   id: string;
@@ -105,8 +124,172 @@ interface Message {
   reactions?: Reaction[];
   poll?: Poll | null;
   project?: ClubProject | null;
+  event_id?: string | null;
+  event?: EventMessagePayload | null;
   forwarded_from_id?: string | null;
   forwarded_from_name?: string | null;
+}
+
+type SelectError = { code?: string; message?: string } | null;
+
+const MESSAGE_BASE_FIELDS = `
+  id, channel_id, sender_id, content, image_url, video_url, pdf_url, voice_url, location_lat, location_lng,
+  created_at, reply_to_id, is_edited, deleted_at, caption, forwarded_from_id, forwarded_from_name
+`;
+
+const MESSAGE_RELATIONS_SELECT = `
+  sender:profiles!club_messages_sender_id_fkey(first_name, last_name, avatar_url),
+  reactions:message_reactions(id, user_id, emoji),
+  poll:polls(id, question, is_anonymous, multiple_answers, options:poll_options(id, text, votes:poll_votes(id, user_id)))
+`;
+
+const PROJECT_RELATIONS_SELECT = `
+  roles:project_roles(id, title, slots_needed),
+  skills:project_skills(id, skill_name),
+  applications:project_applications(id, user_id, role_id, experience, availability_hours, status),
+  meetings:project_meetings(id, scheduled_at, agenda, meeting_url, notes, status)
+`;
+
+const PROJECT_SELECT_MODERN = `
+  project:club_projects(
+    id, club_id, title, pitch, description, start_date, duration_weeks, hours_per_week, visibility, status, creator_id,
+    ${PROJECT_RELATIONS_SELECT}
+  )
+`;
+
+const PROJECT_SELECT_LEGACY = `
+  project:club_projects(
+    id, club_id, title, description, status, created_by, github_url, figma_url, notion_url, progress,
+    ${PROJECT_RELATIONS_SELECT}
+  )
+`;
+
+const EVENT_SELECT_MODERN = `
+  event:club_events!club_messages_event_id_fkey(
+    id, title, description, starts_at, format, event_style, meeting_link, location, duration_mins,
+    rsvp_count, attendee_count, host_label, outcomes
+  )
+`;
+
+const EVENT_SELECT_LEGACY = `
+  event:club_events!club_messages_event_id_fkey(
+    id, title, description, starts_at, format, meeting_link, location, duration_mins,
+    rsvp_count, attendee_count
+  )
+`;
+
+function buildMessageSelect({
+  includeEventId,
+  projectSchema,
+  eventSchema,
+}: {
+  includeEventId: boolean;
+  projectSchema: 'modern' | 'legacy' | null;
+  eventSchema: 'modern' | 'legacy' | null;
+}): string {
+  const parts = [
+    MESSAGE_BASE_FIELDS,
+    includeEventId ? 'event_id' : null,
+    MESSAGE_RELATIONS_SELECT,
+    projectSchema === 'modern'
+      ? PROJECT_SELECT_MODERN
+      : projectSchema === 'legacy'
+      ? PROJECT_SELECT_LEGACY
+      : null,
+    eventSchema === 'modern'
+      ? EVENT_SELECT_MODERN
+      : eventSchema === 'legacy'
+      ? EVENT_SELECT_LEGACY
+      : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(',\n      ');
+}
+
+const MESSAGE_SELECT_CANDIDATES = [
+  buildMessageSelect({ includeEventId: true, projectSchema: 'modern', eventSchema: 'modern' }),
+  buildMessageSelect({ includeEventId: true, projectSchema: 'modern', eventSchema: 'legacy' }),
+  buildMessageSelect({ includeEventId: true, projectSchema: 'legacy', eventSchema: 'modern' }),
+  buildMessageSelect({ includeEventId: true, projectSchema: 'legacy', eventSchema: 'legacy' }),
+  buildMessageSelect({ includeEventId: false, projectSchema: 'legacy', eventSchema: null }),
+  buildMessageSelect({ includeEventId: false, projectSchema: null, eventSchema: null }),
+];
+
+function isSchemaMismatchError(error: SelectError): boolean {
+  if (!error) return false;
+  if (error.code === '42703' || error.code === '42P01' || error.code === 'PGRST200' || error.code === 'PGRST204') {
+    return true;
+  }
+  return /column|relation|does not exist|could not find/i.test(error.message ?? '');
+}
+
+function unwrapRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function normaliseProject(projectValue: unknown): ClubProject | null {
+  const project = unwrapRelation(projectValue as Record<string, unknown> | Record<string, unknown>[] | null);
+  if (!project) return null;
+
+  const creatorId = typeof project.creator_id === 'string'
+    ? project.creator_id
+    : typeof project.created_by === 'string'
+    ? project.created_by
+    : '';
+
+  return {
+    ...(project as unknown as ClubProject),
+    id: typeof project.id === 'string' ? project.id : '',
+    club_id: typeof project.club_id === 'string' ? project.club_id : '',
+    title: typeof project.title === 'string' ? project.title : 'Untitled Project',
+    pitch: typeof project.pitch === 'string'
+      ? project.pitch
+      : typeof project.description === 'string'
+      ? project.description
+      : '',
+    description: typeof project.description === 'string' ? project.description : '',
+    visibility: typeof project.visibility === 'string' ? project.visibility : 'club',
+    status: typeof project.status === 'string' ? project.status : 'open',
+    creator_id: creatorId,
+  };
+}
+
+function normaliseEvent(eventValue: unknown): EventMessagePayload | null {
+  const event = unwrapRelation(eventValue as Record<string, unknown> | Record<string, unknown>[] | null);
+  if (!event || typeof event.id !== 'string' || typeof event.title !== 'string') return null;
+
+  return {
+    id: event.id,
+    title: event.title,
+    description: typeof event.description === 'string' || event.description === null ? event.description : null,
+    starts_at: typeof event.starts_at === 'string' ? event.starts_at : new Date().toISOString(),
+    format:
+      event.format === 'online' || event.format === 'in-person' || event.format === 'both'
+        ? event.format
+        : 'online',
+    event_style:
+      event.event_style === 'workshop' || event.event_style === 'sprint' || event.event_style === 'showcase'
+        ? event.event_style
+        : 'workshop',
+    meeting_link: typeof event.meeting_link === 'string' || event.meeting_link === null ? event.meeting_link : null,
+    location: typeof event.location === 'string' || event.location === null ? event.location : null,
+    duration_mins: typeof event.duration_mins === 'number' ? event.duration_mins : null,
+    rsvp_count: typeof event.rsvp_count === 'number' ? event.rsvp_count : 0,
+    attendee_count: typeof event.attendee_count === 'number' ? event.attendee_count : 0,
+    host_label: typeof event.host_label === 'string' || event.host_label === null ? event.host_label : null,
+    outcomes: typeof event.outcomes === 'string' || event.outcomes === null ? event.outcomes : null,
+  };
+}
+
+function normaliseMessageRow(row: Record<string, unknown>): Message {
+  return {
+    ...(row as unknown as Message),
+    sender: unwrapRelation(row.sender as Message['sender'] | Message['sender'][] | null) ?? undefined,
+    poll: unwrapRelation(row.poll as Poll | Poll[] | null),
+    project: normaliseProject(row.project),
+    event: normaliseEvent(row.event),
+  };
 }
 
 export default function ClubChat() {
@@ -114,7 +297,10 @@ export default function ClubChat() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const clubName = (location.state as any)?.clubName || 'Club Chat';
+  const locationState = (location.state as any) ?? {};
+  const clubName = locationState.clubName || 'Club Chat';
+  const focusChannelId = locationState.focusChannelId as string | undefined;
+  const focusMessageId = locationState.focusMessageId as string | undefined;
 
   const [loading, setLoading] = useState(true);
   const [isAdminOrMod, setIsAdminOrMod] = useState(false);
@@ -164,17 +350,16 @@ export default function ClubChat() {
   // ── Voice Recording State ────────────────────────────────────────────────
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
-  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Unread Counts ────────────────────────────────────────────────────────
   const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>({});
 
   // ── Typing Indicators ────────────────────────────────────────────────────
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
-  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Pinned Message ───────────────────────────────────────────────────────
   const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
@@ -206,7 +391,7 @@ export default function ClubChat() {
   const [isSilentSend, setIsSilentSend] = useState(false);
   
   // ── Long Press Logic ─────────────────────────────────────────────────────
-  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
 
   // ── Slow Mode tracking ───────────────────────────────────────────────────
@@ -227,6 +412,7 @@ export default function ClubChat() {
   const [evtDesc, setEvtDesc] = useState('');
   const [evtDate, setEvtDate] = useState('');
   const [evtOnline, setEvtOnline] = useState(true);
+  const [evtStyle, setEvtStyle] = useState<'workshop' | 'sprint' | 'showcase'>('workshop');
   const [evtLink, setEvtLink] = useState('');
   const [evtDuration, setEvtDuration] = useState('');
   const [savingEvent, setSavingEvent] = useState(false);
@@ -241,10 +427,16 @@ export default function ClubChat() {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const didFocusMessageRef = useRef(false);
 
   function parseMessageContent(text: string, query: string) {
     if (!text) return null;
-    let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    let escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
     
     if (query.trim()) {
       const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -259,7 +451,20 @@ export default function ClubChat() {
     escaped = escaped.replace(/`(.*?)`/g, '<code class="font-mono text-[13px] bg-black/10 px-1 rounded">$1</code>');
     escaped = escaped.replace(/\|\|(.*?)\|\|/g, '<span class="spoiler blur-sm hover:blur-none transition-all cursor-pointer select-none" title="Click to reveal">$1</span>');
     escaped = escaped.replace(/^&gt;\s(.+)$/gm, '<blockquote class="border-l-2 border-current opacity-70 pl-2 my-0.5 italic">$1</blockquote>');
-    escaped = escaped.replace(/((?:https?:\/\/)[^\s<]+)/g, '<a href="$1" target="_blank" class="text-blue-500 hover:underline break-all">$1</a>');
+    escaped = escaped.replace(/((?:https?:\/\/)[^\s<]+)/g, (rawUrl) => {
+      const urlValue = rawUrl
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+      const safeUrl = normalizeHttpUrl(urlValue);
+      if (!safeUrl) return rawUrl;
+
+      const escapedHref = safeUrl
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+      return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer nofollow" class="text-blue-500 hover:underline break-all">${rawUrl}</a>`;
+    });
 
     return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
   }
@@ -311,7 +516,10 @@ export default function ClubChat() {
 
       if (chans && chans.length > 0) {
         setChannels(chans);
-        setActiveChannelId(chans[0].id);
+        const preferredChannel = focusChannelId && chans.some(c => c.id === focusChannelId)
+          ? focusChannelId
+          : chans[0].id;
+        setActiveChannelId(preferredChannel);
 
         // Fetch unread counts for all channels in one pass
         const { data: reads } = await supabase
@@ -344,7 +552,10 @@ export default function ClubChat() {
             .select();
           if (seeded) {
             setChannels(seeded);
-            setActiveChannelId(seeded[0].id);
+            const preferredSeeded = focusChannelId && seeded.some(c => c.id === focusChannelId)
+              ? focusChannelId
+              : seeded[0].id;
+            setActiveChannelId(preferredSeeded);
           }
         }
       }
@@ -352,7 +563,7 @@ export default function ClubChat() {
     };
 
     init();
-  }, [clubId, user]);
+  }, [clubId, user, focusChannelId]);
 
   // ─── 2. Load messages when channel changes ────────────────────────────────
   useEffect(() => {
@@ -361,41 +572,39 @@ export default function ClubChat() {
       return;
     }
 
-    const MSG_SELECT = `
-      id, channel_id, sender_id, content, image_url, video_url, pdf_url, voice_url, location_lat, location_lng,
-      created_at, reply_to_id, is_edited, deleted_at, caption, forwarded_from_id, forwarded_from_name,
-      sender:profiles!club_messages_sender_id_fkey(first_name, last_name, avatar_url),
-      reactions:message_reactions(id, user_id, emoji),
-      poll:polls(id, question, is_anonymous, multiple_answers, options:poll_options(id, text, votes:poll_votes(id, user_id))),
-      project:club_projects(
-        id, club_id, title, pitch, description, start_date, duration_weeks, hours_per_week, visibility, status, creator_id,
-        roles:project_roles(id, title, slots_needed),
-        skills:project_skills(id, skill_name),
-        applications:project_applications(id, user_id, role_id, experience, availability_hours, status),
-        meetings:project_meetings(id, scheduled_at, agenda, meeting_url, notes, status)
-      )
-    `;
-
-    const normalise = (m: any): Message => ({
-      ...m,
-      sender: Array.isArray(m.sender) ? m.sender[0] : m.sender,
-      poll: Array.isArray(m.poll) ? m.poll[0] : m.poll,
-      project: Array.isArray(m.project) ? m.project[0] : m.project,
-    });
-
     const loadMessages = async () => {
-      const { data } = await supabase
-        .from('club_messages')
-        .select(MSG_SELECT)
-        .eq('channel_id', activeChannelId)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      let selectedData: Record<string, unknown>[] | null = null;
+      let lastError: SelectError = null;
 
-      if (data) {
-        const msgs = data.reverse().map(normalise);
-        setMessages(msgs);
-        setHasMore(data.length === 50);
+      for (const selectClause of MESSAGE_SELECT_CANDIDATES) {
+        const response = await supabase
+          .from('club_messages')
+          .select(selectClause)
+          .eq('channel_id', activeChannelId)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (!response.error) {
+          selectedData = (response.data ?? []) as unknown as Record<string, unknown>[];
+          break;
+        }
+
+        lastError = response.error;
+        if (!isSchemaMismatchError(response.error)) break;
       }
+
+      if (!selectedData) {
+        if (lastError) {
+          console.error('Failed to load club messages', lastError);
+        }
+        setMessages([]);
+        setHasMore(false);
+        return;
+      }
+
+      const msgs = selectedData.reverse().map(normaliseMessageRow);
+      setMessages(msgs);
+      setHasMore(selectedData.length === 50);
     };
 
     // Load pinned message for the active channel
@@ -441,6 +650,32 @@ export default function ClubChat() {
             .then(({ data: p }) => {
               if (p) setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, sender: p } : m));
             });
+
+          if (msg.event_id) {
+            const eventSelects = [
+              'id, title, description, starts_at, format, event_style, meeting_link, location, duration_mins, rsvp_count, attendee_count, host_label, outcomes',
+              'id, title, description, starts_at, format, meeting_link, location, duration_mins, rsvp_count, attendee_count',
+            ];
+
+            (async () => {
+              for (const eventSelect of eventSelects) {
+                const eventResponse = await supabase
+                  .from('club_events')
+                  .select(eventSelect)
+                  .eq('id', msg.event_id)
+                  .maybeSingle();
+
+                if (!eventResponse.error && eventResponse.data) {
+                  const normalizedEvent = normaliseEvent(eventResponse.data as unknown as Record<string, unknown>);
+                  if (!normalizedEvent) return;
+                  setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, event: normalizedEvent } : m));
+                  return;
+                }
+
+                if (!isSchemaMismatchError(eventResponse.error)) return;
+              }
+            })();
+          }
         }
       )
       .on(
@@ -552,6 +787,19 @@ export default function ClubChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  useEffect(() => {
+    if (!focusMessageId || didFocusMessageRef.current || messages.length === 0) return;
+    const target = document.querySelector(`[data-message-id="${focusMessageId}"]`) as HTMLElement | null;
+    if (!target) return;
+
+    didFocusMessageRef.current = true;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('ring-2', 'ring-amber-300', 'rounded-2xl');
+    setTimeout(() => {
+      target.classList.remove('ring-2', 'ring-amber-300', 'rounded-2xl');
+    }, 1400);
+  }, [focusMessageId, messages]);
+
   // Auto-expand textarea — reset to auto first so shrinking works correctly
   useEffect(() => {
     const el = textareaRef.current;
@@ -579,36 +827,32 @@ export default function ClubChat() {
     const area = messagesAreaRef.current;
     const prevHeight = area?.scrollHeight ?? 0;
 
-    const { data } = await supabase
-      .from('club_messages')
-      .select(`
-        id, channel_id, sender_id, content, image_url, video_url, pdf_url, voice_url, location_lat, location_lng,
-        created_at, reply_to_id, is_edited, deleted_at, caption, forwarded_from_id, forwarded_from_name,
-        sender:profiles!club_messages_sender_id_fkey(first_name, last_name, avatar_url),
-        reactions:message_reactions(id, user_id, emoji),
-        poll:polls(id, question, is_anonymous, multiple_answers, options:poll_options(id, text, votes:poll_votes(id, user_id))),
-        project:club_projects(
-          id, club_id, title, pitch, description, start_date, duration_weeks, hours_per_week, visibility, status, creator_id,
-          roles:project_roles(id, title, slots_needed),
-          skills:project_skills(id, skill_name),
-          applications:project_applications(id, user_id, role_id, experience, availability_hours, status),
-          meetings:project_meetings(id, scheduled_at, agenda, meeting_url, notes, status)
-        )
-      `)
-      .eq('channel_id', activeChannelId)
-      .lt('created_at', oldest)
-      .order('created_at', { ascending: false })
-      .limit(50);
+    let selectedData: Record<string, unknown>[] | null = null;
 
-    if (data) {
-      const older = data.reverse().map((m: any) => ({
-        ...m,
-        sender: Array.isArray(m.sender) ? m.sender[0] : m.sender,
-        poll: Array.isArray(m.poll) ? m.poll[0] : m.poll,
-        project: Array.isArray(m.project) ? m.project[0] : m.project,
-      }));
+    for (const selectClause of MESSAGE_SELECT_CANDIDATES) {
+      const response = await supabase
+        .from('club_messages')
+        .select(selectClause)
+        .eq('channel_id', activeChannelId)
+        .lt('created_at', oldest)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (!response.error) {
+        selectedData = (response.data ?? []) as unknown as Record<string, unknown>[];
+        break;
+      }
+
+      if (!isSchemaMismatchError(response.error)) {
+        console.error('Failed to load older messages', response.error);
+        break;
+      }
+    }
+
+    if (selectedData) {
+      const older = selectedData.reverse().map(normaliseMessageRow);
       setMessages(prev => [...older, ...prev]);
-      setHasMore(data.length === 50);
+      setHasMore(selectedData.length === 50);
       requestAnimationFrame(() => {
         if (area) area.scrollTop = area.scrollHeight - prevHeight;
       });
@@ -762,9 +1006,8 @@ export default function ClubChat() {
 
   // ── Refresh project data in messages after any mutation ──────────────────
   const refreshProjectInMessages = async (projectId: string) => {
-    const { data: proj } = await supabase
-      .from('club_projects')
-      .select(`
+    const projectSelectCandidates = [
+      `
         id, club_id, title, pitch, description, start_date, duration_weeks, hours_per_week, visibility, status, creator_id,
         roles:project_roles(id, title, slots_needed),
         skills:project_skills(id, skill_name),
@@ -773,15 +1016,42 @@ export default function ClubChat() {
           user:profiles(first_name, last_name, avatar_url)
         ),
         meetings:project_meetings(id, scheduled_at, agenda, meeting_url, notes, status)
-      `)
-      .eq('id', projectId)
-      .single();
+      `,
+      `
+        id, club_id, title, description, status, created_by, github_url, figma_url, notion_url, progress,
+        roles:project_roles(id, title, slots_needed),
+        skills:project_skills(id, skill_name),
+        applications:project_applications(
+          id, user_id, role_id, experience, availability_hours, status,
+          user:profiles(first_name, last_name, avatar_url)
+        ),
+        meetings:project_meetings(id, scheduled_at, agenda, meeting_url, notes, status)
+      `,
+      'id, club_id, title, description, status, created_by',
+    ];
 
-    if (proj) {
+    let projectData: Record<string, unknown> | null = null;
+    for (const selectClause of projectSelectCandidates) {
+      const response = await supabase
+        .from('club_projects')
+        .select(selectClause)
+        .eq('id', projectId)
+        .single();
+
+      if (!response.error && response.data) {
+        projectData = response.data as unknown as Record<string, unknown>;
+        break;
+      }
+
+      if (!isSchemaMismatchError(response.error)) break;
+    }
+
+    const normalizedProject = projectData ? normaliseProject(projectData) : null;
+    if (normalizedProject) {
       setMessages(prev => prev.map(m =>
-        m.project?.id === projectId ? { ...m, project: proj as any } : m
+        m.project?.id === projectId ? { ...m, project: normalizedProject } : m
       ));
-      setViewingApplicants(prev => prev?.id === projectId ? (proj as any) : prev);
+      setViewingApplicants(prev => prev?.id === projectId ? normalizedProject : prev);
     }
   };
 
@@ -833,20 +1103,78 @@ export default function ClubChat() {
   const submitEventWizard = async () => {
     if (!evtTitle.trim() || !evtDate) { toast.error('Title and date are required'); return; }
     if (!activeChannelId || !user || !clubId) return;
+    const safeMeetingLink = normalizeHttpUrl(evtLink);
+    if (evtOnline && evtLink.trim() && !safeMeetingLink) {
+      toast.error('Meeting link must start with http:// or https://');
+      return;
+    }
+
     setSavingEvent(true);
     try {
-      await supabase.from('club_events').insert({
-        club_id: clubId, created_by: user.id, title: evtTitle.trim(),
-        description: evtDesc.trim() || null, starts_at: new Date(evtDate).toISOString(),
-        is_online: evtOnline, meeting_link: evtLink.trim() || null, duration_mins: evtDuration ? parseInt(evtDuration) : null,
-      });
-      await supabase.from('club_messages').insert({
-        channel_id: activeChannelId, sender_id: user.id,
-        content: `📅 Created an event: **${evtTitle.trim()}** on ${format(new Date(evtDate), 'MMMM d, yyyy')}${evtOnline && evtLink ? ' · ' + evtLink : ''}`,
-      });
+      const startsAtIso = new Date(evtDate).toISOString();
+      const eventPayload = {
+        club_id: clubId,
+        created_by: user.id,
+        title: evtTitle.trim(),
+        description: evtDesc.trim() || null,
+        starts_at: startsAtIso,
+        format: evtOnline ? 'online' : 'in-person',
+        is_online: evtOnline,
+        meeting_link: evtOnline ? safeMeetingLink : null,
+        duration_mins: evtDuration ? parseInt(evtDuration, 10) : null,
+        event_style: evtStyle,
+      };
+
+      let createdEvent: EventMessagePayload | null = null;
+
+      const firstAttempt = await supabase
+        .from('club_events')
+        .insert(eventPayload)
+        .select('id, title, description, starts_at, format, event_style, meeting_link, location, duration_mins, rsvp_count, attendee_count, host_label, outcomes')
+        .single();
+
+      if (firstAttempt.error?.code === '42703') {
+        const fallbackPayload = { ...eventPayload } as Record<string, unknown>;
+        delete fallbackPayload.event_style;
+        const fallbackAttempt = await supabase
+          .from('club_events')
+          .insert(fallbackPayload)
+          .select('id, title, description, starts_at, format, meeting_link, location, duration_mins, rsvp_count, attendee_count, host_label, outcomes')
+          .single();
+        if (fallbackAttempt.error) throw fallbackAttempt.error;
+        createdEvent = {
+          ...(fallbackAttempt.data as Omit<EventMessagePayload, 'event_style'>),
+          event_style: evtStyle,
+        };
+      } else if (firstAttempt.error) {
+        throw firstAttempt.error;
+      } else {
+        createdEvent = firstAttempt.data as EventMessagePayload;
+      }
+
+      const messagePayload: Record<string, unknown> = {
+        channel_id: activeChannelId,
+        sender_id: user.id,
+        content: `Created an event: **${evtTitle.trim()}** on ${format(new Date(evtDate), 'MMMM d, yyyy')}`,
+      };
+      if (createdEvent?.id) messagePayload.event_id = createdEvent.id;
+
+      let messageInsert = await supabase.from('club_messages').insert(messagePayload);
+      if (messageInsert.error?.code === '42703' && messagePayload.event_id) {
+        delete messagePayload.event_id;
+        messageInsert = await supabase.from('club_messages').insert(messagePayload);
+      }
+      if (messageInsert.error) throw messageInsert.error;
+
       toast.success('Event created and shared!');
       setShowEventWizard(false);
-      setEvtTitle(''); setEvtDesc(''); setEvtDate(''); setEvtOnline(true); setEvtLink(''); setEvtDuration('');
+      setEvtTitle('');
+      setEvtDesc('');
+      setEvtDate('');
+      setEvtOnline(true);
+      setEvtStyle('workshop');
+      setEvtLink('');
+      setEvtDuration('');
     } catch (e: any) { toast.error('Failed: ' + (e?.message ?? 'error')); }
     finally { setSavingEvent(false); }
   };
@@ -933,7 +1261,7 @@ export default function ClubChat() {
       recordingTimerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-    } catch (err) {
+    } catch {
       toast.error('Microphone access denied.');
     }
   };
@@ -942,7 +1270,6 @@ export default function ClubChat() {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
-      setAudioBlob(null);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     }
   };
@@ -966,8 +1293,7 @@ export default function ClubChat() {
             content: 'Voice Message',
             voice_url: result.url
           });
-          setAudioBlob(null);
-        } catch (err) {
+        } catch {
           toast.error('Failed to send voice message.');
         } finally {
           setSending(false);
@@ -1479,9 +1805,40 @@ export default function ClubChat() {
 
                 // ── spacing: tight within a group, open between groups ──
                 const marginTopClass = isGroupFirst && i !== 0 ? 'mt-4' : 'mt-[3px]';
+                const eventStyle = msg.event?.event_style ?? 'workshop';
+                const eventTone =
+                  eventStyle === 'sprint'
+                    ? {
+                        badge: 'Sprint',
+                        banner: isOwn
+                          ? 'from-indigo-500/70 to-violet-600/70'
+                          : 'from-indigo-50 to-violet-100',
+                        border: isOwn ? 'border-white/15' : 'border-indigo-200/70',
+                        text: isOwn ? 'text-white' : 'text-indigo-900',
+                        subtle: isOwn ? 'text-white/75' : 'text-indigo-700/80',
+                      }
+                    : eventStyle === 'showcase'
+                      ? {
+                          badge: 'Showcase',
+                          banner: isOwn
+                            ? 'from-emerald-500/70 to-teal-600/70'
+                            : 'from-emerald-50 to-teal-100',
+                          border: isOwn ? 'border-white/15' : 'border-emerald-200/70',
+                          text: isOwn ? 'text-white' : 'text-emerald-900',
+                          subtle: isOwn ? 'text-white/75' : 'text-emerald-700/80',
+                        }
+                      : {
+                          badge: 'Workshop',
+                          banner: isOwn
+                            ? 'from-amber-500/70 to-orange-600/70'
+                            : 'from-amber-50 to-orange-100',
+                          border: isOwn ? 'border-white/15' : 'border-amber-200/70',
+                          text: isOwn ? 'text-white' : 'text-amber-900',
+                          subtle: isOwn ? 'text-white/75' : 'text-amber-700/80',
+                        };
 
                 return (
-                  <div key={msg.id} data-message-id={msg.id} className="flex flex-col">
+                  <div key={msg.id} id={`message-${msg.id}`} data-message-id={msg.id} className="flex flex-col">
 
                     {/* Date Divider */}
                     {showDateDivider && (
@@ -1641,22 +1998,26 @@ export default function ClubChat() {
                           )}
 
                           {/* PDF */}
-                          {msg.pdf_url && (
-                            <a
-                              href={msg.pdf_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium shadow-sm max-w-xs ${bubbleRadius}
-                                ${isOwn
-                                  ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-indigo-500/10'
-                                  : 'bg-white text-navy border border-[var(--color-border)]'
-                                }`}
-                            >
-                              <FileText className={`w-4 h-4 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-red-400'}`} />
-                              <span className="truncate">{decodeURIComponent(msg.pdf_url.split('/').pop() ?? 'document.pdf')}</span>
-                              <ExternalLink className="w-3 h-3 opacity-60 flex-shrink-0" />
-                            </a>
-                          )}
+                          {(() => {
+                            const safePdfUrl = normalizeHttpUrl(msg.pdf_url);
+                            if (!safePdfUrl) return null;
+                            return (
+                              <a
+                                href={safePdfUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium shadow-sm max-w-xs ${bubbleRadius}
+                                  ${isOwn
+                                    ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-indigo-500/10'
+                                    : 'bg-white text-navy border border-[var(--color-border)]'
+                                  }`}
+                              >
+                                <FileText className={`w-4 h-4 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-red-400'}`} />
+                                <span className="truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</span>
+                                <ExternalLink className="w-3 h-3 opacity-60 flex-shrink-0" />
+                              </a>
+                            );
+                          })()}
 
                           {/* Voice */}
                           {msg.voice_url && (
@@ -1712,6 +2073,61 @@ export default function ClubChat() {
                             </div>
                           )}
 
+                          {/* Event Bubble */}
+                          {msg.event && (
+                            <div className={`w-[280px] overflow-hidden border shadow-sm ${bubbleRadius} ${eventTone.border} ${isOwn ? 'bg-slate-900/70' : 'bg-white'}`}>
+                              <div className={`bg-gradient-to-r ${eventTone.banner} px-3 py-2 flex items-center justify-between`}>
+                                <span className={`text-[10px] uppercase tracking-wide font-bold ${eventTone.text}`}>
+                                  {eventTone.badge}
+                                </span>
+                                <span className={`text-[11px] font-semibold ${eventTone.subtle}`}>
+                                  {format(new Date(msg.event.starts_at), 'MMM d • HH:mm')}
+                                </span>
+                              </div>
+                              <div className="px-3 py-2.5 space-y-1.5">
+                                <h4 className={`text-[14px] font-bold leading-tight ${eventTone.text}`}>
+                                  {msg.event.title}
+                                </h4>
+                                {msg.event.description && (
+                                  <p className={`text-[12px] leading-relaxed line-clamp-2 ${eventTone.subtle}`}>
+                                    {msg.event.description}
+                                  </p>
+                                )}
+                                <div className={`text-[11px] font-medium ${eventTone.subtle}`}>
+                                  {msg.event.format === 'online' ? 'Online' : msg.event.format === 'both' ? 'Hybrid' : 'In person'}
+                                  {msg.event.duration_mins ? ` • ${msg.event.duration_mins} min` : ''}
+                                  {msg.event.location ? ` • ${msg.event.location}` : ''}
+                                </div>
+                                <div className="flex items-center gap-2 pt-1">
+                                  <button
+                                    onClick={() => navigate(`/app/club/${clubId}?tab=events&event=${msg.event?.id}`)}
+                                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                                      isOwn
+                                        ? 'bg-white/20 text-white hover:bg-white/30'
+                                        : 'bg-[var(--color-navy)] text-white hover:opacity-90'
+                                    }`}
+                                  >
+                                    See details
+                                  </button>
+                                  {(() => {
+                                    const safeMeetingLink = normalizeHttpUrl(msg.event?.meeting_link);
+                                    if (!safeMeetingLink) return null;
+                                    return (
+                                      <a
+                                        href={safeMeetingLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`text-[11px] font-semibold hover:underline ${eventTone.text}`}
+                                      >
+                                        Join link
+                                      </a>
+                                    );
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {/* Poll */}
                           {msg.poll && (
                             <div className={`flex flex-col shadow-sm w-[260px] p-3 ${bubbleRadius} ${isOwn ? 'bg-gradient-to-br from-orange-500 to-amber-600 text-white' : 'bg-white text-navy border border-[var(--color-border)]'}`}>
@@ -1763,7 +2179,7 @@ export default function ClubChat() {
                           )}
 
                           {/* Text */}
-                          {msg.content && !msg.poll && !msg.project && msg.content !== 'Voice Message' && msg.content !== 'Shared Location' && (
+                          {msg.content && !msg.poll && !msg.project && !msg.event && msg.content !== 'Voice Message' && msg.content !== 'Shared Location' && (
                             <div
                               className={`px-3.5 py-2 text-[15px] font-body leading-[1.45] shadow-sm break-words ${bubbleRadius}
                                 ${isOwn
@@ -1788,7 +2204,7 @@ export default function ClubChat() {
                           )}
 
                           {/* Media-only / project timestamp */}
-                          {(!msg.content || msg.poll || msg.project || msg.content === 'Voice Message' || msg.content === 'Shared Location' || msg.image_url || msg.video_url || msg.pdf_url) && (!msg.content || msg.poll || msg.project || msg.content === 'Voice Message' || msg.content === 'Shared Location') && (
+                          {(!msg.content || msg.poll || msg.project || msg.event || msg.content === 'Voice Message' || msg.content === 'Shared Location' || msg.image_url || msg.video_url || msg.pdf_url) && (!msg.content || msg.poll || msg.project || msg.event || msg.content === 'Voice Message' || msg.content === 'Shared Location') && (
                             <div className={`flex items-center gap-1 text-[10px] select-none px-1 mt-0.5 justify-end w-full ${isOwn ? 'text-[var(--color-text-muted)]' : 'text-gray-400'}`}>
                               {msg.is_edited && <span className="opacity-70 italic mr-0.5">edited</span>}
                               {format(msgDate, 'h:mm a')}
@@ -1996,7 +2412,17 @@ export default function ClubChat() {
                             <Code2 className="w-4 h-4 text-blue-500" /> Share Project
                           </button>
                           <button
-                            onClick={() => { setShowAttachMenu(false); setEvtTitle(''); setShowEventWizard(true); }}
+                            onClick={() => {
+                              setShowAttachMenu(false);
+                              setEvtTitle('');
+                              setEvtDesc('');
+                              setEvtDate('');
+                              setEvtOnline(true);
+                              setEvtStyle('workshop');
+                              setEvtLink('');
+                              setEvtDuration('');
+                              setShowEventWizard(true);
+                            }}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
                           >
                             <Calendar className="w-4 h-4 text-green-500" /> Create Event
@@ -2171,17 +2597,20 @@ export default function ClubChat() {
             )}
             {sharedMediaTab === 'files' && (
               <div className="space-y-2">
-                {messages.filter(m => m.pdf_url).length === 0
+                {messages.map(m => ({ message: m, safePdfUrl: normalizeHttpUrl(m.pdf_url) })).filter(item => item.safePdfUrl).length === 0
                   ? <p className="text-center text-[13px] text-[var(--color-text-muted)] py-8">No files shared.</p>
-                  : messages.filter(m => m.pdf_url).map(m => (
-                    <a key={m.id} href={m.pdf_url!} target="_blank" rel="noopener noreferrer"
+                  : messages
+                    .map(m => ({ message: m, safePdfUrl: normalizeHttpUrl(m.pdf_url) }))
+                    .filter((item): item is { message: Message; safePdfUrl: string } => !!item.safePdfUrl)
+                    .map(({ message, safePdfUrl }) => (
+                    <a key={message.id} href={safePdfUrl} target="_blank" rel="noopener noreferrer"
                       className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors border border-transparent hover:border-[var(--color-border)]">
                       <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
                         <FileText className="w-5 h-5 text-red-500" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-navy truncate">{decodeURIComponent(m.pdf_url!.split('/').pop() ?? 'document.pdf')}</p>
-                        <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(m.created_at), 'MMM d, yyyy')}</p>
+                        <p className="text-[13px] font-medium text-navy truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</p>
+                        <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(message.created_at), 'MMM d, yyyy')}</p>
                       </div>
                     </a>
                   ))
@@ -2519,6 +2948,22 @@ export default function ClubChat() {
             <div className="space-y-3">
               <input value={evtTitle} onChange={e => setEvtTitle(e.target.value)} placeholder="Event title *" className="w-full px-3 py-2.5 text-sm rounded-xl border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-green-400/30" />
               <textarea value={evtDesc} onChange={e => setEvtDesc(e.target.value)} rows={2} placeholder="Description (optional)" className="w-full px-3 py-2.5 text-sm rounded-xl border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-green-400/30 resize-none" />
+              <div className="grid grid-cols-3 gap-2">
+                {(['workshop', 'sprint', 'showcase'] as const).map(style => (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => setEvtStyle(style)}
+                    className={`px-2 py-2 rounded-xl border text-xs font-semibold capitalize transition-colors ${
+                      evtStyle === style
+                        ? 'border-green-400 bg-green-50 text-green-700'
+                        : 'border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-parchment'
+                    }`}
+                  >
+                    {style}
+                  </button>
+                ))}
+              </div>
               <input type="datetime-local" value={evtDate} onChange={e => setEvtDate(e.target.value)} className="w-full px-3 py-2.5 text-sm rounded-xl border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-green-400/30 bg-white" />
               <input value={evtDuration} onChange={e => setEvtDuration(e.target.value)} placeholder="Duration in minutes (optional)" type="number" min="1" className="w-full px-3 py-2.5 text-sm rounded-xl border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-green-400/30" />
               <label className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-[var(--color-border)] cursor-pointer hover:bg-parchment transition-colors">
@@ -2590,15 +3035,18 @@ export default function ClubChat() {
               )}
               {sharedMediaTab === 'files' && (
                 <div className="space-y-2">
-                  {messages.filter(m => m.pdf_url).length === 0
+                  {messages.map(m => ({ message: m, safePdfUrl: normalizeHttpUrl(m.pdf_url) })).filter(item => item.safePdfUrl).length === 0
                     ? <p className="text-center text-sm text-[var(--color-text-muted)] py-8">No files shared yet.</p>
-                    : messages.filter(m => m.pdf_url).map(m => (
-                      <a key={m.id} href={m.pdf_url!} target="_blank" rel="noopener noreferrer"
+                    : messages
+                      .map(m => ({ message: m, safePdfUrl: normalizeHttpUrl(m.pdf_url) }))
+                      .filter((item): item is { message: Message; safePdfUrl: string } => !!item.safePdfUrl)
+                      .map(({ message, safePdfUrl }) => (
+                      <a key={message.id} href={safePdfUrl} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-3 p-3 rounded-xl border border-[var(--color-border)] hover:bg-parchment transition-colors">
                         <FileText className="w-5 h-5 text-red-400 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-navy truncate">{decodeURIComponent(m.pdf_url!.split('/').pop() ?? 'document.pdf')}</p>
-                          <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(m.created_at), 'MMM d, yyyy')}</p>
+                          <p className="text-sm font-medium text-navy truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</p>
+                          <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(message.created_at), 'MMM d, yyyy')}</p>
                         </div>
                         <ExternalLink className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
                       </a>
@@ -2655,3 +3103,4 @@ export default function ClubChat() {
     </div>
   );
 }
+

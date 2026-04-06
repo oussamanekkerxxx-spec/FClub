@@ -1,72 +1,20 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo, memo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import type { Club } from '@/types/fightclub';
+import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
+import { queryKeys } from '@/lib/queryKeys';
+import { CATEGORIES, CATEGORY_GRADIENTS, CATEGORY_COLORS } from '@/constants/categories';
 import {
-  Search, X, Users, MapPin, Lock, Globe, Flame,
-  TrendingUp, Sparkles,
+  Users, MapPin, Lock, Globe, Flame,
+  TrendingUp, Sparkles, AlertCircle, RefreshCw,
 } from 'lucide-react';
-import CreateClubModal from '@/components/clubs/CreateClubModal';
+import CreateClubModal from '@/components/club/CreateClubModal';
+import { SearchBar } from '@/components/ui/search-bar';
+import { CardSkeletonGrid } from '@/components/ui/card-skeleton';
 
-const CATEGORIES = [
-  { id: 'music',       label: 'Music',        emoji: '🎵' },
-  { id: 'languages',   label: 'Languages',    emoji: '🌍' },
-  { id: 'technology',  label: 'Technology',   emoji: '💻' },
-  { id: 'cooking',     label: 'Cooking',      emoji: '🍳' },
-  { id: 'art',         label: 'Art & Craft',  emoji: '🎨' },
-  { id: 'fitness',     label: 'Fitness',      emoji: '💪' },
-  { id: 'photography', label: 'Photography',  emoji: '📷' },
-  { id: 'business',    label: 'Business',     emoji: '📊' },
-  { id: 'writing',     label: 'Writing',      emoji: '✍️' },
-  { id: 'crafts',      label: 'Crafts',       emoji: '🧵' },
-  { id: 'events',            label: 'Events',                    emoji: '📅' },
-  { id: 'student',           label: 'Student',                   emoji: '🎓' },
-  { id: 'club_lounge',       label: 'Club Lounge',               emoji: '🛋️' },
-  { id: 'deve_sandbox',      label: 'Deve Sandbox',              emoji: '🛠️' },
-  { id: 'wellness_support',  label: 'Wellness & Support Room',   emoji: '🧘' },
-  { id: 'connection_lounge', label: 'Connection Lounge',         emoji: '🤝' },
-];
-
-const CATEGORY_GRADIENTS: Record<string, string> = {
-  music:       'from-purple-600 to-pink-500',
-  languages:   'from-blue-500 to-cyan-400',
-  technology:  'from-indigo-600 to-blue-500',
-  cooking:     'from-orange-400 to-red-500',
-  art:         'from-amber-500 to-orange-600',
-  fitness:     'from-green-500 to-teal-400',
-  photography: 'from-slate-600 to-gray-700',
-  business:    'from-yellow-500 to-amber-500',
-  writing:     'from-violet-500 to-purple-600',
-  crafts:      'from-pink-500 to-rose-500',
-  events:            'from-orange-500 to-red-600',
-  student:           'from-blue-400 to-indigo-600',
-  club_lounge:       'from-rose-400 to-orange-300',
-  deve_sandbox:      'from-gray-700 to-gray-900',
-  wellness_support:  'from-teal-400 to-emerald-500',
-  connection_lounge: 'from-violet-400 to-fuchsia-500',
-};
-
-const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
-  music:       { bg: '#F3E8FF', text: '#7C3AED' },
-  languages:   { bg: '#E0F2FE', text: '#0369A1' },
-  technology:  { bg: '#EEF2FF', text: '#4338CA' },
-  cooking:     { bg: '#FEF3C7', text: '#D97706' },
-  art:         { bg: '#FFF0F0', text: '#DC2626' },
-  fitness:     { bg: '#DCFCE7', text: '#16A34A' },
-  photography: { bg: '#F1F5F9', text: '#475569' },
-  business:    { bg: '#FEF9C3', text: '#CA8A04' },
-  writing:     { bg: '#EDE9FE', text: '#6D28D9' },
-  crafts:      { bg: '#FDF2F8', text: '#BE185D' },
-  events:            { bg: '#FFEDD5', text: '#EA580C' },
-  student:           { bg: '#DBEAFE', text: '#2563EB' },
-  club_lounge:       { bg: '#FFE4E6', text: '#E11D48' },
-  deve_sandbox:      { bg: '#F3F4F6', text: '#374151' },
-  wellness_support:  { bg: '#CCFBF1', text: '#0D9488' },
-  connection_lounge: { bg: '#F3E8FF', text: '#9333EA' },
-};
-
-function ClubCard({ club, myMembershipIds }: { club: Club; myMembershipIds: Set<string> }) {
+const ClubCard = memo(function ClubCard({ club, myMembershipIds }: { club: Club; myMembershipIds: Set<string> }) {
   const gradient = club.cover_gradient ?? CATEGORY_GRADIENTS[club.category] ?? 'from-blue-500 to-purple-600';
   const catColor = CATEGORY_COLORS[club.category] ?? { bg: '#F4F0E8', text: '#5C3D8F' };
   const isMember = myMembershipIds.has(club.id);
@@ -152,34 +100,37 @@ function ClubCard({ club, myMembershipIds }: { club: Club; myMembershipIds: Set<
       </div>
     </Link>
   );
-}
+});
 
 export default function Discover() {
   const { user } = useAuth();
-  const [clubs, setClubs] = useState<Club[]>([]);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showPrivate, setShowPrivate] = useState<'all' | 'public' | 'private'>('all');
-  const [myMembershipIds, setMyMembershipIds] = useState<Set<string>>(new Set());
   const [isCreateClubModalOpen, setIsCreateClubModalOpen] = useState(false);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
-  useEffect(() => {
-    Promise.all([
-      supabase.from('clubs').select('*').order('member_count', { ascending: false }),
-      user
-        ? supabase.from('club_memberships').select('club_id').eq('user_id', user.id).eq('status', 'active')
-        : Promise.resolve({ data: [] }),
-    ]).then(([clubsRes, memRes]) => {
-      if (clubsRes.data) setClubs(clubsRes.data);
-      const ids = new Set<string>((memRes.data ?? []).map((m: any) => m.club_id));
-      setMyMembershipIds(ids);
-      setLoading(false);
-    });
-  }, [user]);
+  const { data: clubs, loading: clubsLoading, error: clubsError, refetch } = useSupabaseQuery<Club>(
+    queryKeys.clubs.list(),
+    () => supabase.from('clubs').select('*').order('member_count', { ascending: false }),
+    { errorMessage: 'Failed to load clubs' }
+  );
+
+  const { data: membershipRows, loading: memLoading } = useSupabaseQuery<{ club_id: string }>(
+    queryKeys.memberships.mine(user?.id ?? ''),
+    () => supabase.from('club_memberships').select('club_id').eq('user_id', user!.id).eq('status', 'active'),
+    { enabled: !!user, errorMessage: false }
+  );
+
+  const loading = clubsLoading || memLoading;
+  const error = clubsError;
+
+  const myMembershipIds = useMemo(
+    () => new Set(membershipRows.map(m => m.club_id)),
+    [membershipRows]
+  );
 
   const filtered = useMemo(() => {
     return clubs.filter(c => {
@@ -255,22 +206,11 @@ export default function Discover() {
       )}
 
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5" style={{ color: 'var(--color-text-muted)' }} />
-        <input
-          type="text"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          placeholder="Search clubs, topics, tags…"
-          className="input-sc pl-12 py-3.5 text-base"
-          style={{ background: 'white', fontSize: '15px' }}
-        />
-        {search && (
-          <button onClick={() => setSearch('')} className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-gray-100">
-            <X className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-          </button>
-        )}
-      </div>
+      <SearchBar
+        value={search}
+        onChange={setSearch}
+        placeholder="Search clubs, topics, tags…"
+      />
 
       {/* Category chips */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mt-4">
@@ -311,21 +251,22 @@ export default function Discover() {
         ))}
       </div>
 
-      {/* Results */}
-      {loading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl overflow-hidden border border-[var(--color-border)] animate-pulse">
-              <div className="h-28 bg-gray-200" />
-              <div className="p-4 space-y-3">
-                <div className="h-3 bg-gray-200 rounded w-3/4" />
-                <div className="h-2 bg-gray-100 rounded w-full" />
-                <div className="h-2 bg-gray-100 rounded w-full" />
-              </div>
-            </div>
-          ))}
+      {/* Error state */}
+      {error && !loading && (
+        <div className="sc-card p-8 text-center">
+          <AlertCircle className="w-8 h-8 mx-auto mb-3 text-red-400" />
+          <p className="text-sm font-semibold text-navy mb-1">Could not load clubs</p>
+          <p className="text-xs text-[var(--color-text-secondary)] mb-4">{error?.message}</p>
+          <button onClick={refetch} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-amber)] hover:underline">
+            <RefreshCw className="w-3.5 h-3.5" /> Try again
+          </button>
         </div>
-      ) : recommended.length === 0 ? (
+      )}
+
+      {/* Results */}
+      {!error && loading ? (
+        <CardSkeletonGrid count={6} variant="club" />
+      ) : !error && recommended.length === 0 ? (
         <div className="sc-card p-12 text-center">
           <Sparkles className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--color-amber)' }} />
           <div className="font-heading text-navy text-lg mb-2">

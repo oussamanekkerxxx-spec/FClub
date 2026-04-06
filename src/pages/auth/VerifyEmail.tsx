@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Mail, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { errMsg } from '@/lib/errors';
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -92,8 +93,8 @@ export default function VerifyEmail() {
         toast.success('Email verified successfully!');
         setTimeout(() => navigate('/onboarding'), 1500);
       }
-    } catch (err: any) {
-      setError(err.message || 'Invalid verification code. Please try again.');
+    } catch (err) {
+      setError(errMsg(err) || 'Invalid verification code. Please try again.');
       setCode(['', '', '', '', '', '']);
       inputRefs.current[0]?.focus();
     } finally {
@@ -114,8 +115,8 @@ export default function VerifyEmail() {
       if (resendError) throw resendError;
 
       toast.success('Verification code resent! Check your inbox.');
-    } catch (err: any) {
-      setError(err.message || 'Could not resend code. Please try again.');
+    } catch (err) {
+      setError(errMsg(err) || 'Could not resend code. Please try again.');
     } finally {
       setIsResending(false);
     }

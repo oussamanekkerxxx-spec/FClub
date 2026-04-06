@@ -1,50 +1,23 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 
 /**
  * Handles the OAuth callback from Supabase (PKCE flow).
- * Supabase redirects here with ?code=... after Google OAuth.
- * The Supabase client exchanges the code for a session, then we
- * redirect to onboarding (new users) or feed (returning users).
+ *
+ * NOTE: No "handled" ref guard here — React StrictMode mounts→unmounts→remounts
+ * in dev, and a guard on the first mount would leave the second (real) mount
+ * with no listener, causing an infinite spinner.
+ *
+ * Instead we use a `cancelled` flag that is set on cleanup, so any in-flight
+ * async work from a superseded mount is safely discarded.
  */
 export default function AuthCallback() {
   const navigate = useNavigate();
-  const handled = useRef(false);
 
   useEffect(() => {
-    if (handled.current) return;
-    handled.current = true;
-
-    const handleCallback = async () => {
-      // Supabase automatically exchanges the code from the URL when
-      // detectSessionInUrl is true (the default). We just need to wait
-      // for the session to be available.
-      const { data, error } = await supabase.auth.getSession();
-
-      if (error || !data.session) {
-        // Exchange may not have happened yet — listen for the auth state change
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-          if (event === 'SIGNED_IN' && session) {
-            subscription.unsubscribe();
-            redirectAfterAuth(session.user.id);
-          } else if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
-            subscription.unsubscribe();
-            navigate('/login?error=oauth_failed', { replace: true });
-          }
-        });
-
-        // Timeout fallback — if nothing happens in 10s, send to login
-        setTimeout(() => {
-          subscription.unsubscribe();
-          navigate('/login?error=oauth_timeout', { replace: true });
-        }, 10000);
-        return;
-      }
-
-      redirectAfterAuth(data.session.user.id);
-    };
+    let cancelled = false;
 
     const redirectAfterAuth = async (userId: string) => {
       const { data: profile } = await supabase
@@ -53,6 +26,8 @@ export default function AuthCallback() {
         .eq('id', userId)
         .maybeSingle();
 
+      if (cancelled) return; // component unmounted or StrictMode re-cycle
+
       if (!profile || !profile.onboarding_completed) {
         navigate('/onboarding', { replace: true });
       } else {
@@ -60,7 +35,33 @@ export default function AuthCallback() {
       }
     };
 
-    handleCallback();
+    // Subscribe before anything else so we never miss the session event:
+    //   • PKCE exchange already done  → INITIAL_SESSION fires with session
+    //   • PKCE exchange still pending → SIGNED_IN fires once it completes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+        subscription.unsubscribe();
+        clearTimeout(timeout);
+        redirectAfterAuth(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        subscription.unsubscribe();
+        clearTimeout(timeout);
+        if (!cancelled) navigate('/login?error=oauth_failed', { replace: true });
+      }
+      // INITIAL_SESSION with null = exchange still in progress, keep waiting
+    });
+
+    // Safety net — if nothing resolves in 10 s, bail to login
+    const timeout = setTimeout(() => {
+      subscription.unsubscribe();
+      if (!cancelled) navigate('/login?error=oauth_timeout', { replace: true });
+    }, 10000);
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [navigate]);
 
   return (

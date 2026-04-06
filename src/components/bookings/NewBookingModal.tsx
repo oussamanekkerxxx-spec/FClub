@@ -47,7 +47,7 @@ export default function NewBookingModal({ skill, isOpen, onClose }: Props) {
   };
 
   const handleSubmit = async () => {
-    if (!user || user.id === 'demo-user-bypass') {
+    if (!user || user.isDemo) {
       toast.error('Sign in to request a session');
       return;
     }

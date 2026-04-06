@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import NewBookingModal from '@/components/bookings/NewBookingModal';
 import LeaveReviewModal from '@/components/reviews/LeaveReviewModal';
+import type { Skill, Review } from '@/types/skills';
+import { mapSkillRow, type SkillRow } from '@/mappers/skills';
 import {
   Star,
   MapPin,
@@ -27,68 +29,23 @@ const LEVEL_LABELS: Record<string, string> = {
   advanced: '🚀 Advanced practitioners',
 };
 
-interface SkillData {
-  id: string;
-  slug: string;
-  teacher_id: string;
-  title: string;
-  category: 'music' | 'languages' | 'technology' | 'cooking' | 'art' | 'fitness' | 'crafts' | 'writing' | 'photography' | 'business';
-  description: string;
-  philosophy: string;
-  who_for: string;
-  what_session_looks_like: string;
-  price_per_hour: number;
-  currency: string;
-  format: 'online' | 'in-person' | 'both';
-  location: string;
-  neighborhood: string;
-  languages: string[];
-  level: 'all levels' | 'beginner' | 'intermediate' | 'advanced';
-  avg_rating: number;
-  reviews_count: number;
-  tags: string[];
-  cover_gradient: string;
-  cover_image_url: string | null;
-  is_group: boolean;
-  max_headcount: number | null;
-  current_headcount: number;
-  availability_note: string | null;
-  status: 'active' | 'paused';
-  created_at: string;
-  teacher: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar: string;
-    bio: string;
-    location: string;
-    city: string;
-    trust_tier: 0 | 1 | 2 | 3 | 4;
-    trust_score: number;
-    archetype: 'giver' | 'seeker' | 'connector' | 'mixed';
-    what_i_teach: string[];
-    what_i_learn: string[];
-    languages: string[];
-    sessions_completed: number;
-    reviews_count: number;
-    joined_at: string;
-  };
-}
-
-interface ReviewData {
+interface ReviewRow {
   id: string;
   rating: number;
   content: string;
-  tags: string[];
+  tags: string[] | null;
   created_at: string;
-  reviewer: {
+  profiles: {
     id: string;
-    firstName: string;
-    lastName: string;
-    avatar: string;
-    city: string;
-  };
+    first_name: string;
+    last_name: string;
+    avatar_url: string | null;
+    city: string | null;
+  } | null;
 }
+
+// ReviewData is exported from @/types/skills as Review
+type ReviewData = Review;
 
 export default function SkillDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -96,7 +53,7 @@ export default function SkillDetail() {
   const { user } = useAuth();
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
-  const [skill, setSkill] = useState<SkillData | null>(null);
+  const [skill, setSkill] = useState<Skill | null>(null);
   const [skillReviews, setSkillReviews] = useState<ReviewData[]>([]);
   const [loading, setLoading] = useState(true);
   const [messagingTeacher, setMessagingTeacher] = useState(false);
@@ -120,29 +77,7 @@ export default function SkillDetail() {
           return;
         }
 
-        const p = data.profiles as any;
-        const mapped: SkillData = {
-          ...data,
-          tags: data.tags || [],
-          cover_gradient: data.cover_gradient || 'from-blue-500 to-purple-600',
-          cover_image_url: data.cover_image_url || null,
-          format: data.format || 'in-person',
-          languages: data.languages || [],
-          teacher: {
-            id: p?.id || '',
-            firstName: p?.first_name || '',
-            lastName: p?.last_name || '',
-            avatar: p?.avatar_url || '',
-            bio: p?.bio || '',
-            location: p?.city ? `${p.city}${p?.neighborhood ? `, ${p.neighborhood}` : ''}` : p?.neighborhood || '',
-            city: p?.city || '',
-            trust_tier: p?.trust_tier || 0,
-            trust_score: p?.trust_score || 0,
-            sessions_completed: p?.sessions_completed || 0,
-            reviews_count: p?.reviews_count || 0,
-          },
-        };
-        setSkill(mapped);
+        setSkill(mapSkillRow(data as unknown as SkillRow));
 
         // Fetch reviews for this skill
         supabase
@@ -152,18 +87,18 @@ export default function SkillDetail() {
           .order('created_at', { ascending: false })
           .then(({ data: revData }) => {
             if (revData) {
-              const mappedReviews: ReviewData[] = revData.map((r: any) => ({
+              const mappedReviews: ReviewData[] = (revData as ReviewRow[]).map((r) => ({
                 id: r.id,
                 rating: r.rating,
                 content: r.content,
-                tags: r.tags || [],
+                tags: r.tags ?? [],
                 created_at: r.created_at,
                 reviewer: {
-                  id: r.profiles?.id || '',
-                  firstName: r.profiles?.first_name || '',
-                  lastName: r.profiles?.last_name || '',
-                  avatar: r.profiles?.avatar_url || '',
-                  city: r.profiles?.city || '',
+                  id: r.profiles?.id ?? '',
+                  firstName: r.profiles?.first_name ?? '',
+                  lastName: r.profiles?.last_name ?? '',
+                  avatar: r.profiles?.avatar_url ?? '',
+                  city: r.profiles?.city ?? '',
                 },
               }));
               setSkillReviews(mappedReviews);
@@ -174,7 +109,7 @@ export default function SkillDetail() {
   }, [slug]);
 
   const handleMessageTeacher = async () => {
-    if (!user || user.id === 'demo-user-bypass' || !skill) {
+    if (!user || user.isDemo || !skill) {
       toast.error('Sign in to message a teacher');
       return;
     }
@@ -215,7 +150,7 @@ export default function SkillDetail() {
   };
 
   const handleGroupEnroll = async () => {
-    if (!user || user.id === 'demo-user-bypass' || !skill) {
+    if (!user || user.isDemo || !skill) {
       toast.error('Sign in to join this group');
       return;
     }
