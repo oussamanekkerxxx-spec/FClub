@@ -97,8 +97,9 @@ function AppRouter() {
           {/* App Routes with Layout */}
           <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
             <Route index element={<Navigate to="/app/discover" replace />} />
-            <Route path="discover"        element={<Discover />} />
-            <Route path="feed"            element={<Feed />} />
+            <Route path="discover"        element={<Feed />} />
+            <Route path="feed"            element={<Navigate to="/app/discover" replace />} />
+            <Route path="clubs"           element={<Discover />} />
             <Route path="browse"          element={<Browse />} />
             <Route path="skill/:slug"     element={<SkillDetail />} />
             <Route path="messages"        element={<Messages />} />

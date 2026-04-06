@@ -161,8 +161,6 @@ export default function Discover() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-8">
-      <div id="clubs" className="h-0" aria-hidden="true" />
-
       {/* Header */}
       <div>
         <h1 className="font-heading text-2xl text-navy">
