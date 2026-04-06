@@ -47,6 +47,7 @@ const TIER_ICONS: Record<TrustTier, React.ReactNode> = {
 };
 
 interface NavItem {
+  id: string;
   icon: React.FC<{ className?: string }>;
   label: string;
   path: string;
@@ -56,13 +57,13 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { icon: Flame,         label: 'Discover',     path: '/app/discover',  description: 'Find clubs & people' },
-  { icon: Users,         label: 'Clubs',         path: '/app/discover',  description: 'All clubs in Morocco', hide: true },
-  { icon: Search,        label: 'Browse Skills', path: '/app/browse',    description: 'Find a skill or a person' },
-  { icon: Map,           label: 'City Board',    path: '/app/board',     description: 'Community board' },
-  { icon: MessageCircle, label: 'Messages',      path: '/app/messages',  description: 'Your conversations' },
-  { icon: BookOpen,      label: 'Teach',         path: '/app/teach',     description: 'Share what you know' },
-  { icon: User,          label: 'My Profile',    path: '/app/profile',   description: 'Your member card' },
+  { id: 'discover', icon: Flame,         label: 'Discover',     path: '/app/discover',        description: 'Find clubs & people' },
+  { id: 'clubs',    icon: Users,         label: 'Clubs',        path: '/app/discover#clubs',  description: 'All clubs in Morocco' },
+  { id: 'browse',   icon: Search,        label: 'Browse Skills', path: '/app/browse',         description: 'Find a skill or a person' },
+  { id: 'board',    icon: Map,           label: 'City Board',    path: '/app/board',          description: 'Community board' },
+  { id: 'messages', icon: MessageCircle, label: 'Messages',      path: '/app/messages',       description: 'Your conversations' },
+  { id: 'teach',    icon: BookOpen,      label: 'Teach',         path: '/app/teach',          description: 'Share what you know' },
+  { id: 'profile',  icon: User,          label: 'My Profile',    path: '/app/profile',        description: 'Your member card' },
 ].filter(i => !i.hide);
 
 export default function AppLayout() {
@@ -135,11 +136,20 @@ export default function AppLayout() {
         <nav className="flex-1 overflow-y-auto py-4 px-3">
           <div className="space-y-0.5">
             {navItems.map((item) => {
-              const isActive = location.pathname.startsWith(item.path) ||
-                (item.path === '/app/discover' && location.pathname.startsWith('/club/'));
+              const onDiscover = location.pathname.startsWith('/app/discover');
+              const onClubRoute = location.pathname.startsWith('/club/');
+              const onClubsHash = location.hash === '#clubs';
+
+              const isActive =
+                item.id === 'discover'
+                  ? onDiscover && !onClubsHash
+                  : item.id === 'clubs'
+                  ? onClubRoute || (onDiscover && onClubsHash)
+                  : location.pathname.startsWith(item.path);
+
               return (
                 <Link
-                  key={item.path}
+                  key={item.id}
                   to={item.path}
                   onClick={() => setIsSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
