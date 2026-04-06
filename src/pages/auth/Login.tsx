@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -30,6 +30,8 @@ export default function Login() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
   const [isSendingReset, setIsSendingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
@@ -38,10 +40,20 @@ export default function Login() {
   const hasDemoCredentials = Boolean(demoEmail && demoPassword);
   const resetRedirectTo =
     import.meta.env.VITE_AUTH_PASSWORD_RESET_REDIRECT_URL?.trim() ||
-    `${window.location.origin}/login?reset=true`;
+    `${window.location.origin}/login`;
   
   // Get the intended destination or default to feed
   const from = location.state?.from?.pathname || '/app/discover';
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+
+    const timeout = window.setTimeout(() => {
+      setResendCooldown((prev) => Math.max(prev - 1, 0));
+    }, 1000);
+
+    return () => window.clearTimeout(timeout);
+  }, [resendCooldown]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,6 +116,10 @@ export default function Login() {
 
   const handleSendResetLink = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (resetSent && resendCooldown > 0) {
+      setError(`Please wait ${resendCooldown}s before resending.`);
+      return;
+    }
     setIsSendingReset(true);
     setError('');
     const safeEmail = normalizeEmail(forgotEmail);
@@ -115,9 +131,8 @@ export default function Login() {
 
       let resetError = firstAttempt.error;
       if (resetError) {
-        const status = getAuthErrorStatus(resetError);
-        // Retry once without redirectTo for projects that don't allow local URLs yet.
-        if (status === 500 || isRedirectConfigError(resetError)) {
+        // Retry once without redirectTo only for redirect-configuration problems.
+        if (isRedirectConfigError(resetError)) {
           const fallbackAttempt = await supabase.auth.resetPasswordForEmail(safeEmail);
           resetError = fallbackAttempt.error;
         }
@@ -126,16 +141,24 @@ export default function Login() {
       if (resetError) throw resetError;
 
       toast.success('Password reset link sent! Check your email.');
-      setForgotEmail('');
-      setShowForgotPassword(false);
+      setForgotEmail(safeEmail);
+      setResetSent(true);
+      setResendCooldown(30);
     } catch (err) {
       const status = getAuthErrorStatus(err);
       reportError('login.password_reset_failed', err, { status, resetRedirectTo });
+      const msg = errMsg(err).toLowerCase();
 
       if (status === 500) {
-        setError('Reset email failed on the server. Check Supabase Auth email and redirect settings, then try again.');
+        setError('Server error. Please try again in a few moments.');
+      } else if (status === 429 || msg.includes('rate limit') || msg.includes('too many')) {
+        setError('Too many attempts. Please wait before trying again.');
+      } else if (msg.includes('email') && msg.includes('not found')) {
+        setError('No account found with this email address.');
+      } else if (isRedirectConfigError(err)) {
+        setError('Reset link redirect is not allowed. Please contact support or try again later.');
       } else {
-        setError(errMsg(err) || 'Could not send reset link. Please try again.');
+        setError('Could not send reset link. Please try again.');
       }
     } finally {
       setIsSendingReset(false);
@@ -265,13 +288,25 @@ export default function Login() {
                 </div>
               </div>
 
+              {resetSent && (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-sm text-emerald-700">
+                  Reset link sent. If you do not see it, check spam and resend after cooldown.
+                </div>
+              )}
+
               <div className="space-y-3 pt-2">
                 <button
                   type="submit"
                   className="w-full btn-amber justify-center"
-                  disabled={isSendingReset}
+                  disabled={isSendingReset || (resetSent && resendCooldown > 0)}
                 >
-                  {isSendingReset ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Send Reset Link'}
+                  {isSendingReset ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : resetSent ? (
+                    resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Reset Link'
+                  ) : (
+                    'Send Reset Link'
+                  )}
                 </button>
 
                 <button
@@ -280,6 +315,8 @@ export default function Login() {
                     setShowForgotPassword(false);
                     setForgotEmail('');
                     setError('');
+                    setResetSent(false);
+                    setResendCooldown(0);
                   }}
                   className="w-full text-sm font-medium text-[var(--color-navy)] hover:text-[var(--color-amber)] transition-colors"
                 >
