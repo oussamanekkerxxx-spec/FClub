@@ -4,7 +4,23 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { errMsg } from '@/lib/errors';
+import { errMsg, normalizeEmail, reportError } from '@/lib/errors';
+
+function getAuthErrorStatus(err: unknown): number | null {
+  if (!err || typeof err !== 'object') return null;
+  const status = (err as { status?: unknown }).status;
+  return typeof status === 'number' ? status : null;
+}
+
+function isRedirectConfigError(err: unknown): boolean {
+  const message = errMsg(err).toLowerCase();
+  return (
+    message.includes('redirect') ||
+    message.includes('redirect_to') ||
+    message.includes('site url') ||
+    message.includes('allowed')
+  );
+}
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -17,17 +33,24 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const demoEmail = import.meta.env.VITE_DEMO_EMAIL;
+  const demoPassword = import.meta.env.VITE_DEMO_PASSWORD;
+  const hasDemoCredentials = Boolean(demoEmail && demoPassword);
+  const resetRedirectTo =
+    import.meta.env.VITE_AUTH_PASSWORD_RESET_REDIRECT_URL?.trim() ||
+    `${window.location.origin}/login?reset=true`;
   
   // Get the intended destination or default to feed
-  const from = location.state?.from?.pathname || '/app/feed';
+  const from = location.state?.from?.pathname || '/app/discover';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    const safeEmail = normalizeEmail(email);
 
     try {
-      await login(email, password);
+      await login(safeEmail, password);
       toast.success('Welcome back to the club!');
       navigate(from, { replace: true });
     } catch (err) {
@@ -36,7 +59,7 @@ export default function Login() {
         setError('We couldn\'t find an account with those details. Want to join instead?');
       } else if (msg.includes('email') && msg.includes('not confirmed')) {
         toast.info('Please verify your email before logging in');
-        navigate('/verify-email', { state: { email } });
+        navigate('/verify-email', { state: { email: safeEmail } });
       } else {
         setError(msg || 'Something went wrong. Please try again.');
       }
@@ -47,11 +70,16 @@ export default function Login() {
 
   const handleDemoSignIn = async (e: React.MouseEvent) => {
     e.preventDefault();
+    if (!hasDemoCredentials) {
+      setError('Demo account is not configured for this environment.');
+      return;
+    }
     setIsLoading(true);
     try {
-      await login('demo@fightclub.test', 'bypass');
+      await login(demoEmail!, demoPassword!);
       navigate(from, { replace: true });
-    } catch {
+    } catch (err) {
+      reportError('login.demo_sign_in_failed', err);
       setError('Demo login failed.');
     } finally {
       setIsLoading(false);
@@ -78,19 +106,37 @@ export default function Login() {
     e.preventDefault();
     setIsSendingReset(true);
     setError('');
+    const safeEmail = normalizeEmail(forgotEmail);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(forgotEmail, {
-        redirectTo: window.location.origin + '/login?reset=true',
+      const firstAttempt = await supabase.auth.resetPasswordForEmail(safeEmail, {
+        redirectTo: resetRedirectTo,
       });
 
-      if (error) throw error;
+      let resetError = firstAttempt.error;
+      if (resetError) {
+        const status = getAuthErrorStatus(resetError);
+        // Retry once without redirectTo for projects that don't allow local URLs yet.
+        if (status === 500 || isRedirectConfigError(resetError)) {
+          const fallbackAttempt = await supabase.auth.resetPasswordForEmail(safeEmail);
+          resetError = fallbackAttempt.error;
+        }
+      }
+
+      if (resetError) throw resetError;
 
       toast.success('Password reset link sent! Check your email.');
       setForgotEmail('');
       setShowForgotPassword(false);
     } catch (err) {
-      setError(errMsg(err) || 'Could not send reset link. Please try again.');
+      const status = getAuthErrorStatus(err);
+      reportError('login.password_reset_failed', err, { status, resetRedirectTo });
+
+      if (status === 500) {
+        setError('Reset email failed on the server. Check Supabase Auth email and redirect settings, then try again.');
+      } else {
+        setError(errMsg(err) || 'Could not send reset link. Please try again.');
+      }
     } finally {
       setIsSendingReset(false);
     }
@@ -182,7 +228,7 @@ export default function Login() {
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Log In'}
               </button>
 
-              {import.meta.env.DEV && (
+              {import.meta.env.DEV && hasDemoCredentials && (
                 <button
                   type="button"
                   onClick={handleDemoSignIn}

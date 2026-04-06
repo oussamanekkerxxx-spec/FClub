@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { reportError } from '@/lib/errors';
 
 interface UploadOptions {
   bucket: string;
   /** Max file size in bytes. Defaults to 5 MB. */
   maxBytes?: number;
+  /** Allowed MIME types (e.g. image/png). If omitted, all MIME types are allowed. */
+  allowedMimeTypes?: string[];
+  /** Allowed filename extensions (without dot). Used as fallback when MIME is absent. */
+  allowedExtensions?: string[];
   /** Supabase profile field to update after upload (e.g. 'avatar_url') */
   profileField?: string;
   /** Called with the public URL after a successful upload */
@@ -24,7 +29,14 @@ interface UploadOptions {
  *     onSuccess: (url) => updateUser({ avatar: url }),
  *   });
  */
-export function useStorageUpload({ bucket, maxBytes = 5 * 1024 * 1024, profileField, onSuccess }: UploadOptions) {
+export function useStorageUpload({
+  bucket,
+  maxBytes = 5 * 1024 * 1024,
+  allowedMimeTypes,
+  allowedExtensions,
+  profileField,
+  onSuccess,
+}: UploadOptions) {
   const [uploading, setUploading] = useState(false);
 
   const upload = async (
@@ -38,11 +50,18 @@ export function useStorageUpload({ bucket, maxBytes = 5 * 1024 * 1024, profileFi
       toast.error(`File must be under ${Math.round(maxBytes / (1024 * 1024))} MB`);
       return null;
     }
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const mimeAllowed = !allowedMimeTypes || allowedMimeTypes.includes(file.type);
+    const extAllowed = !allowedExtensions || allowedExtensions.includes(ext);
+    if (!mimeAllowed && !extAllowed) {
+      toast.error('Unsupported file type.');
+      return null;
+    }
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop();
-      const path = `${pathPrefix}.${ext}`;
+      const safeExt = ext || 'bin';
+      const path = `${pathPrefix}.${safeExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from(bucket)
@@ -63,7 +82,8 @@ export function useStorageUpload({ bucket, maxBytes = 5 * 1024 * 1024, profileFi
       onSuccess?.(publicUrl);
       toast.success(successMessage);
       return publicUrl;
-    } catch {
+    } catch (err) {
+      reportError('storage.upload_failed', err, { bucket, pathPrefix });
       toast.error('Upload failed. Please try again.');
       return null;
     } finally {

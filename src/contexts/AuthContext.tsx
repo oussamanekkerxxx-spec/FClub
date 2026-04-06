@@ -165,12 +165,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true);
+    const demoEmail = import.meta.env.VITE_DEMO_EMAIL;
+    const demoPassword = import.meta.env.VITE_DEMO_PASSWORD;
 
-    if (import.meta.env.DEV && email === 'demo@fightclub.test' && password === 'bypass') {
+    if (import.meta.env.DEV && demoEmail && demoPassword && email === demoEmail && password === demoPassword) {
       // Demo bypass logic
       const demoUser: User = {
         id: 'demo-user-bypass',
-        email: 'demo@fightclub.test',
+        email: demoEmail,
         firstName: 'Demo',
         lastName: 'Fighter',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop',

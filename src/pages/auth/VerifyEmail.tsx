@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Mail, AlertCircle, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { errMsg } from '@/lib/errors';
+import { errMsg, normalizeEmail } from '@/lib/errors';
 
 export default function VerifyEmail() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export default function VerifyEmail() {
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Get email from location state
-  const email = location.state?.email || '';
+  const email = typeof location.state?.email === 'string' ? normalizeEmail(location.state.email) : '';
 
   // Redirect if no email provided
   if (!email && !verified) {

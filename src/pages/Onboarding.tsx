@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { MOROCCO_REGIONS } from '@/lib/morocco';
+import { reportError } from '@/lib/errors';
 
 const LANGUAGES = [
   { id: 'Arabic', label: 'Arabic', emoji: '🇲🇦' },
@@ -26,6 +27,30 @@ const STEPS = [
   { id: 'skills', question: 'What do you teach and learn?', subtext: 'You can add more any time from your profile.' },
   { id: 'photo', question: 'Add a profile photo', subtext: 'Members with photos get 3× more connections. You can skip for now.' },
 ];
+
+const ALLOWED_AVATAR_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'image/avif',
+]);
+
+const ALLOWED_AVATAR_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']);
+
+function dedupeSkills(list: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of list) {
+    const cleaned = raw.trim().replace(/\s+/g, ' ');
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(cleaned);
+  }
+  return out;
+}
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -67,6 +92,11 @@ export default function Onboarding() {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2 MB'); return; }
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type) && !ALLOWED_AVATAR_EXTENSIONS.has(ext)) {
+      toast.error('Unsupported image type. Use JPG, PNG, WEBP, GIF, or AVIF.');
+      return;
+    }
     setAvatarFile(file);
     setAvatarPreview(URL.createObjectURL(file));
     e.target.value = '';
@@ -89,7 +119,7 @@ export default function Onboarding() {
         last_name: fields.lastName.trim(),
         bio: fields.bio.trim() || null,
       }, { onConflict: 'id' });
-      if (error) { console.error('Onboarding step 0 error:', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      if (error) { reportError('onboarding.step_identity_save_failed', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
       updateUser({ firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), bio: fields.bio.trim() || undefined });
     }
 
@@ -100,21 +130,21 @@ export default function Onboarding() {
         region: fields.region,
         languages: fields.languages,
       }, { onConflict: 'id' });
-      if (error) { console.error('Onboarding step 1 error:', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      if (error) { reportError('onboarding.step_location_save_failed', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
       updateUser({ city: fields.city.trim(), region: fields.region, location: fields.city.trim(), languages: fields.languages });
     }
 
     if (step === 2) {
-      const what_i_teach = [
+      const what_i_teach = dedupeSkills([
         ...fields.teachTags,
         ...fields.teachText.split(',').map(s => s.trim()).filter(Boolean),
-      ];
-      const what_i_learn = [
+      ]);
+      const what_i_learn = dedupeSkills([
         ...fields.learnTags,
         ...fields.learnText.split(',').map(s => s.trim()).filter(Boolean),
-      ];
+      ]);
       const { error } = await supabase.from('profiles').upsert({ id: user.id, what_i_teach, what_i_learn }, { onConflict: 'id' });
-      if (error) { console.error('Onboarding step 2 error:', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      if (error) { reportError('onboarding.step_skills_save_failed', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
       updateUser({ what_i_teach, what_i_learn });
     }
 
@@ -136,6 +166,8 @@ export default function Onboarding() {
         const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path);
         await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
         updateUser({ avatar: publicUrl });
+      } else {
+        reportError('onboarding.avatar_upload_failed', uploadErr);
       }
     }
 
@@ -144,7 +176,7 @@ export default function Onboarding() {
       .upsert({ id: user.id, onboarding_completed: true }, { onConflict: 'id' });
 
     if (error) {
-      console.error('Onboarding finish error:', error);
+      reportError('onboarding.finish_failed', error);
       toast.error(error.message || 'Could not complete setup. Please try again.');
       setSaving(false);
       return;

@@ -23,6 +23,25 @@ import {
 } from 'lucide-react';
 import '@/styles/ProfileCard.css';
 
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'];
+const ID_DOC_MIME_TYPES = [...IMAGE_MIME_TYPES, 'application/pdf'];
+const ID_DOC_EXTENSIONS = [...IMAGE_EXTENSIONS, 'pdf'];
+
+function parseUniqueCsv(value: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const part of value.split(',')) {
+    const cleaned = part.trim().replace(/\s+/g, ' ');
+    if (!cleaned) continue;
+    const key = cleaned.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(cleaned);
+  }
+  return out;
+}
+
 const COVER_GRADIENTS = [
   { label: 'Navy Glow',      value: 'linear-gradient(135deg,#1B2A4A 0%,#3a4b70 100%)' },
   { label: 'Amber Warmth',   value: 'linear-gradient(135deg,#C4873A 0%,#e0a358 100%)' },
@@ -63,16 +82,22 @@ export default function Profile() {
   const avatarUpload = useStorageUpload({
     bucket: 'avatars',
     maxBytes: 2 * 1024 * 1024,
+    allowedMimeTypes: IMAGE_MIME_TYPES,
+    allowedExtensions: IMAGE_EXTENSIONS,
     profileField: 'avatar_url',
     onSuccess: (url) => updateUser({ avatar: url }),
   });
   const coverUpload = useStorageUpload({
     bucket: 'avatars',
+    allowedMimeTypes: IMAGE_MIME_TYPES,
+    allowedExtensions: IMAGE_EXTENSIONS,
     profileField: 'cover_url',
     onSuccess: (url) => { updateUser({ cover_url: url }); setShowCoverPicker(false); },
   });
   const idUpload = useStorageUpload({
     bucket: 'id-documents',
+    allowedMimeTypes: ID_DOC_MIME_TYPES,
+    allowedExtensions: ID_DOC_EXTENSIONS,
     onSuccess: () => updateUser({ id_card_status: 'pending' }),
   });
   const [coverPickerTab, setCoverPickerTab] = useState<'gradients' | 'photos'>('gradients');
@@ -97,6 +122,9 @@ export default function Profile() {
   const handleSaveProfile = async () => {
     if (!user) return;
     setIsSaving(true);
+    const languages = parseUniqueCsv(editLanguages);
+    const whatITeach = parseUniqueCsv(editTeach);
+    const whatILearn = parseUniqueCsv(editLearn);
     try {
       const { error } = await supabase
         .from('profiles')
@@ -105,9 +133,9 @@ export default function Profile() {
           city: editCity || null,
           region: editRegion || null,
           phone: editPhone || null,
-          languages: editLanguages.split(',').map(l => l.trim()).filter(l => l),
-          what_i_teach: editTeach.split(',').map(s => s.trim()).filter(s => s),
-          what_i_learn: editLearn.split(',').map(s => s.trim()).filter(s => s),
+          languages,
+          what_i_teach: whatITeach,
+          what_i_learn: whatILearn,
         })
         .eq('id', user.id);
 
@@ -121,9 +149,9 @@ export default function Profile() {
           region: editRegion || undefined,
           location: editCity || undefined,
           phone: editPhone || undefined,
-          languages: editLanguages.split(',').map(l => l.trim()).filter(l => l),
-          what_i_teach: editTeach.split(',').map(s => s.trim()).filter(s => s),
-          what_i_learn: editLearn.split(',').map(s => s.trim()).filter(s => s),
+          languages,
+          what_i_teach: whatITeach,
+          what_i_learn: whatILearn,
         });
         setIsEditing(false);
       }

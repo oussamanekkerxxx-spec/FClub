@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { normalizeEmail, reportError } from '@/lib/errors';
 
 export default function Signup() {
   const [email, setEmail] = useState('');
@@ -14,10 +15,13 @@ export default function Signup() {
     if (!email.trim()) return;
     setIsLoading(true);
     setError('');
+    const safeEmail = normalizeEmail(email);
     try {
-      await supabase.from('waitlist').insert({ email: email.trim().toLowerCase() });
+      await supabase.from('waitlist').insert({ email: safeEmail });
+      setEmail(safeEmail);
       setSubmitted(true);
-    } catch {
+    } catch (err) {
+      reportError('signup.waitlist_insert_failed', err, { email: safeEmail });
       // Even if insert fails (e.g. duplicate), show success to avoid enumeration
       setSubmitted(true);
     } finally {
@@ -103,7 +107,7 @@ export default function Signup() {
           )}
 
           <p className="mt-8 text-[var(--color-text-secondary)] text-center">
-            Already have an account?{' '}
+            Already invited and activated?{' '}
             <Link to="/login" className="text-[var(--color-navy)] font-semibold hover:underline decoration-2 underline-offset-4">
               Log in here
             </Link>

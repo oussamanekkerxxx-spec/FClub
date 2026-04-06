@@ -48,3 +48,29 @@ export class AuthError extends Error {
 export function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : 'error';
 }
+
+/**
+ * Normalize user-entered emails to avoid casing/whitespace mismatch issues.
+ */
+export function normalizeEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+/**
+ * Lightweight error reporting helper.
+ * Uses Sentry when present and keeps console output in development.
+ */
+export function reportError(context: string, error: unknown, extra?: Record<string, unknown>): void {
+  try {
+    const sentry = (globalThis as { Sentry?: { captureException?: (...args: unknown[]) => void } }).Sentry;
+    if (sentry?.captureException) {
+      sentry.captureException(error, { tags: { context }, extra });
+    }
+  } catch {
+    // Never crash app flows while reporting errors.
+  }
+
+  if (import.meta.env.DEV) {
+    console.error(`[${context}]`, error, extra);
+  }
+}
