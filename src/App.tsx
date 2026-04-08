@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 // Landing Page Sections (always needed on first load — keep eager)
 import Navigation from './sections/Navigation';
@@ -130,6 +131,7 @@ function App() {
   return (
     <AuthProvider>
       <AppRouter />
+      <SpeedInsights />
     </AuthProvider>
   );
 }
