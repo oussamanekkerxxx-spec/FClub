@@ -1,330 +1,529 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import CreateClubModal from '@/components/club/CreateClubModal';
+import FeedActivityCard from '@/components/feed/FeedActivityCard';
+import FeedSkillSpotlightCard from '@/components/feed/FeedSkillSpotlightCard';
+import FeedStoryStrip from '@/components/feed/FeedStoryStrip';
+import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
+import { useFeedData } from '@/hooks/useFeedData';
+import { queryKeys } from '@/lib/queryKeys';
 import { supabase } from '@/lib/supabase';
-import { mapSkillRow, type SkillRow } from '@/mappers/skills';
-import type { Skill } from '@/types/skills';
+import type { Club } from '@/types/fightclub';
 import {
-  Sparkles,
   ArrowRight,
+  BookOpen,
+  Clock3,
+  Compass,
+  Flame,
+  Globe,
   MapPin,
-  Star,
-  Clock,
+  Plus,
   Search,
-  X,
+  Users,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
-type FeedSkill = Skill & { relevance: number };
+type FeedTab = 'for-you' | 'activity' | 'skills';
 
-interface FeedEvent {
-  id: string;
-  title: string;
-  subtitle?: string | null;
-  created_at: string;
-  profiles?: { avatar_url: string | null; first_name: string } | null;
-  skills?: { id: string; slug: string | null } | null;
+function buildTopics(skills: ReturnType<typeof useFeedData>['skills']) {
+  const counts = new Map<string, number>();
+
+  skills.forEach((skill) => {
+    if (skill.tags.length > 0) {
+      skill.tags.forEach((tag) => {
+        counts.set(`#${tag}`, (counts.get(`#${tag}`) ?? 0) + 1);
+      });
+      return;
+    }
+
+    counts.set(`#${skill.category}`, (counts.get(`#${skill.category}`) ?? 0) + 1);
+  });
+
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 4)
+    .map(([label, count]) => ({ label, count }));
 }
 
 export default function Feed() {
   const { user } = useAuth();
-  const [skills, setSkills] = useState<FeedSkill[]>([]);
-  const [feedEvents, setFeedEvents] = useState<FeedEvent[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [skillCount, setSkillCount] = useState(0);
-  const [, setDismissedIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<FeedTab>('for-you');
+  const [isCreateClubModalOpen, setIsCreateClubModalOpen] = useState(false);
+
+  const feedUser = useMemo(() => {
+    if (!user) return null;
+    return {
+      id: user.id,
+      isDemo: user.isDemo,
+      what_i_learn: user.what_i_learn,
+      location: user.location,
+      languages: user.languages,
+    };
+  }, [user]);
+
+  const { skills, feedEvents, loading, skillCount, dismissSkill } = useFeedData(feedUser);
+
+  const { data: clubs } = useSupabaseQuery<Club>(
+    queryKeys.clubs.list(),
+    () => supabase.from('clubs').select('*').order('member_count', { ascending: false }),
+    { errorMessage: false }
+  );
+
+  const { data: membershipRows } = useSupabaseQuery<{ club_id: string }>(
+    queryKeys.memberships.mine(user?.id ?? ''),
+    () => supabase.from('club_memberships').select('club_id').eq('user_id', user!.id).eq('status', 'active'),
+    { enabled: !!user, errorMessage: false }
+  );
+
+  const joinedClubIds = useMemo(
+    () => new Set(membershipRows.map((membership) => membership.club_id)),
+    [membershipRows]
+  );
+
+  const suggestedClubs = useMemo(
+    () => clubs.filter((club) => !joinedClubIds.has(club.id)).slice(0, 3),
+    [clubs, joinedClubIds]
+  );
+
+  const trendingTopics = useMemo(() => buildTopics(skills), [skills]);
+
+
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
 
   const handleDismiss = async (skillId: string) => {
     if (user?.isDemo) return;
-    setSkills(prev => prev.filter(s => s.id !== skillId));
-    setDismissedIds(prev => new Set(prev).add(skillId));
-    await supabase.from('dismissed_skills').insert({ user_id: user!.id, skill_id: skillId });
-    toast('Skill hidden from your feed');
+    try {
+      await dismissSkill(skillId);
+      toast('Skill hidden from your feed');
+    } catch {
+      toast.error('Could not hide this skill right now');
+    }
   };
 
-  useEffect(() => {
-    const dismissedPromise = user && !user.isDemo
-      ? supabase.from('dismissed_skills').select('skill_id').eq('user_id', user.id)
-      : Promise.resolve({ data: [] });
-
-    Promise.all([
-      supabase
-        .from('skills')
-        .select('*, profiles!skills_teacher_id_fkey(id, first_name, last_name, avatar_url, bio, neighborhood, city, trust_tier, trust_score, sessions_completed, reviews_count)')
-        .eq('is_active', true),
-      supabase
-        .from('feed_events')
-        .select('*, profiles!feed_events_member_id_fkey(id, first_name, last_name, avatar_url), skills!feed_events_skill_id_fkey(id, slug)')
-        .order('created_at', { ascending: false })
-        .limit(5),
-      dismissedPromise,
-    ]).then(([skillsRes, eventsRes, dismissedRes]) => {
-      const dismissed = new Set((dismissedRes.data ?? []).map((d: { skill_id: string }) => d.skill_id));
-      setDismissedIds(dismissed);
-
-      if (skillsRes.data) {
-        const userInterests = (user?.what_i_learn ?? []).map(s => s.toLowerCase());
-        const userNeighborhood = (user?.location ?? '').toLowerCase();
-        const userLanguages = (user?.languages ?? []).map(s => s.toLowerCase());
-
-        const mapped: FeedSkill[] = (skillsRes.data as SkillRow[])
-          .filter(s => !dismissed.has(s.id))
-          .map(s => {
-            const skill = mapSkillRow(s);
-            let relevance = 0;
-            const category = skill.category.toLowerCase();
-            const tags = skill.tags.map(t => t.toLowerCase());
-            const neighborhood = (s.neighborhood ?? s.location ?? '').toLowerCase();
-            const skillLangs = skill.languages.map(l => l.toLowerCase());
-
-            // +2 for category or tag matching user interests
-            if (userInterests.some(i => category.includes(i) || i.includes(category) || tags.some(t => t.includes(i) || i.includes(t)))) {
-              relevance += 2;
-            }
-            // +1 for same neighborhood
-            if (userNeighborhood && neighborhood && neighborhood === userNeighborhood) {
-              relevance += 1;
-            }
-            // +1 for language overlap
-            if (userLanguages.some(l => skillLangs.includes(l))) {
-              relevance += 1;
-            }
-
-            return { ...skill, relevance };
-          });
-
-        // Sort by relevance first, then recency
-        mapped.sort((a, b) => {
-          if (b.relevance !== a.relevance) return b.relevance - a.relevance;
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        });
-
-        setSkills(mapped);
-        setSkillCount(skillsRes.data.length);
-      }
-      if (eventsRes.data) {
-        setFeedEvents(eventsRes.data as FeedEvent[]);
-      }
-      setLoading(false);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.what_i_learn, user?.location, user?.languages]);
+  const stats = [
+    { label: 'Skills nearby', value: skillCount || '—', tone: 'bg-[#FFF1E2] text-[#B85A3B]' },
+    { label: 'Community pulses', value: feedEvents.length || '—', tone: 'bg-[#F2E9FF] text-[#6B44A5]' },
+    { label: 'Joined clubs', value: joinedClubIds.size || 0, tone: 'bg-[#E7F6EE] text-[#2D7A4F]' },
+  ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <section className="relative overflow-hidden rounded-[32px] border border-[rgba(196,135,58,0.16)] bg-[linear-gradient(135deg,#FFF8F1_0%,#F8EBD9_48%,#FCE6DB_100%)] px-6 py-6 shadow-[0_24px_65px_rgba(196,135,58,0.12)] sm:px-7 sm:py-7">
+        <div className="pointer-events-none absolute -left-16 top-0 h-48 w-48 rounded-full bg-[rgba(225,107,59,0.12)] blur-[80px]" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-56 w-56 rounded-full bg-[rgba(92,61,143,0.14)] blur-[90px]" />
 
-      {/* Header */}
-      <div>
-        <h1 className="font-heading text-2xl text-navy">
-          {greeting}, {user?.firstName}. ✦
-        </h1>
-        <p className="text-[var(--color-text-secondary)] mt-1 font-body">
-          Here's what's alive across Morocco today.
-        </p>
-      </div>
-
-      {/* Quick Stats Strip */}
-      <div className="grid grid-cols-3 gap-3">
-        {[
-          { label: 'Skills available', value: String(skillCount || '—'), color: 'var(--color-amber)' },
-          { label: 'Free this week', value: String(skills.filter(s => s.is_free).length || '—'), color: 'var(--color-forest)' },
-          { label: 'Your sessions', value: String(user?.sessions_completed || 0), color: 'var(--color-plum)' },
-        ].map((stat) => (
-          <div key={stat.label} className="sc-card p-4 text-center">
-            <div
-              className="text-2xl font-bold font-heading"
-              style={{ color: stat.color }}
-            >
-              {stat.value}
-            </div>
-            <div className="text-xs font-body mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
-              {stat.label}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Quick Browse CTA */}
-      <Link
-        to="/app/browse"
-        className="flex items-center gap-3 sc-card p-4 hover:shadow-floating transition-shadow group"
-      >
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: '#FFF3E0' }}>
-          <Search className="w-5 h-5" style={{ color: 'var(--color-amber)' }} />
-        </div>
-        <div className="flex-1">
-          <div className="font-semibold font-body text-navy text-sm group-hover:text-amber-sc transition-colors">
-            Find a skill or a teacher
-          </div>
-          <div className="text-xs font-body" style={{ color: 'var(--color-text-secondary)' }}>
-            Browse all skills available in your city
-          </div>
-        </div>
-        <ArrowRight className="w-4 h-4" style={{ color: 'var(--color-text-muted)' }} />
-      </Link>
-
-      {/* Activity Feed */}
-      {feedEvents.length > 0 && (
-        <div className="space-y-3">
-          <h2 className="font-heading text-navy" style={{ fontSize: '1.1rem' }}>
-            Latest Activity
-          </h2>
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="space-y-3">
-            {feedEvents.map((event) => (
-              <div key={event.id} className="sc-card p-4 flex gap-3 items-start">
-                <Avatar className="w-10 h-10 ring-2 ring-white flex-shrink-0">
-                  <AvatarImage src={event.profiles?.avatar_url ?? undefined} />
-                  <AvatarFallback style={{ background: 'var(--color-plum)', color: 'white' }}>
-                    {event.profiles?.first_name?.[0] || '?'}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="font-semibold font-body text-navy text-sm">
-                    {event.title}
+            <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[rgba(27,42,74,0.46)]">
+              Community feed
+            </div>
+            <div>
+              <h1 className="font-heading text-3xl text-[var(--color-navy)] sm:text-4xl">
+                {greeting}, {user?.firstName}.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] sm:text-[15px]">
+                A lighter, more social view of what people are learning, sharing, and publishing across
+                the community right now.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            {stats.map((stat) => (
+              <div key={stat.label} className="min-w-[110px] rounded-[22px] border border-white/60 bg-white/80 px-4 py-4 text-center shadow-sm backdrop-blur-sm">
+                <div className={`mx-auto inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${stat.tone}`}>
+                  {stat.label}
+                </div>
+                <div className="mt-3 text-2xl font-semibold text-[var(--color-navy)]">{stat.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="space-y-6">
+          <FeedStoryStrip />
+
+          <section className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+            <div className="flex items-start gap-4">
+              <Avatar className="h-11 w-11 border-2 border-[rgba(244,240,232,0.92)]">
+                <AvatarImage src={user?.avatar} alt={user?.firstName} />
+                <AvatarFallback className="bg-[var(--color-amber)] text-sm font-semibold text-white">
+                  {user?.firstName?.[0]}
+                  {user?.lastName?.[0]}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="min-w-0 flex-1">
+                <div className="rounded-[22px] border border-[rgba(196,135,58,0.12)] bg-[linear-gradient(180deg,#FFF9F3_0%,#FFF4E9_100%)] px-4 py-4">
+                  <div className="text-sm font-medium text-[var(--color-text-secondary)]">
+                    What do you want to put into the community today?
                   </div>
-                  {event.subtitle && (
-                    <div className="text-xs font-body text-[var(--color-text-secondary)] mt-0.5">
-                      {event.subtitle}
-                    </div>
-                  )}
-                  {event.skills?.slug && (
-                    <Link to={`/app/skill/${event.skills.slug}`} className="text-xs font-semibold font-body mt-2 inline-block" style={{ color: 'var(--color-amber)' }}>
-                      View skill →
-                    </Link>
-                  )}
+                  <div className="mt-1 text-sm text-[var(--color-text-muted)]">
+                    Publish a skill, explore new sessions, or start a club from here.
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Link
+                    to="/app/teach"
+                    className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(225,107,59,0.22)]"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Teach a skill
+                  </Link>
+                  <Link
+                    to="/app/board"
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[rgba(244,240,232,0.72)] px-4 py-2.5 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)]"
+                  >
+                    <Search className="h-4 w-4" />
+                    Browse sessions
+                  </Link>
+                  <button
+                    onClick={() => setIsCreateClubModalOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[rgba(244,240,232,0.72)] px-4 py-2.5 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Start a club
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </div>
+          </section>
 
-      {/* Featured Skills */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-heading text-navy" style={{ fontSize: '1.1rem' }}>
-            {skills.some(s => s.relevance > 0) ? 'Picked for you' : 'Skills worth discovering'}
-          </h2>
-          <Link
-            to="/app/browse"
-            className="text-xs font-semibold font-body flex items-center gap-1"
-            style={{ color: 'var(--color-amber)' }}
-          >
-            Browse all <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        {loading ? (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="skill-card animate-pulse">
-                <div className="h-24 bg-gray-200 rounded-t-xl" />
-                <div className="p-4 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="h-3 bg-gray-100 rounded w-full" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : skills.length > 0 ? (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {skills.slice(0, 4).map((skill) => (
-              <div key={skill.id} className="skill-card group relative">
+          <section className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-2 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+            <div className="flex flex-wrap gap-2">
+              {([
+                { id: 'for-you', label: 'For You' },
+                { id: 'activity', label: 'Activity' },
+                { id: 'skills', label: 'Skills' },
+              ] as { id: FeedTab; label: string }[]).map((tab) => (
                 <button
-                  onClick={(e) => { e.preventDefault(); handleDismiss(skill.id); }}
-                  className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                  title="Not interested"
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`rounded-[18px] px-4 py-3 text-sm font-semibold transition ${
+                    activeTab === tab.id
+                      ? 'bg-[var(--color-navy)] text-white shadow-sm'
+                      : 'text-[var(--color-text-secondary)] hover:bg-[rgba(244,240,232,0.7)] hover:text-[var(--color-navy)]'
+                  }`}
                 >
-                  <X className="w-3.5 h-3.5 text-white" />
+                  {tab.label}
                 </button>
-                <Link to={`/app/skill/${skill.slug}`}>
-                <div
-                  className={`h-24 relative flex items-end p-4 overflow-hidden ${!skill.cover_image_url ? `bg-gradient-to-br ${skill.cover_gradient}` : 'bg-gray-900'}`}
-                >
-                  {skill.cover_image_url && (
-                    <img src={skill.cover_image_url} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover opacity-90" />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Avatar className="w-9 h-9 ring-2 ring-white">
-                      <AvatarImage src={skill.teacher.avatar} />
-                      <AvatarFallback style={{ background: 'var(--color-amber)', color: 'white', fontSize: '12px' }}>
-                        {skill.teacher.firstName?.[0] || '?'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="text-[11px] font-semibold font-body text-white drop-shadow">
-                        {skill.teacher.firstName} {skill.teacher.lastName}
-                      </div>
-                      <div className="text-[10px] font-body text-white/80 flex items-center gap-1">
-                        <MapPin className="w-2.5 h-2.5" />
-                        {skill.teacher.city}
-                      </div>
-                    </div>
+              ))}
+            </div>
+          </section>
+
+          {activeTab === 'for-you' ? (
+            <div className="space-y-6">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[var(--color-navy)]">Recent sparks</h2>
+                    <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                      Fresh activity from people publishing and learning nearby.
+                    </p>
                   </div>
                 </div>
 
-                <div className="p-4">
-                  <div className="font-semibold font-body text-navy text-sm mb-1 group-hover:text-amber-sc transition-colors">
-                    {skill.title}
+                {feedEvents.length > 0 ? (
+                  <div className="space-y-4">
+                    {feedEvents.slice(0, 3).map((event) => (
+                      <FeedActivityCard key={event.id} event={event} />
+                    ))}
                   </div>
-                  <p className="text-[12px] font-body leading-relaxed line-clamp-2" style={{ color: 'var(--color-text-secondary)' }}>
-                    {(skill.description || '').substring(0, 90)}…
-                  </p>
-                  <div className="flex items-center justify-between mt-3">
-                    <div className="flex items-center gap-1">
-                      <Star className="w-3.5 h-3.5 fill-amber-sc text-amber-sc" />
-                      <span className="text-xs font-semibold text-navy">{skill.avg_rating}</span>
-                      <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                        ({skill.reviews_count})
-                      </span>
-                    </div>
-                    <div className="text-xs font-semibold font-body" style={{ color: 'var(--color-amber)' }}>
-                      {skill.is_free ? 'Free' : `${skill.price_per_hour} ${skill.currency}/hr`}
-                    </div>
+                ) : (
+                  <div className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white px-6 py-10 text-center shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+                    <Flame className="mx-auto h-8 w-8 text-[var(--color-amber)]" />
+                    <h3 className="mt-4 text-lg font-semibold text-[var(--color-navy)]">No activity yet</h3>
+                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                      As people publish skills and sessions, this area will light up.
+                    </p>
                   </div>
+                )}
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[var(--color-navy)]">Skill spotlights</h2>
+                    <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                      The strongest matches for what you might want to learn next.
+                    </p>
+                  </div>
+                  <Link
+                    to="/app/board"
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-amber)]"
+                  >
+                    Browse all
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
+
+                {loading ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div key={index} className="overflow-hidden rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white animate-pulse">
+                        <div className="h-36 bg-[rgba(244,240,232,0.95)]" />
+                        <div className="space-y-3 p-5">
+                          <div className="h-4 w-3/4 rounded-full bg-[rgba(244,240,232,0.95)]" />
+                          <div className="h-3 rounded-full bg-[rgba(244,240,232,0.8)]" />
+                          <div className="h-3 w-5/6 rounded-full bg-[rgba(244,240,232,0.8)]" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : skills.length > 0 ? (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {skills.slice(0, 4).map((skill) => (
+                      <FeedSkillSpotlightCard
+                        key={skill.id}
+                        skill={skill}
+                        onDismiss={user?.isDemo ? undefined : handleDismiss}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            </div>
+          ) : null}
+
+          {activeTab === 'activity' ? (
+            <section className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold text-[var(--color-navy)]">Community activity</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Updates, new sessions, and publishing moments from the network.
+                </p>
+              </div>
+
+              {feedEvents.length > 0 ? (
+                <div className="space-y-4">
+                  {feedEvents.map((event) => (
+                    <FeedActivityCard key={event.id} event={event} />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white px-6 py-10 text-center shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+                  <Clock3 className="mx-auto h-8 w-8 text-[var(--color-amber)]" />
+                  <h3 className="mt-4 text-lg font-semibold text-[var(--color-navy)]">The feed is quiet right now</h3>
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                    Check back soon or browse skills to kick off your next conversation.
+                  </p>
+                </div>
+              )}
+            </section>
+          ) : null}
+
+          {activeTab === 'skills' ? (
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--color-navy)]">Skills worth discovering</h2>
+                  <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                    A warmer, card-based browse of the live skill inventory.
+                  </p>
+                </div>
+                <Link
+                  to="/app/board"
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-amber)]"
+                >
+                  Open browse
+                  <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="sc-card p-8 text-center">
-            <Sparkles className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--color-amber)' }} />
-            <div className="font-heading text-navy text-lg mb-2">The ring is quiet… for now</div>
-            <p className="text-sm font-body" style={{ color: 'var(--color-text-secondary)' }}>
-              No skills posted yet. Be the first to teach something!
-            </p>
-            <Link to="/app/teach" className="inline-flex items-center gap-2 btn-amber text-sm mt-4" style={{ padding: '0.625rem 1.25rem' }}>
-              Start Teaching <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        )}
+
+              {loading ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <div key={index} className="overflow-hidden rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white animate-pulse">
+                      <div className="h-36 bg-[rgba(244,240,232,0.95)]" />
+                      <div className="space-y-3 p-5">
+                        <div className="h-4 w-3/4 rounded-full bg-[rgba(244,240,232,0.95)]" />
+                        <div className="h-3 rounded-full bg-[rgba(244,240,232,0.8)]" />
+                        <div className="h-3 w-5/6 rounded-full bg-[rgba(244,240,232,0.8)]" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : skills.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {skills.map((skill) => (
+                    <FeedSkillSpotlightCard
+                      key={skill.id}
+                      skill={skill}
+                      onDismiss={user?.isDemo ? undefined : handleDismiss}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white px-6 py-10 text-center shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+                  <BookOpen className="mx-auto h-8 w-8 text-[var(--color-amber)]" />
+                  <h3 className="mt-4 text-lg font-semibold text-[var(--color-navy)]">No skills published yet</h3>
+                  <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                    Be the first to teach something and light up the feed.
+                  </p>
+                  <Link
+                    to="/app/teach"
+                    className="mt-5 inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(225,107,59,0.22)]"
+                  >
+                    <BookOpen className="h-4 w-4" />
+                    Start teaching
+                  </Link>
+                </div>
+              )}
+            </section>
+          ) : null}
+        </div>
+
+        <aside className="space-y-4">
+          <section className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--color-navy)]">Trending now</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Topics rising inside the current skill pool.
+                </p>
+              </div>
+              <Flame className="h-5 w-5 text-[var(--color-amber)]" />
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {trendingTopics.length > 0 ? (
+                trendingTopics.map((topic, index) => (
+                  <div
+                    key={topic.label}
+                    className="flex items-center gap-3 rounded-[20px] bg-[rgba(244,240,232,0.75)] px-4 py-3"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-semibold text-[var(--color-amber)]">
+                      {index + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-[var(--color-navy)]">{topic.label}</div>
+                      <div className="text-xs text-[var(--color-text-muted)]">{topic.count} mentions</div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-[20px] bg-[rgba(244,240,232,0.75)] px-4 py-4 text-sm text-[var(--color-text-secondary)]">
+                  Trends will appear as more skills and tags are added.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--color-navy)]">Suggested clubs</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Communities you might want to step into next.
+                </p>
+              </div>
+              <Users className="h-5 w-5 text-[var(--color-amber)]" />
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {suggestedClubs.length > 0 ? (
+                suggestedClubs.map((club) => (
+                  <Link
+                    key={club.id}
+                    to={`/club/${club.slug ?? club.id}`}
+                    className="flex items-center gap-3 rounded-[20px] bg-[rgba(244,240,232,0.75)] px-4 py-3 transition hover:bg-[rgba(244,240,232,0.95)]"
+                  >
+                    <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[rgba(196,135,58,0.12)] text-sm font-semibold text-[var(--color-amber)]">
+                      {club.avatar_url ? (
+                        <img src={club.avatar_url} alt={club.name} className="h-full w-full object-cover" />
+                      ) : (
+                        club.name.slice(0, 2).toUpperCase()
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold text-[var(--color-navy)]">{club.name}</div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+                        <span>{club.member_count} members</span>
+                        {club.city ? (
+                          <>
+                            <span>•</span>
+                            <span>{club.city}</span>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 flex-shrink-0 text-[var(--color-text-muted)]" />
+                  </Link>
+                ))
+              ) : (
+                <div className="rounded-[20px] bg-[rgba(244,240,232,0.75)] px-4 py-4 text-sm text-[var(--color-text-secondary)]">
+                  No club suggestions yet. Start one from the composer above.
+                </div>
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-[linear-gradient(180deg,#FFF9F3_0%,#FFF2E4_100%)] p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-[var(--color-navy)]">Your learning pulse</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Signals the feed is already using to personalize recommendations.
+                </p>
+              </div>
+              <Compass className="h-5 w-5 text-[var(--color-amber)]" />
+            </div>
+
+            <div className="mt-4 space-y-4">
+              <div className="rounded-[20px] bg-white/80 px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
+                  Learning interests
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {user?.what_i_learn.length ? (
+                    user.what_i_learn.slice(0, 4).map((interest) => (
+                      <span
+                        key={interest}
+                        className="rounded-full bg-[rgba(196,135,58,0.12)] px-3 py-1.5 text-xs font-semibold text-[var(--color-amber)]"
+                      >
+                        {interest}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-[var(--color-text-secondary)]">
+                      Add learning goals on your profile to improve recommendations.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[20px] bg-white/80 px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--color-text-muted)]">
+                  Context
+                </div>
+                <div className="mt-3 space-y-2 text-sm text-[var(--color-text-secondary)]">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-[var(--color-amber)]" />
+                    <span>{user?.location || 'Location not set'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Globe className="h-4 w-4 text-[var(--color-amber)]" />
+                    <span>
+                      {user?.languages.length
+                        ? `${user.languages.slice(0, 3).join(', ')}`
+                        : 'Languages not added yet'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </aside>
       </div>
 
-      {/* Inspiration footer */}
-      <div
-        className="p-6 rounded-2xl text-center"
-        style={{ background: 'var(--color-navy)' }}
-      >
-        <div className="font-heading text-white text-lg mb-2">
-          "Your next skill is one conversation away."
-        </div>
-        <p className="text-white/50 text-sm font-body mb-4">
-          Real people teaching real skills in your city.
-        </p>
-        <Link
-          to="/app/browse"
-          className="inline-flex items-center gap-2 btn-amber text-sm"
-          style={{ padding: '0.625rem 1.25rem' }}
-        >
-          <Clock className="w-4 h-4" />
-          Find your next session
-        </Link>
-      </div>
+      {isCreateClubModalOpen ? <CreateClubModal onClose={() => setIsCreateClubModalOpen(false)} /> : null}
     </div>
   );
 }

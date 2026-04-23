@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Menu, X, Flame } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 interface NavigationProps {
   className?: string;
@@ -39,9 +39,11 @@ export default function Navigation({ className = '' }: NavigationProps) {
         <div className="flex items-center justify-between h-[72px]">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-brand-accent flex items-center justify-center transition-transform group-hover:scale-105">
-              <Flame className="w-6 h-6 text-white" />
-            </div>
+            <img 
+              src="/logo.png" 
+              alt="FightClub Logo" 
+              className="w-10 h-10 object-contain transition-transform group-hover:scale-105 rounded-xl block" 
+            />
             <span className="font-heading font-semibold text-xl text-brand-text-primary">
               FightClub
             </span>

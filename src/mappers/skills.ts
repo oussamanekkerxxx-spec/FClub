@@ -3,52 +3,14 @@
 // directly onto a Skill — the shapes diverge (profiles join, nullability, etc.)
 
 import type { Skill } from '@/types/skills';
+import type { Database } from '@/types/db';
 
-/** Exact shape returned by Supabase when selecting skills with teacher profile. */
-export interface SkillRow {
-  id: string;
-  slug: string | null;
-  teacher_id: string;
-  title: string;
-  category: string;
-  description: string | null;
-  philosophy: string | null;
-  who_for: string | null;
-  what_session_looks_like: string | null;
-  price_per_hour: number;
-  currency: string;
-  format: string | null;
-  location: string | null;
-  neighborhood: string | null;
-  languages: string[] | null;
-  level: string | null;
-  avg_rating: number;
-  reviews_count: number;
-  tags: string[] | null;
-  cover_gradient: string | null;
-  cover_image_url: string | null;
-  is_free: boolean;
-  is_group: boolean;
-  max_headcount: number | null;
-  current_headcount: number | null;
-  availability_note: string | null;
-  is_active: boolean;
-  created_at: string;
-  /** Joined via profiles!skills_teacher_id_fkey */
-  profiles: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-    bio: string | null;
-    neighborhood: string | null;
-    city: string | null;
-    trust_tier: number;
-    trust_score: number;
-    sessions_completed: number | null;
-    reviews_count: number | null;
-  } | null;
-}
+type ProfileRow = Database['public']['Tables']['profiles']['Row'];
+
+/** skills row + joined profile payload from the select relation */
+export type SkillRow = Database['public']['Tables']['skills']['Row'] & {
+  profiles: ProfileRow | null;
+};
 
 export function mapSkillRow(s: SkillRow): Skill {
   const p = s.profiles;

@@ -31,7 +31,7 @@ export default function AuthCallback() {
       if (!profile || !profile.onboarding_completed) {
         navigate('/onboarding', { replace: true });
       } else {
-        navigate('/app/feed', { replace: true });
+        navigate('/app/discover', { replace: true });
       }
     };
 

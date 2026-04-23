@@ -1,14 +1,18 @@
-import { Check } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import { TRUST_TIER_LABELS, type TrustTier, type User } from '@/contexts/AuthContext';
+
+type ActionKey = 'photo' | 'bio' | 'phone' | 'id' | 'skill' | 'session' | 'review';
 
 interface Props {
   user: User;
+  onActionClick?: (key: ActionKey) => void;
 }
 
 interface Action {
   label: string;
   points: number;
   done: boolean;
+  actionKey: ActionKey;
 }
 
 const TIER_THRESHOLDS: Record<TrustTier, number> = {
@@ -39,7 +43,7 @@ function computeScore(user: User): number {
   return Math.min(score, 100);
 }
 
-export default function TrustProgress({ user }: Props) {
+export default function TrustProgress({ user, onActionClick }: Props) {
   const score = computeScore(user);
   const tier = user.trust_tier;
   const colors = TIER_COLORS[tier];
@@ -47,13 +51,13 @@ export default function TrustProgress({ user }: Props) {
   const nextThreshold = nextTier !== null ? TIER_THRESHOLDS[nextTier] : null;
 
   const actions: Action[] = [
-    { label: 'Upload a profile photo', points: 10, done: !!user.avatar },
-    { label: 'Add your bio', points: 5, done: !!user.bio },
-    { label: 'Add your phone number', points: 10, done: !!user.phone },
-    { label: 'Submit your government ID', points: 20, done: user.id_verified },
-    { label: 'List your first skill', points: 10, done: user.what_i_teach.length > 0 },
-    { label: 'Complete your first session', points: 15, done: user.sessions_completed > 0 },
-    { label: 'Receive your first review', points: 10, done: user.reviews_count > 0 },
+    { label: 'Upload a profile photo', points: 10, done: !!user.avatar, actionKey: 'photo' },
+    { label: 'Add your bio', points: 5, done: !!user.bio, actionKey: 'bio' },
+    { label: 'Add your phone number', points: 10, done: !!user.phone, actionKey: 'phone' },
+    { label: 'Submit your government ID', points: 20, done: user.id_verified, actionKey: 'id' },
+    { label: 'List your first skill', points: 10, done: user.what_i_teach.length > 0, actionKey: 'skill' },
+    { label: 'Complete your first session', points: 15, done: user.sessions_completed > 0, actionKey: 'session' },
+    { label: 'Receive your first review', points: 10, done: user.reviews_count > 0, actionKey: 'review' },
   ];
 
   const pending = actions.filter(a => !a.done);
@@ -120,17 +124,34 @@ export default function TrustProgress({ user }: Props) {
           <div className="text-[11px] font-semibold uppercase tracking-wider font-body mb-2" style={{ color: 'var(--color-text-muted)' }}>
             Earn more points
           </div>
-          {pending.slice(0, 4).map(action => (
-            <div key={action.label} className="flex items-center gap-2.5">
-              <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor: 'var(--color-border)' }} />
-              <span className="text-xs font-body flex-1" style={{ color: 'var(--color-text-secondary)' }}>
-                {action.label}
-              </span>
-              <span className="text-[10px] font-bold font-body" style={{ color: colors.text }}>
-                +{action.points}
-              </span>
-            </div>
-          ))}
+          {pending.slice(0, 4).map(action => {
+            const isClickable = !!onActionClick && action.actionKey !== 'review';
+            const Inner = (
+              <>
+                <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ borderColor: 'var(--color-border)' }} />
+                <span className="text-xs font-body flex-1" style={{ color: 'var(--color-text-secondary)' }}>
+                  {action.label}
+                </span>
+                <span className="text-[10px] font-bold font-body" style={{ color: colors.text }}>
+                  +{action.points}
+                </span>
+                {isClickable && <ChevronRight className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--color-text-muted)' }} />}
+              </>
+            );
+            return isClickable ? (
+              <button
+                key={action.label}
+                onClick={() => onActionClick(action.actionKey)}
+                className="flex w-full items-center gap-2.5 -mx-1 px-1 py-0.5 rounded-lg transition-colors hover:bg-[var(--color-parchment)] text-left"
+              >
+                {Inner}
+              </button>
+            ) : (
+              <div key={action.label} className="flex items-center gap-2.5">
+                {Inner}
+              </div>
+            );
+          })}
         </div>
       )}
 

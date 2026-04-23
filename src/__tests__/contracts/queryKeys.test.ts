@@ -91,6 +91,16 @@ describe('queryKeys — skills', () => {
   it('reviews', () => {
     expect(queryKeys.skills.reviews('skill-1')).toEqual(['skills', 'skill-1', 'reviews']);
   });
+
+  it('dismissedByUser', () => {
+    expect(queryKeys.skills.dismissedByUser(USER_ID)).toEqual(['skills', 'dismissed', USER_ID]);
+  });
+});
+
+describe('queryKeys — feed', () => {
+  it('events', () => {
+    expect(queryKeys.feed.events()).toEqual(['feed', 'events']);
+  });
 });
 
 describe('queryKeys — conversations', () => {

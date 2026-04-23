@@ -44,32 +44,48 @@ export function useConversations(userId: string | undefined, isDemo: boolean): U
         );
         const skillIds = convs.filter(c => c.skill_id).map(c => c.skill_id);
 
-        const [profilesRes, skillsRes, messagesRes] = await Promise.all([
+        const [profilesRes, skillsRes, messagesRes, readsRes] = await Promise.all([
           supabase.from('profiles').select('id, first_name, last_name, avatar_url').in('id', otherIds),
           skillIds.length > 0
             ? supabase.from('skills').select('id, title').in('id', skillIds)
             : Promise.resolve({ data: [] as { id: string; title: string }[] }),
           supabase
             .from('messages')
-            .select('conversation_id, content, created_at')
+            .select('conversation_id, content, created_at, sender_id')
             .in('conversation_id', convs.map(c => c.id))
             .order('created_at', { ascending: false }),
+          // Graceful: if dm_reads table doesn't exist yet, data will be null
+          supabase.from('dm_reads').select('conversation_id, last_read_at').eq('user_id', userId),
         ]);
 
         if (cancelled) return;
 
         const profileMap = new Map((profilesRes.data || []).map(p => [p.id, p]));
         const skillMap = new Map((skillsRes.data || []).map(s => [s.id, s]));
-        const latestMsgMap = new Map<string, { content: string; created_at: string }>();
-        (messagesRes.data || []).forEach(m => {
+        const latestMsgMap = new Map<string, { content: string; created_at: string; sender_id: string }>();
+        const allMsgs = (messagesRes.data || []) as { conversation_id: string; content: string; created_at: string; sender_id: string }[];
+        allMsgs.forEach(m => {
           if (!latestMsgMap.has(m.conversation_id)) latestMsgMap.set(m.conversation_id, m);
         });
+
+        // dm_reads: null data means the table doesn't exist yet — unread falls back to 0
+        const readMap = new Map(
+          ((readsRes as { data: { conversation_id: string; last_read_at: string }[] | null }).data || [])
+            .map(r => [r.conversation_id, r.last_read_at])
+        );
 
         const mapped: Conversation[] = convs.map(c => {
           const otherId = c.participant_ids.find((pid: string) => pid !== userId) || c.participant_ids[0];
           const profile = profileMap.get(otherId);
           const skill = c.skill_id ? skillMap.get(c.skill_id) : null;
           const latestMsg = latestMsgMap.get(c.id);
+          const lastReadAt = readMap.get(c.id);
+          const unread_count = allMsgs.filter(
+            m =>
+              m.conversation_id === c.id &&
+              m.sender_id !== userId &&
+              (!lastReadAt || new Date(m.created_at) > new Date(lastReadAt))
+          ).length;
           return {
             id: c.id,
             skill_id: c.skill_id,
@@ -84,7 +100,7 @@ export function useConversations(userId: string | undefined, isDemo: boolean): U
             },
             last_message: latestMsg?.content,
             last_message_at: latestMsg?.created_at || c.updated_at,
-            unread_count: 0,
+            unread_count,
           };
         });
 

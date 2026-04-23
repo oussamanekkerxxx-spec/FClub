@@ -81,6 +81,15 @@ export const queryKeys = {
 
     /** Reviews for a skill */
     reviews: (skillId: string) => ['skills', skillId, 'reviews'] as const,
+    /** Dismissed skills for a specific user (Feed page personalization) */
+    dismissedByUser: (userId: string) => ['skills', 'dismissed', userId] as const,
+  },
+
+  // —— Feed ————————————————————————————————————————————————————————————————————————————————
+
+  feed: {
+    /** Latest feed events shown on home feed */
+    events: () => ['feed', 'events'] as const,
   },
 
   // ── Conversations & Messages ─────────────────────────────────────────────
@@ -98,5 +107,12 @@ export const queryKeys = {
   profiles: {
     /** Single user profile by id */
     one: (userId: string) => ['profile', userId] as const,
+  },
+
+  // ── Stories ──────────────────────────────────────────────────────────────
+
+  stories: {
+    /** Active stories grouped by author */
+    active: () => ['stories', 'active'] as const,
   },
 } as const;

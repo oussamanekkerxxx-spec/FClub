@@ -187,7 +187,7 @@ export default function SkillDetail() {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
         <div className="font-heading text-xl text-navy mb-2">Skill not found</div>
-        <Link to="/app/browse" className="text-amber-sc font-body text-sm">
+        <Link to="/app/board" className="text-amber-sc font-body text-sm">
           ← Back to Browse
         </Link>
       </div>

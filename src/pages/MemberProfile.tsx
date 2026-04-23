@@ -153,7 +153,7 @@ export default function MemberProfile() {
     return (
       <div className="max-w-2xl mx-auto text-center py-16">
         <p className="font-body text-[var(--color-text-secondary)]">Member not found.</p>
-        <Link to="/app/browse" className="mt-4 inline-block text-sm font-semibold text-[var(--color-amber)] hover:underline">
+        <Link to="/app/board" className="mt-4 inline-block text-sm font-semibold text-[var(--color-amber)] hover:underline">
           Back to Browse
         </Link>
       </div>

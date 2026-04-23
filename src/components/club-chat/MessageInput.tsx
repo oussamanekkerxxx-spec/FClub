@@ -3,7 +3,7 @@ import {
   ImageIcon, PlayCircle, Code2, Calendar, MapPin, BarChart2, AlertCircle,
 } from 'lucide-react';
 
-type ChatAttachType = 'image' | 'video' | 'pdf';
+type ChatAttachType = 'image' | 'video' | 'pdf' | 'voice';
 interface ChatAttachment { file: File; type: ChatAttachType; previewUrl: string; }
 
 interface Message {
@@ -27,7 +27,7 @@ interface MessageInputProps {
   editingMessage: Message | null;
   composerFocused: boolean;
   showAttachMenu: boolean;
-  textareaRef: React.RefObject<HTMLTextAreaElement>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   longPressTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
   longPressFiredRef: React.RefObject<boolean>;
   onNewMessageChange: (value: string) => void;
@@ -42,14 +42,14 @@ interface MessageInputProps {
   onSetAttachmentCaption: (caption: string) => void;
   onClearReply: () => void;
   onClearEdit: () => void;
-  onShowScheduleModal: () => void;
-  onOpenVideoWizard: () => void;
-  onOpenProjectWizard: () => void;
-  onOpenEventWizard: () => void;
-  onOpenPollWizard: () => void;
+  onShowScheduleModal?: () => void;
+  onOpenVideoWizard?: () => void;
+  onOpenProjectWizard?: () => void;
+  onOpenEventWizard?: () => void;
+  onOpenPollWizard?: () => void;
   onShareLocation: () => void;
   onApplyFormat: (syntax: string) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   pendingAttachTypeRef: React.RefObject<ChatAttachType>;
 }
 
@@ -100,27 +100,58 @@ export default function MessageInput({
           {/* Attachment preview */}
           {chatAttachment && (
             <>
-              <div className="relative rounded-xl overflow-hidden border border-[var(--color-border)] bg-white">
-                {chatAttachment.type === 'image' && (
-                  <img src={chatAttachment.previewUrl} alt="" className="max-h-40 w-full object-cover" />
-                )}
-                {chatAttachment.type === 'video' && (
-                  <video src={chatAttachment.previewUrl} controls className="max-h-40 w-full bg-black" />
-                )}
-                {chatAttachment.type === 'pdf' && (
-                  <div className="flex items-center gap-2.5 px-3 py-3">
-                    <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
-                    <span className="text-sm font-medium text-navy truncate">{chatAttachment.file.name}</span>
+              {chatAttachment.type === 'voice' ? (
+                /* ── Voice message preview ── */
+                <div className="relative rounded-2xl border border-purple-200/70 bg-gradient-to-br from-purple-50 to-indigo-50 px-4 py-3">
+                  <div className="flex items-center gap-3 mb-2.5">
+                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600 shadow-sm">
+                      <Mic className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-navy">Voice message ready</p>
+                      <p className="text-[11px] text-[var(--color-text-muted)]">
+                        Listen before sending — tap Send when ready
+                      </p>
+                    </div>
                   </div>
-                )}
-                <button
-                  onClick={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-              {chatAttachment.type !== 'pdf' && (
+                  <audio
+                    src={chatAttachment.previewUrl}
+                    controls
+                    className="w-full"
+                    style={{ height: '36px', accentColor: '#7c3aed' }}
+                  />
+                  <button
+                    onClick={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
+                    className="absolute right-2 top-2 rounded-full bg-black/40 p-1 text-white transition-colors hover:bg-black/70"
+                    title="Discard recording"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                /* ── Image / video / PDF preview ── */
+                <div className="relative rounded-xl overflow-hidden border border-[var(--color-border)] bg-white">
+                  {chatAttachment.type === 'image' && (
+                    <img src={chatAttachment.previewUrl} alt="" className="max-h-40 w-full object-cover" />
+                  )}
+                  {chatAttachment.type === 'video' && (
+                    <video src={chatAttachment.previewUrl} controls className="max-h-40 w-full bg-black" />
+                  )}
+                  {chatAttachment.type === 'pdf' && (
+                    <div className="flex items-center gap-2.5 px-3 py-3">
+                      <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
+                      <span className="text-sm font-medium text-navy truncate">{chatAttachment.file.name}</span>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
+                    className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+              {(chatAttachment.type === 'image' || chatAttachment.type === 'video') && (
                 <input
                   value={attachmentCaption}
                   onChange={e => onSetAttachmentCaption(e.target.value)}
@@ -230,12 +261,14 @@ export default function MessageInput({
                     >
                       <ImageIcon className="w-4 h-4 text-[var(--color-amber)]" /> Photo / Image
                     </button>
-                    <button
-                      onClick={() => { onSetShowAttachMenu(false); onOpenVideoWizard(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
-                    >
-                      <PlayCircle className="w-4 h-4 text-purple-500" /> Video → Playlist
-                    </button>
+                    {onOpenVideoWizard && (
+                      <button
+                        onClick={() => { onSetShowAttachMenu(false); onOpenVideoWizard(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      >
+                        <PlayCircle className="w-4 h-4 text-purple-500" /> Video → Playlist
+                      </button>
+                    )}
                     <button
                       onClick={() => { pendingAttachTypeRef.current = 'pdf'; onSetShowAttachMenu(false); fileInputRef.current!.accept = '.pdf,application/pdf'; fileInputRef.current?.click(); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
@@ -243,30 +276,36 @@ export default function MessageInput({
                       <FileText className="w-4 h-4 text-red-400" /> PDF / File
                     </button>
                     <div className="h-px bg-[var(--color-border)] my-1" />
-                    <button
-                      onClick={() => { onSetShowAttachMenu(false); onOpenProjectWizard(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
-                    >
-                      <Code2 className="w-4 h-4 text-blue-500" /> Share Project
-                    </button>
-                    <button
-                      onClick={() => { onSetShowAttachMenu(false); onOpenEventWizard(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
-                    >
-                      <Calendar className="w-4 h-4 text-green-500" /> Create Event
-                    </button>
+                    {onOpenProjectWizard && (
+                      <button
+                        onClick={() => { onSetShowAttachMenu(false); onOpenProjectWizard(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      >
+                        <Code2 className="w-4 h-4 text-blue-500" /> Share Project
+                      </button>
+                    )}
+                    {onOpenEventWizard && (
+                      <button
+                        onClick={() => { onSetShowAttachMenu(false); onOpenEventWizard(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      >
+                        <Calendar className="w-4 h-4 text-green-500" /> Create Event
+                      </button>
+                    )}
                     <button
                       onClick={() => { onSetShowAttachMenu(false); onShareLocation(); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
                     >
                       <MapPin className="w-4 h-4 text-cyan-500" /> Share Location
                     </button>
-                    <button
-                      onClick={() => { onSetShowAttachMenu(false); onOpenPollWizard(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
-                    >
-                      <BarChart2 className="w-4 h-4 text-orange-500" /> Create Poll
-                    </button>
+                    {onOpenPollWizard && (
+                      <button
+                        onClick={() => { onSetShowAttachMenu(false); onOpenPollWizard(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      >
+                        <BarChart2 className="w-4 h-4 text-orange-500" /> Create Poll
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -305,7 +344,7 @@ export default function MessageInput({
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 longPressTimerRef.current = setTimeout(() => {
                   longPressFiredRef.current = true;
-                  if (!isRecording && (newMessage.trim() || chatAttachment || editingMessage)) {
+                  if (!isRecording && (newMessage.trim() || chatAttachment || editingMessage) && onShowScheduleModal) {
                     onShowScheduleModal();
                   }
                 }, 500);

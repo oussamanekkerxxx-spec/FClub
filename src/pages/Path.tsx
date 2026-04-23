@@ -43,7 +43,7 @@ const LEVEL_OPTIONS = [
   { value: 'advanced', label: '🚀 Advanced' },
 ];
 
-export default function Teach() {
+export default function Path() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
@@ -132,8 +132,8 @@ export default function Teach() {
           <button onClick={resetForm} className="px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold font-body text-navy hover:bg-parchment">
             Add another skill
           </button>
-          <Link to="/app/browse" className="btn-amber text-sm" style={{ padding: '0.625rem 1.25rem' }}>
-            View in Browse
+          <Link to="/app/board" className="btn-amber text-sm" style={{ padding: '0.625rem 1.25rem' }}>
+            View in Board
           </Link>
         </div>
       </div>

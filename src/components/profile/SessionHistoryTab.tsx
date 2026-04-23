@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import type { SessionLedger } from '@/types/fightclub';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Clock, Star, Sparkles } from 'lucide-react';
+import { Clock, Star } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function SessionHistoryTab() {
@@ -45,7 +45,7 @@ export default function SessionHistoryTab() {
   if (sessions.length === 0) {
     return (
       <div className="p-8 text-center bg-gray-50 border border-dashed rounded-xl">
-        <Sparkles className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+        <Clock className="w-8 h-8 text-gray-300 mx-auto mb-2" />
         <p className="font-body text-sm text-[var(--color-text-secondary)]">No completed sessions yet.</p>
         <p className="font-body text-xs text-[var(--color-text-muted)] mt-1">
           When you teach or learn, your immutable record will appear here.

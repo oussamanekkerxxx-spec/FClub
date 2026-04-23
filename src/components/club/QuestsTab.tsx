@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { Quest, QuestStep } from '@/types/fightclub';
@@ -6,6 +6,7 @@ import { useLazyQuery } from '@/hooks/useSupabaseQuery';
 import { queryKeys } from '@/lib/queryKeys';
 import { Users, Sword, ChevronRight, Check, PlusCircle, X, Loader2 } from 'lucide-react';
 import MemberGate from './MemberGate';
+import { reportError } from '@/lib/errors';
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
   beginner: { bg: '#DCFCE7', text: '#16A34A' },
@@ -221,7 +222,7 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
           .select('*');
 
         if (stepsError) {
-          console.error('[create quest steps]', stepsError);
+          reportError('quests.create_steps', stepsError);
           toast.info('Quest created, but we could not save steps.');
         } else {
           insertedSteps = stepRows as QuestStep[];
@@ -238,7 +239,7 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
       resetQuestForm();
       toast.success('Quest created!');
     } catch (error) {
-      console.error('[create quest]', error);
+      reportError('quests.create', error);
       toast.error('Could not create quest.');
     } finally {
       setCreatingQuest(false);

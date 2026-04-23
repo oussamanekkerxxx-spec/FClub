@@ -66,7 +66,7 @@ interface MessageItemProps {
   onReply: (msg: Message) => void;
   onEdit: (msg: Message) => void;
   onDelete: (msgId: string) => void;
-  onPin: (msg: Message) => void;
+  onPin: (msg: Message) => void | Promise<void>;
   onToggleReaction: (msgId: string, emoji: string) => void;
   onForward: (msg: Message) => void;
   onViewImage: (msg: Message) => void;
@@ -382,7 +382,7 @@ export default function MessageItem({
                 )}
 
                 {/* Text */}
-                {msg.content && !msg.poll && !msg.project && msg.content !== 'Voice Message' && msg.content !== 'Shared Location' && (
+                {msg.content && !msg.poll && !msg.project && !msg.voice_url && msg.content !== 'Shared Location' && (
                   <div
                     className={`px-3.5 py-2 text-[15px] font-body leading-[1.45] shadow-sm break-words ${bubbleRadius}
                       ${isOwn
@@ -406,8 +406,8 @@ export default function MessageItem({
                   </div>
                 )}
 
-                {/* Media-only / project timestamp */}
-                {(!msg.content || msg.poll || msg.project || msg.content === 'Voice Message' || msg.content === 'Shared Location' || msg.image_url || msg.video_url || msg.pdf_url) && (!msg.content || msg.poll || msg.project || msg.content === 'Voice Message' || msg.content === 'Shared Location') && (
+                {/* Media-only / project timestamp — shown when there is no text bubble */}
+                {(!msg.content || msg.poll || msg.project || msg.voice_url || msg.content === 'Shared Location' || msg.image_url || msg.video_url || msg.pdf_url) && (!msg.content || msg.poll || msg.project || msg.voice_url || msg.content === 'Shared Location') && (
                   <div className={`flex items-center gap-1 text-[10px] select-none px-1 mt-0.5 justify-end w-full ${isOwn ? 'text-[var(--color-text-muted)]' : 'text-gray-400'}`}>
                     {msg.is_edited && <span className="opacity-70 italic mr-0.5">edited</span>}
                     {format(msgDate, 'h:mm a')}

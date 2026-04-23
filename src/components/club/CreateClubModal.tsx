@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import {
   ArrowLeft, ArrowRight, Image as ImageIcon,
-  MapPin, Globe, Lock, Info, Sparkles, X
+  MapPin, Globe, Lock, Info, X
 } from 'lucide-react';
 import { CATEGORIES } from '@/constants/categories';
 
@@ -32,6 +32,9 @@ export default function CreateClubModal({ onClose }: CreateClubModalProps) {
   const [isPrivate, setIsPrivate] = useState(false);
   const [region, setRegion] = useState('');
   const [rules] = useState(['Be respectful', 'No spam']);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const generateSlug = (name: string) => {
     return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
@@ -67,6 +70,29 @@ export default function CreateClubModal({ onClose }: CreateClubModalProps) {
       connection_lounge: 'from-violet-400 to-fuchsia-500'
     };
 
+    let coverImageUrl = null;
+    if (coverFile) {
+      const ext = coverFile.name.split('.').pop();
+      const fileName = `${Math.random()}.${ext}`;
+      const filePath = `${user.id}/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('club-covers')
+        .upload(filePath, coverFile);
+        
+      if (uploadError) {
+        toast.error('Failed to upload cover image.');
+        setLoading(false);
+        return;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('club-covers')
+        .getPublicUrl(filePath);
+        
+      coverImageUrl = publicUrl;
+    }
+
     const { data: club, error } = await supabase.from('clubs').insert({
       name,
       slug,
@@ -79,6 +105,7 @@ export default function CreateClubModal({ onClose }: CreateClubModalProps) {
       rules,
       created_by: user.id,
       cover_gradient: gradients[category] || 'from-blue-500 to-purple-600',
+      cover_image_url: coverImageUrl,
       member_count: 1
     }).select().single();
 
@@ -254,17 +281,50 @@ export default function CreateClubModal({ onClose }: CreateClubModalProps) {
               </div>
 
               <div className="space-y-5">
-                <div className="p-6 border-2 border-dashed border-[var(--color-border)] rounded-2xl bg-gray-50 text-center hover:bg-parchment transition-colors cursor-pointer group">
-                  <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                    <ImageIcon className="w-5 h-5 text-[var(--color-amber)]" />
-                  </div>
-                  <strong className="block text-navy font-body text-sm mb-1">Upload Cover Image</strong>
-                  <span className="text-xs text-[var(--color-text-secondary)] font-body">1200 x 400px recommended</span>
-                  <p className="text-[10px] text-[var(--color-text-muted)] mt-3">For the mockup, we will automatically generate a beautiful gradient based on your category.</p>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (!file.type.startsWith('image/')) {
+                        toast.error('Please upload an image file.');
+                        return;
+                      }
+                      setCoverFile(file);
+                      setCoverPreview(URL.createObjectURL(file));
+                    }
+                  }} 
+                  className="hidden" 
+                  accept="image/*"
+                />
+                
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="relative p-6 border-2 border-dashed border-[var(--color-border)] rounded-2xl bg-gray-50 text-center hover:bg-parchment transition-colors cursor-pointer group overflow-hidden"
+                >
+                  {coverPreview ? (
+                    <>
+                      <img src={coverPreview} alt="Cover Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                      <div className="relative z-10 w-12 h-12 bg-white/90 backdrop-blur rounded-full shadow-sm flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <ImageIcon className="w-5 h-5 text-[var(--color-amber)]" />
+                      </div>
+                      <strong className="relative z-10 block text-navy font-body text-sm mb-1 drop-shadow-md">Change Cover Image</strong>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
+                        <ImageIcon className="w-5 h-5 text-[var(--color-amber)]" />
+                      </div>
+                      <strong className="block text-navy font-body text-sm mb-1">Upload Cover Image</strong>
+                      <span className="text-xs text-[var(--color-text-secondary)] font-body">1200 x 400px recommended</span>
+                      <p className="text-[10px] text-[var(--color-text-muted)] mt-3">For the mockup, we will automatically generate a beautiful gradient based on your category.</p>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex bg-[var(--color-plum)]/10 text-[var(--color-plum)] p-4 rounded-xl items-start gap-3">
-                  <Sparkles className="w-5 h-5 shrink-0 mt-0.5" />
+                  <Info className="w-5 h-5 shrink-0 mt-0.5" />
                   <p className="text-sm font-body font-medium leading-relaxed">
                     You are ready! Once you hit launch, you will instantly become the Admin of the club. You can then invite members, set up voice rooms, and create quests.
                   </p>

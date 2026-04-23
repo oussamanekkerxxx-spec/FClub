@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { Club } from '@/types/fightclub';
@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserCheck, UserX, MapPin, Loader2, FolderKanban, Mic2, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
+import { reportError } from '@/lib/errors';
 
 type ProfileMini = {
   first_name: string;
@@ -115,9 +116,9 @@ export default function RequestsTab({ clubId, club, onResolved }: RequestsTabPro
 
       if (cancelled) return;
 
-      if (joinResult.error) console.error('[requests join]', joinResult.error);
-      if (clubResult.error && clubResult.error.code !== '42P01') console.error('[requests club_requests]', clubResult.error);
-      if (appResult.error) console.error('[requests project_applications]', appResult.error);
+      if (joinResult.error) reportError('requests.join_query', joinResult.error);
+      if (clubResult.error && clubResult.error.code !== '42P01') reportError('requests.club_requests_query', clubResult.error);
+      if (appResult.error) reportError('requests.project_applications_query', appResult.error);
 
       const joinItems: InboxItem[] = (joinResult.data ?? []).map((row: JoinRequestRow) => {
         const profile = toProfile(row.profile);
@@ -256,7 +257,7 @@ export default function RequestsTab({ clubId, club, onResolved }: RequestsTabPro
       onResolved({ memberDelta: approved ? 1 : undefined });
       toast.success(approved ? 'Join request approved' : 'Join request declined');
     } catch (error) {
-      console.error('[resolveJoin]', error);
+      reportError('requests.resolve_join', error);
       toast.error('Could not update this join request.');
     } finally {
       setResolvingId(null);
@@ -295,7 +296,7 @@ export default function RequestsTab({ clubId, club, onResolved }: RequestsTabPro
       onResolved();
       toast.success(approved ? 'Request accepted' : 'Request declined');
     } catch (error) {
-      console.error('[resolveClubRequest]', error);
+      reportError('requests.resolve_club_request', error);
       toast.error('Could not update this request.');
     } finally {
       setResolvingId(null);
@@ -332,7 +333,7 @@ export default function RequestsTab({ clubId, club, onResolved }: RequestsTabPro
       onResolved();
       toast.success(approved ? 'Application accepted' : 'Application declined');
     } catch (error) {
-      console.error('[resolveProjectApplication]', error);
+      reportError('requests.resolve_project_application', error);
       toast.error('Could not update this project application.');
     } finally {
       setResolvingId(null);

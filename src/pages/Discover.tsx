@@ -1,116 +1,57 @@
-import { useState, useMemo, memo } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import type { Club } from '@/types/fightclub';
 import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
 import { queryKeys } from '@/lib/queryKeys';
-import { CATEGORIES, CATEGORY_GRADIENTS, CATEGORY_COLORS } from '@/constants/categories';
-import {
-  Users, MapPin, Lock, Globe, Flame,
-  TrendingUp, Sparkles, AlertCircle, RefreshCw,
-} from 'lucide-react';
+import { CATEGORIES } from '@/constants/categories';
+import { Plus, RefreshCw, Search } from 'lucide-react';
 import CreateClubModal from '@/components/club/CreateClubModal';
-import { SearchBar } from '@/components/ui/search-bar';
-import { CardSkeletonGrid } from '@/components/ui/card-skeleton';
+import ClubDirectoryCard from '@/components/club/ClubDirectoryCard';
+import type { Club } from '@/types/fightclub';
 
-const ClubCard = memo(function ClubCard({ club, myMembershipIds }: { club: Club; myMembershipIds: Set<string> }) {
-  const gradient = club.cover_gradient ?? CATEGORY_GRADIENTS[club.category] ?? 'from-blue-500 to-purple-600';
-  const catColor = CATEGORY_COLORS[club.category] ?? { bg: '#F4F0E8', text: '#5C3D8F' };
-  const isMember = myMembershipIds.has(club.id);
+type PrivacyFilter = 'all' | 'public' | 'private';
 
+function countLabel(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function DirectorySkeleton() {
   return (
-    <Link to={`/club/${club.slug ?? club.id}`} className="group block bg-white rounded-2xl overflow-hidden border border-[var(--color-border)] hover:shadow-floating transition-all">
-      {/* Cover */}
-      <div className={`h-28 relative bg-gradient-to-br ${gradient}`}>
-        {club.cover_image_url && (
-          <img src={club.cover_image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-        <div className="absolute top-2.5 right-2.5">
-          {club.is_private ? (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-black/40 text-white flex items-center gap-1">
-              <Lock className="w-2.5 h-2.5" /> Private
-            </span>
-          ) : (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-black/30 text-white flex items-center gap-1">
-              <Globe className="w-2.5 h-2.5" /> Public
-            </span>
-          )}
-        </div>
-        {isMember && (
-          <div className="absolute top-2.5 left-2.5">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: 'var(--color-amber)' }}>
-              Joined
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Body */}
-      <div className="p-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0 -mt-7 border-2 border-white shadow-sm" style={{ background: catColor.bg }}>
-            {club.avatar_url
-              ? <img src={club.avatar_url} alt="" className="w-full h-full object-cover rounded-xl" />
-              : CATEGORIES.find(c => c.id === club.category)?.emoji ?? '✨'}
-          </div>
-          <div className="flex-1 min-w-0 mt-0.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: catColor.text }}>
-              {club.category}
-            </span>
+    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <div
+          key={index}
+          className="overflow-hidden rounded-[26px] border border-[rgba(196,135,58,0.14)] bg-white animate-pulse shadow-[0_16px_42px_rgba(196,135,58,0.08)]"
+        >
+          <div className="h-32 bg-[rgba(244,240,232,0.95)]" />
+          <div className="space-y-4 px-4 pb-4 pt-6">
+            <div className="h-4 w-2/3 rounded-full bg-[rgba(244,240,232,0.95)]" />
+            <div className="space-y-2">
+              <div className="h-3 rounded-full bg-[rgba(244,240,232,0.8)]" />
+              <div className="h-3 w-5/6 rounded-full bg-[rgba(244,240,232,0.8)]" />
+            </div>
+            <div className="h-10 rounded-2xl bg-[rgba(244,240,232,0.8)]" />
           </div>
         </div>
-
-        <h3 className="font-semibold text-navy text-sm mt-2 group-hover:text-[var(--color-amber)] transition-colors line-clamp-1">
-          {club.name}
-        </h3>
-        {club.description && (
-          <p className="text-xs text-[var(--color-text-secondary)] mt-1 line-clamp-2 leading-relaxed">
-            {club.description}
-          </p>
-        )}
-
-        {/* Tags */}
-        {club.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-2">
-            {club.tags.slice(0, 3).map(tag => (
-              <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: '#F4F0E8', color: 'var(--color-text-secondary)' }}>
-                #{tag}
-              </span>
-            ))}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-[var(--color-border)]">
-          <div className="flex items-center gap-3 text-xs text-[var(--color-text-muted)]">
-            <span className="flex items-center gap-1">
-              <Users className="w-3 h-3" /> {club.member_count}
-            </span>
-            {club.city && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-3 h-3" /> {club.city}
-              </span>
-            )}
-          </div>
-          <span className="text-xs font-semibold" style={{ color: 'var(--color-amber)' }}>
-            View →
-          </span>
-        </div>
-      </div>
-    </Link>
+      ))}
+    </div>
   );
-});
+}
 
 export default function Discover() {
   const { user } = useAuth();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [showPrivate, setShowPrivate] = useState<'all' | 'public' | 'private'>('all');
+  const [privacyFilter, setPrivacyFilter] = useState<PrivacyFilter>('all');
   const [isCreateClubModalOpen, setIsCreateClubModalOpen] = useState(false);
-
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const [activeStoryPopup, setActiveStoryPopup] = useState<{
+    id: string;
+    title: string;
+    description: string;
+    color: string;
+    link?: string;
+    linkText?: string;
+  } | null>(null);
 
   const { data: clubs, loading: clubsLoading, error: clubsError, refetch } = useSupabaseQuery<Club>(
     queryKeys.clubs.list(),
@@ -118,214 +59,395 @@ export default function Discover() {
     { errorMessage: 'Failed to load clubs' }
   );
 
-  const { data: membershipRows, loading: memLoading } = useSupabaseQuery<{ club_id: string }>(
+  const { data: membershipRows, loading: membershipsLoading } = useSupabaseQuery<{ club_id: string }>(
     queryKeys.memberships.mine(user?.id ?? ''),
     () => supabase.from('club_memberships').select('club_id').eq('user_id', user!.id).eq('status', 'active'),
     { enabled: !!user, errorMessage: false }
   );
 
-  const loading = clubsLoading || memLoading;
-  const error = clubsError;
-
   const myMembershipIds = useMemo(
-    () => new Set(membershipRows.map(m => m.club_id)),
+    () => new Set(membershipRows.map((membership) => membership.club_id)),
     [membershipRows]
   );
 
-  const filtered = useMemo(() => {
-    return clubs.filter(c => {
-      const matchSearch = !search ||
-        c.name.toLowerCase().includes(search.toLowerCase()) ||
-        (c.description ?? '').toLowerCase().includes(search.toLowerCase()) ||
-        c.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
-      const matchCat = selectedCategory === 'all' || c.category === selectedCategory;
-      const matchPrivacy = showPrivate === 'all' || (showPrivate === 'public' ? !c.is_private : c.is_private);
-      return matchSearch && matchCat && matchPrivacy;
-    });
-  }, [clubs, search, selectedCategory, showPrivate]);
+  const filteredClubs = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
 
-  // Personalized recommendations: joined categories first
-  const recommended = useMemo(() => {
-    if (!user) return filtered;
-    const interests = user.what_i_learn?.map((s: string) => s.toLowerCase()) ?? [];
-    return [...filtered].sort((a, b) => {
-      const aScore = interests.some(i => a.category.includes(i) || a.tags.some(t => t.includes(i))) ? 1 : 0;
-      const bScore = interests.some(i => b.category.includes(i) || b.tags.some(t => t.includes(i))) ? 1 : 0;
-      if (bScore !== aScore) return bScore - aScore;
-      return b.member_count - a.member_count;
-    });
-  }, [filtered, user]);
+    return clubs.filter((club) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        club.name.toLowerCase().includes(normalizedSearch) ||
+        (club.description ?? '').toLowerCase().includes(normalizedSearch) ||
+        club.tags.some((tag) => tag.toLowerCase().includes(normalizedSearch)) ||
+        club.category.toLowerCase().includes(normalizedSearch);
 
-  const myClubs = clubs.filter(c => myMembershipIds.has(c.id));
-  const hasActiveFilters = search || selectedCategory !== 'all' || showPrivate !== 'all';
+      const matchesCategory = selectedCategory === 'all' || club.category === selectedCategory;
+      const matchesPrivacy =
+        privacyFilter === 'all' ||
+        (privacyFilter === 'public' ? !club.is_private : club.is_private);
+
+      return matchesSearch && matchesCategory && matchesPrivacy;
+    });
+  }, [clubs, privacyFilter, search, selectedCategory]);
+
+  const joinedClubs = useMemo(
+    () => filteredClubs.filter((club) => myMembershipIds.has(club.id)),
+    [filteredClubs, myMembershipIds]
+  );
+
+  const exploreClubs = useMemo(() => {
+    const base = filteredClubs.filter((club) => !myMembershipIds.has(club.id));
+    if (!user) return base;
+
+    const interests = user.what_i_learn.map((item) => item.toLowerCase());
+
+    return [...base].sort((left, right) => {
+      const leftScore = interests.some(
+        (interest) =>
+          left.category.toLowerCase().includes(interest) ||
+          left.tags.some((tag) => tag.toLowerCase().includes(interest))
+      )
+        ? 1
+        : 0;
+      const rightScore = interests.some(
+        (interest) =>
+          right.category.toLowerCase().includes(interest) ||
+          right.tags.some((tag) => tag.toLowerCase().includes(interest))
+      )
+        ? 1
+        : 0;
+
+      if (rightScore !== leftScore) return rightScore - leftScore;
+      return right.member_count - left.member_count;
+    });
+  }, [filteredClubs, myMembershipIds, user]);
+
+  const hasActiveFilters =
+    search.trim().length > 0 || selectedCategory !== 'all' || privacyFilter !== 'all';
+  const loading = clubsLoading || membershipsLoading;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="font-heading text-2xl text-navy">
-          {user ? `${greeting}, ${user.firstName}. ✦` : 'Discover clubs'}
-        </h1>
-        <p className="text-[var(--color-text-secondary)] mt-1 font-body">
-          {recommended.length} club{recommended.length !== 1 ? 's' : ''} across Morocco — find your people.
-        </p>
-      </div>
+    <div className="mx-auto max-w-6xl">
+      {/* ── Hero: story-strip on mobile, full card on desktop ── */}
+      <div className="relative overflow-hidden rounded-[18px] md:rounded-[34px] border border-[rgba(196,135,58,0.14)] bg-[linear-gradient(135deg,#FFF8F1_0%,#F7ECDE_52%,#F9F0EA_100%)] shadow-[0_24px_70px_rgba(196,135,58,0.12)]">
+        {/* Decorative blurs — hidden on mobile to keep card slim */}
+        <div className="pointer-events-none absolute -left-24 top-0 h-72 w-72 rounded-full bg-[rgba(225,107,59,0.13)] blur-[110px] hidden md:block" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-80 w-80 rounded-full bg-[rgba(92,61,143,0.2)] blur-[130px] hidden md:block" />
 
-      {/* My Clubs strip */}
-      {myClubs.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-heading text-navy" style={{ fontSize: '1.05rem' }}>
-              Your clubs
-            </h2>
+        {/* ── MOBILE STRIP (< md) ── */}
+        <div className="md:hidden flex items-center gap-3 px-4 py-3">
+          <div className="flex-1 min-w-0">
+            <div className="text-[9px] font-bold uppercase tracking-[0.28em] text-[var(--color-text-muted)] leading-none mb-0.5">FightClub Directory</div>
+            <div className="font-heading text-[18px] text-[var(--color-navy)] leading-tight">
+              My <span className="bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] bg-clip-text text-transparent">Clubs</span>
+            </div>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-none">
-            {myClubs.map(c => {
-              const gradient = c.cover_gradient ?? CATEGORY_GRADIENTS[c.category] ?? 'from-blue-500 to-purple-600';
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={refetch}
+              aria-label="Refresh clubs"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[rgba(196,135,58,0.18)] bg-white/90 text-[var(--color-text-secondary)] transition hover:text-[var(--color-navy)]"
+              title="Refresh clubs"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={() => setIsCreateClubModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_6px_20px_rgba(225,107,59,0.35)] transition"
+            >
+              <Plus className="h-3 w-3" />
+              New Club
+            </button>
+          </div>
+        </div>
+
+        {/* Search + Filters — always visible, compact on mobile */}
+        <div className="md:hidden px-4 pb-3 space-y-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--color-text-muted)]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search clubs..."
+              aria-label="Search clubs"
+              className="h-9 w-full rounded-xl border border-[rgba(196,135,58,0.14)] bg-white/88 pl-9 pr-3 text-sm text-[var(--color-navy)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[rgba(196,135,58,0.4)] focus:ring-2 focus:ring-[rgba(196,135,58,0.1)]"
+            />
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
+            {(['all', ...CATEGORIES.map(c => c.id)] as string[]).map((catId) => {
+              const cat = CATEGORIES.find(c => c.id === catId) as any;
+              const active = selectedCategory === catId;
               return (
-                <Link
-                  key={c.id}
-                  to={`/club/${c.slug ?? c.id}`}
-                  className="flex-shrink-0 w-40 rounded-xl overflow-hidden border border-[var(--color-border)] hover:shadow-md transition-all group"
+                <button
+                  key={catId}
+                  onClick={() => setSelectedCategory(catId)}
+                  className={`flex-shrink-0 px-2.5 py-1 rounded-full text-[10px] font-semibold transition ${
+                    active
+                      ? 'bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] text-white'
+                      : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)]'
+                  }`}
                 >
-                  <div className={`h-16 bg-gradient-to-br ${gradient}`} />
-                  <div className="p-2.5">
-                    <div className="font-semibold text-xs text-navy truncate group-hover:text-[var(--color-amber)] transition-colors">
-                      {c.name}
-                    </div>
-                    <div className="text-[10px] text-[var(--color-text-muted)] mt-0.5 flex items-center gap-1">
-                      <Users className="w-2.5 h-2.5" /> {c.member_count}
-                    </div>
-                  </div>
-                </Link>
+                  {catId === 'all' ? 'All' : (cat?.emoji ? `${cat.emoji} ${cat.label}` : cat?.label)}
+                </button>
               );
             })}
           </div>
         </div>
-      )}
 
-      {/* Search */}
-      <SearchBar
-        value={search}
-        onChange={setSearch}
-        placeholder="Search clubs, topics, tags…"
-      />
+        {/* ── DESKTOP FULL LAYOUT (≥ md) ── */}
+        <div className="hidden md:block relative px-5 py-6 md:px-5 md:py-6 lg:px-8 lg:py-8">
+          <div className="relative space-y-8">
+            <div className="space-y-6">
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div className="space-y-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[var(--color-text-muted)]">
+                    FightClub Directory
+                  </div>
+                  <div>
+                    <h1 className="font-heading text-4xl text-[var(--color-navy)] sm:text-5xl">
+                      My <span className="bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] bg-clip-text text-transparent">Clubs</span>
+                    </h1>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] sm:text-[15px]">
+                      Browse the communities you already belong to, discover new ones, and launch your own club without changing any of the existing club flows behind the scenes.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  <button
+                    onClick={refetch}
+                    aria-label="Refresh clubs"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(196,135,58,0.14)] bg-white/80 text-[var(--color-text-secondary)] transition hover:border-[rgba(196,135,58,0.28)] hover:bg-white hover:text-[var(--color-navy)]"
+                    title="Refresh clubs"
+                  >
+                    <RefreshCw className="h-4.5 w-4.5" />
+                  </button>
+                  <button
+                    onClick={() => setIsCreateClubModalOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(225,107,59,0.32)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_34px_rgba(225,107,59,0.4)]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create club
+                  </button>
+                </div>
+              </div>
 
-      {/* Category chips */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none -mt-4">
-        <button
-          onClick={() => setSelectedCategory('all')}
-          className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all ${
-            selectedCategory === 'all' ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]'
-          }`}
-          style={selectedCategory === 'all' ? { background: 'var(--color-navy)' } : {}}
-        >
-          All
-        </button>
-        {CATEGORIES.map(cat => (
-          <button
-            key={cat.id}
-            onClick={() => setSelectedCategory(cat.id)}
-            className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all ${
-              selectedCategory === cat.id ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]'
-            }`}
-            style={selectedCategory === cat.id ? { background: 'var(--color-amber)' } : {}}
-          >
-            <span>{cat.emoji}</span>
-            {cat.label}
-          </button>
-        ))}
-        <div className="w-px h-5 bg-[var(--color-border)] flex-shrink-0" />
-        {(['all', 'public', 'private'] as const).map(v => (
-          <button
-            key={v}
-            onClick={() => setShowPrivate(v)}
-            className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold transition-all capitalize ${
-              showPrivate === v ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-amber)]'
-            }`}
-            style={showPrivate === v ? { background: 'var(--color-plum)' } : {}}
-          >
-            {v === 'all' ? 'Any' : v === 'public' ? '🌐 Public' : '🔒 Private'}
-          </button>
-        ))}
-      </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-[var(--color-text-muted)]" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Search clubs, topics, communities..."
+                  aria-label="Search clubs"
+                  className="h-12 w-full rounded-2xl border border-[rgba(196,135,58,0.14)] bg-white/88 pl-11 pr-4 text-sm text-[var(--color-navy)] outline-none transition placeholder:text-[var(--color-text-muted)] focus:border-[rgba(196,135,58,0.4)] focus:bg-white focus:ring-4 focus:ring-[rgba(196,135,58,0.12)]"
+                />
+              </div>
 
-      {/* Error state */}
-      {error && !loading && (
-        <div className="sc-card p-8 text-center">
-          <AlertCircle className="w-8 h-8 mx-auto mb-3 text-red-400" />
-          <p className="text-sm font-semibold text-navy mb-1">Could not load clubs</p>
-          <p className="text-xs text-[var(--color-text-secondary)] mb-4">{error?.message}</p>
-          <button onClick={refetch} className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-amber)] hover:underline">
-            <RefreshCw className="w-3.5 h-3.5" /> Try again
-          </button>
-        </div>
-      )}
-
-      {/* Results */}
-      {!error && loading ? (
-        <CardSkeletonGrid count={6} variant="club" />
-      ) : !error && recommended.length === 0 ? (
-        <div className="sc-card p-12 text-center">
-          <Sparkles className="w-8 h-8 mx-auto mb-3" style={{ color: 'var(--color-amber)' }} />
-          <div className="font-heading text-navy text-lg mb-2">
-            {hasActiveFilters ? 'No clubs match your filters' : 'No clubs yet'}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setSelectedCategory('all')}
+                  aria-pressed={selectedCategory === 'all'}
+                  className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                    selectedCategory === 'all'
+                      ? 'bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] text-white'
+                      : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)] hover:bg-white hover:text-[var(--color-navy)]'
+                  }`}
+                >
+                  All
+                </button>
+                {CATEGORIES.map((category) => (
+                  <button
+                    key={category.id}
+                    onClick={() => setSelectedCategory(category.id)}
+                    aria-pressed={selectedCategory === category.id}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                      selectedCategory === category.id
+                        ? 'bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] text-white'
+                        : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)] hover:bg-white hover:text-[var(--color-navy)]'
+                    }`}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+                <div className="mx-1 hidden w-px bg-[rgba(196,135,58,0.14)] sm:block" />
+                {(['all', 'public', 'private'] as PrivacyFilter[]).map((value) => (
+                  <button
+                    key={value}
+                    onClick={() => setPrivacyFilter(value)}
+                    aria-pressed={privacyFilter === value}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold capitalize transition ${
+                      privacyFilter === value
+                        ? 'bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] text-white'
+                        : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)] hover:bg-white hover:text-[var(--color-navy)]'
+                    }`}
+                  >
+                    {value === 'all' ? 'Any privacy' : value}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            {hasActiveFilters ? 'Try adjusting your search or filters.' : 'Be the first to start one!'}
-          </p>
-          {hasActiveFilters && (
-            <button
-              onClick={() => { setSearch(''); setSelectedCategory('all'); setShowPrivate('all'); }}
-              className="mt-4 text-sm font-semibold text-[var(--color-amber)] hover:underline"
-            >
-              Clear filters
-            </button>
-          )}
         </div>
-      ) : (
-        <>
-          {/* Recommended section heading */}
-          {user && !hasActiveFilters && (
-            <div className="flex items-center gap-2 -mb-4">
-              <Flame className="w-4 h-4" style={{ color: 'var(--color-amber)' }} />
-              <h2 className="font-heading text-navy" style={{ fontSize: '1.05rem' }}>
-                Recommended for you
-              </h2>
+      </div>
+      <div className="space-y-6 mt-6">
+          {clubsError && !loading ? (
+            <div className="rounded-[26px] border border-red-300/30 bg-[rgba(255,255,255,0.72)] px-6 py-10 text-center">
+              <p className="text-lg font-semibold text-[var(--color-navy)]">Could not load clubs</p>
+              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{clubsError.message}</p>
+              <button
+                onClick={refetch}
+                className="mt-5 inline-flex items-center gap-2 rounded-full border border-[rgba(196,135,58,0.14)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[rgba(196,135,58,0.28)]"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Try again
+              </button>
+            </div>
+          ) : loading ? (
+            <DirectorySkeleton />
+          ) : (
+            <div className="space-y-8">
+              {/* ── MOBILE STORIES ROW (< md) ── */}
+              <div className="md:hidden pt-2">
+                <div className="flex gap-4 overflow-x-auto scrollbar-none px-4 pb-4">
+                  {/* Community Pulses Story */}
+                  <button
+                    onClick={() => setActiveStoryPopup({
+                      id: 'pulses', title: 'Community Pulses', description: 'See the latest local flares and events happening around you right now.', color: 'var(--color-plum)', link: '/app/board', linkText: 'View Board'
+                    })}
+                    className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-[var(--color-plum)] flex items-center justify-center text-white text-xl shadow-md border-2 border-white ring-2 ring-[var(--color-plum)] ring-offset-1 transition active:scale-95">
+                      🔥
+                    </div>
+                    <span className="text-[10px] font-semibold text-[var(--color-navy)]">Pulses</span>
+                  </button>
+
+                  {/* Skills Nearby Story */}
+                  <button
+                    onClick={() => setActiveStoryPopup({
+                      id: 'skills', title: 'Skills Nearby', description: 'Discover talented individuals in your city offering to teach new skills.', color: 'var(--color-amber)', link: '/app/board', linkText: 'Browse Skills'
+                    })}
+                    className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-[var(--color-amber)] flex items-center justify-center text-white text-xl shadow-md border-2 border-white ring-2 ring-[var(--color-amber)] ring-offset-1 transition active:scale-95">
+                      💡
+                    </div>
+                    <span className="text-[10px] font-semibold text-[var(--color-navy)]">Skills</span>
+                  </button>
+
+                  {/* Joined Clubs as Stories */}
+                  {joinedClubs.map((club) => (
+                    <button
+                      key={club.id}
+                      onClick={() => setActiveStoryPopup({
+                        id: club.id, title: club.name, description: club.description || 'Community space for people who share this club\'s interests.', color: 'var(--color-navy)', link: `/club/${club.slug || club.id}`, linkText: 'Enter Club'
+                      })}
+                      className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                    >
+                      <div className="w-14 h-14 rounded-full overflow-hidden flex items-center justify-center text-white text-xl shadow-md border-2 border-white ring-2 ring-[rgba(196,135,58,0.4)] ring-offset-1 transition active:scale-95 bg-slate-100">
+                        {club.avatar_url ? (
+                          <img src={club.avatar_url} alt={club.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className={`w-full h-full bg-gradient-to-br ${club.cover_gradient || 'from-amber-200 to-rose-200'}`} />
+                        )}
+                      </div>
+                      <span className="text-[10px] font-semibold text-[var(--color-navy)] truncate w-14 text-center">{club.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {joinedClubs.length > 0 ? (
+                <section className="space-y-4">
+                  <div className="flex items-end justify-between gap-4">
+                    <div>
+                      <h2 className="text-xl font-semibold text-[var(--color-navy)]">Joined</h2>
+                      <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                        {countLabel(joinedClubs.length, 'club')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {joinedClubs.map((club) => (
+                      <ClubDirectoryCard key={club.id} club={club} isMember />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              <section className="space-y-4">
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-semibold text-[var(--color-navy)]">Explore</h2>
+                    <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                      {countLabel(exploreClubs.length, 'community', 'communities')} available
+                    </p>
+                  </div>
+                </div>
+
+                {exploreClubs.length === 0 ? (
+                  <div className="rounded-[26px] border border-[rgba(196,135,58,0.14)] bg-white/70 px-6 py-12 text-center">
+                    <Search className="mx-auto h-8 w-8 text-[#f6c27f]" />
+                    <h3 className="mt-4 text-lg font-semibold text-[var(--color-navy)]">
+                      {hasActiveFilters ? 'No clubs match your filters' : 'No clubs to explore yet'}
+                    </h3>
+                    <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                      {hasActiveFilters
+                        ? 'Try broadening your search or clearing a filter.'
+                        : 'Create the first club and start gathering your community.'}
+                    </p>
+                    {hasActiveFilters ? (
+                      <button
+                        onClick={() => {
+                          setSearch('');
+                          setSelectedCategory('all');
+                          setPrivacyFilter('all');
+                        }}
+                        className="mt-5 inline-flex items-center rounded-full border border-[rgba(196,135,58,0.14)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[rgba(196,135,58,0.28)]"
+                      >
+                        Clear filters
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {exploreClubs.map((club) => (
+                      <ClubDirectoryCard key={club.id} club={club} isMember={false} />
+                    ))}
+                  </div>
+                )}
+              </section>
             </div>
           )}
+      </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recommended.map(club => (
-              <ClubCard key={club.id} club={club} myMembershipIds={myMembershipIds} />
-            ))}
-          </div>
-        </>
-      )}
+      {isCreateClubModalOpen ? <CreateClubModal onClose={() => setIsCreateClubModalOpen(false)} /> : null}
 
-      {/* Bottom CTA */}
-      {!loading && clubs.length > 0 && (
-        <div className="p-6 rounded-2xl text-center" style={{ background: 'var(--color-navy)' }}>
-          <div className="font-heading text-white text-lg mb-2">
-            Can't find your club?
+      {/* ── STORY POPUP MODAL ── */}
+      {activeStoryPopup ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 md:hidden" onClick={() => setActiveStoryPopup(null)}>
+          <div className="sc-card w-full max-w-sm p-5 space-y-4 animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm" style={{ background: activeStoryPopup.color }}>
+                {activeStoryPopup.title.charAt(0)}
+              </div>
+              <h3 className="font-heading text-lg text-navy flex-1">{activeStoryPopup.title}</h3>
+            </div>
+            <div className="bg-parchment rounded-xl p-3 border border-[var(--color-border)] relative">
+              <div className="absolute -top-2 left-6 w-4 h-4 bg-parchment border-t border-l border-[var(--color-border)] rotate-45" />
+              <p className="font-body text-sm text-[var(--color-text-secondary)] relative z-10 leading-relaxed">
+                {activeStoryPopup.description}
+              </p>
+            </div>
+            {activeStoryPopup.link ? (
+              <a href={activeStoryPopup.link} className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm" style={{ background: activeStoryPopup.color }}>
+                {activeStoryPopup.linkText}
+              </a>
+            ) : null}
           </div>
-          <p className="text-white/50 text-sm font-body mb-4">
-            Start your own and invite your people.
-          </p>
-          <button
-            onClick={() => setIsCreateClubModalOpen(true)}
-            className="inline-flex items-center gap-2 btn-amber text-sm"
-            style={{ padding: '0.625rem 1.25rem' }}
-          >
-            <TrendingUp className="w-4 h-4" />
-            Start a Club
-          </button>
         </div>
-      )}
-
-      {isCreateClubModalOpen && (
-        <CreateClubModal onClose={() => setIsCreateClubModalOpen(false)} />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -1,20 +1,9 @@
+// Platform club categories — only these two are available for club creation.
+// Other category IDs may still exist in the DB (backward compat); gradients/colors
+// maps below cover them so existing clubs render correctly.
 export const CATEGORIES = [
-  { id: 'music',             label: 'Music',                     emoji: '🎵' },
-  { id: 'languages',         label: 'Languages',                 emoji: '🌍' },
-  { id: 'technology',        label: 'Technology',                emoji: '💻' },
-  { id: 'cooking',           label: 'Cooking',                   emoji: '🍳' },
-  { id: 'art',               label: 'Art & Craft',               emoji: '🎨' },
-  { id: 'fitness',           label: 'Fitness',                   emoji: '💪' },
-  { id: 'photography',       label: 'Photography',               emoji: '📷' },
-  { id: 'business',          label: 'Business',                  emoji: '📊' },
-  { id: 'writing',           label: 'Writing',                   emoji: '✍️' },
-  { id: 'crafts',            label: 'Crafts',                    emoji: '🧵' },
-  { id: 'events',            label: 'Events',                    emoji: '📅' },
-  { id: 'student',           label: 'Student',                   emoji: '🎓' },
-  { id: 'club_lounge',       label: 'Club Lounge',               emoji: '🛋️' },
-  { id: 'deve_sandbox',      label: 'Deve Sandbox',              emoji: '🛠️' },
-  { id: 'wellness_support',  label: 'Wellness & Support Room',   emoji: '🧘' },
-  { id: 'connection_lounge', label: 'Connection Lounge',         emoji: '🤝' },
+  { id: 'technology', label: 'Tech & Dev',  emoji: '💻' },
+  { id: 'student',    label: 'Students',    emoji: '🎓' },
 ] as const;
 
 export type CategoryId = typeof CATEGORIES[number]['id'];

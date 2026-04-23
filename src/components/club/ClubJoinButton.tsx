@@ -55,8 +55,8 @@ export default function ClubJoinButton({
       <button
         onClick={() => wrap(onJoin)}
         disabled={loading}
-        className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl text-navy transition-all hover:scale-105 disabled:opacity-60`}
-        style={{ background: 'var(--color-amber)' }}
+        className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl text-white transition-all hover:scale-105 disabled:opacity-60`}
+        style={{ background: 'linear-gradient(135deg, #C4873A 0%, #E16B3B 100%)' }}
       >
         {loading
           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -74,8 +74,8 @@ export default function ClubJoinButton({
       <button
         onClick={() => wrap(onJoin)}
         disabled={loading}
-        className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl text-navy transition-all hover:scale-105 disabled:opacity-60`}
-        style={{ background: 'var(--color-amber)' }}
+        className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl text-white transition-all hover:scale-105 disabled:opacity-60`}
+        style={{ background: 'linear-gradient(135deg, #C4873A 0%, #E16B3B 100%)' }}
       >
         {loading ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -120,7 +120,7 @@ export default function ClubJoinButton({
       <div className="relative">
         <button
           onClick={() => setShowLeaveMenu(v => !v)}
-          className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl border border-white/30 text-white bg-white/15 hover:bg-white/20 transition-colors`}
+          className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl border border-[rgba(196,135,58,0.2)] bg-white/85 text-[var(--color-navy)] hover:border-[rgba(196,135,58,0.35)] hover:bg-white transition-colors shadow-sm`}
         >
           <Check className="w-3.5 h-3.5" />
           Joined
@@ -151,7 +151,7 @@ export default function ClubJoinButton({
     return (
       <div className="flex items-center gap-2">
         <span
-          className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl border border-white/25 text-white bg-white/15`}
+          className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl border border-[rgba(92,61,143,0.18)] bg-[rgba(92,61,143,0.08)] text-[var(--color-plum)]`}
         >
           <Shield className="w-3.5 h-3.5" />
           Moderator
@@ -160,7 +160,7 @@ export default function ClubJoinButton({
         <button
           onClick={() => wrap(onLeave)}
           disabled={loading}
-          className={`${text} text-white/50 hover:text-white/80 transition-colors`}
+          className={`${text} text-[var(--color-text-muted)] hover:text-red-500 transition-colors`}
           title="Leave club"
         >
           {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : '✕'}
@@ -173,8 +173,12 @@ export default function ClubJoinButton({
   if (joinState === 'admin') {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl border border-white/25 text-white bg-white/15`}
-        style={{ borderColor: 'rgba(196,135,58,0.5)', background: 'rgba(196,135,58,0.2)' }}
+        className={`inline-flex items-center gap-1.5 ${px} ${text} font-semibold rounded-xl border`}
+        style={{
+          borderColor: 'rgba(196,135,58,0.28)',
+          background: 'rgba(196,135,58,0.12)',
+          color: 'var(--color-amber)',
+        }}
       >
         <Crown className="w-3.5 h-3.5" style={{ color: 'var(--color-amber)' }} />
         <span style={{ color: 'var(--color-amber)' }}>Admin</span>

@@ -4,26 +4,16 @@ import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 
 // Landing Page Sections (always needed on first load — keep eager)
-import Navigation from './sections/Navigation';
-import Hero from './sections/Hero';
-import DiscoveryPreview from './sections/DiscoveryPreview';
-import HowItWorks from './sections/HowItWorks';
-import TrustSafety from './sections/TrustSafety';
-import Testimonials from './sections/Testimonials';
-import JoinCTA from './sections/JoinCTA';
-import Footer from './sections/Footer';
-
-// Auth pages (small, keep eager so login is instant)
 import Login from './pages/auth/Login';
 import Signup from './pages/auth/Signup';
 import VerifyEmail from './pages/auth/VerifyEmail';
 import AuthCallback from './pages/auth/AuthCallback';
+import LandingPage from './pages/LandingPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 
 // Heavy app pages — lazy loaded, only downloaded when visited
 const Feed        = lazy(() => import('./pages/Feed'));
-const Browse      = lazy(() => import('./pages/Browse'));
 const Discover    = lazy(() => import('./pages/Discover'));
 const ClubHome    = lazy(() => import('./pages/ClubHome'));
 const ClubChat    = lazy(() => import('./pages/ClubChat'));
@@ -31,7 +21,7 @@ const ProjectDetails = lazy(() => import('./pages/ProjectDetails'));
 const SkillDetail = lazy(() => import('./pages/SkillDetail'));
 const Messages    = lazy(() => import('./pages/Messages'));
 const Profile     = lazy(() => import('./pages/Profile'));
-const Teach       = lazy(() => import('./pages/Teach'));
+const Path       = lazy(() => import('./pages/Path'));
 const Admin       = lazy(() => import('./pages/Admin'));
 const MemberProfile = lazy(() => import('./pages/MemberProfile'));
 const Settings    = lazy(() => import('./pages/Settings'));
@@ -40,27 +30,13 @@ const Board       = lazy(() => import('./pages/Board'));
 const Welcome     = lazy(() => import('./pages/Welcome'));
 const RoomCreate  = lazy(() => import('./pages/RoomCreate'));
 const RoomChat    = lazy(() => import('./pages/RoomChat'));
+const VoiceRoom   = lazy(() => import('./pages/VoiceRoom'));
 
 // Minimal spinner shown while a lazy chunk is loading
 function PageLoader() {
   return (
     <div className="flex items-center justify-center h-screen w-full bg-parchment">
       <div className="w-8 h-8 rounded-full border-4 border-amber-300 border-t-amber-600 animate-spin" />
-    </div>
-  );
-}
-
-function LandingPage() {
-  return (
-    <div className="relative">
-      <Navigation />
-      <Hero className="z-10" />
-      <DiscoveryPreview className="z-20" />
-      <HowItWorks className="z-30" />
-      <TrustSafety className="z-40" />
-      <Testimonials className="z-50" />
-      <JoinCTA className="z-60" />
-      <Footer className="z-70" />
     </div>
   );
 }
@@ -100,14 +76,14 @@ function AppRouter() {
             <Route path="discover"        element={<Feed />} />
             <Route path="feed"            element={<Navigate to="/app/discover" replace />} />
             <Route path="clubs"           element={<Discover />} />
-            <Route path="browse"          element={<Browse />} />
             <Route path="skill/:slug"     element={<SkillDetail />} />
             <Route path="messages"        element={<Messages />} />
             <Route path="profile"         element={<Profile />} />
-            <Route path="teach"           element={<Teach />} />
+            <Route path="path"           element={<Path />} />
             <Route path="board"           element={<Board />} />
             <Route path="room/new"        element={<RoomCreate />} />
             <Route path="room/:id"        element={<RoomChat />} />
+            <Route path="voice-room/:id"  element={<VoiceRoom />} />
             <Route path="admin"           element={<Admin />} />
             <Route path="club/:id/chat"   element={<ClubChat />} />
             <Route path="club/:clubId/projects/:projectId" element={<ProjectDetails />} />
@@ -115,7 +91,7 @@ function AppRouter() {
             <Route path="settings"        element={<Settings />} />
             <Route path="welcome"         element={<Welcome />} />
             <Route path="dashboard"       element={<Navigate to="/app/discover" replace />} />
-            <Route path="*"               element={<Navigate to="/app/feed" replace />} />
+            <Route path="*"               element={<Navigate to="/app/discover" replace />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

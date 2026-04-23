@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { CalendarDays, PlusCircle, X, Loader2, Clock, MapPin, ExternalLink, MessageSquareMore } from 'lucide-react';
@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import type { ClubEvent } from '@/types/fightclub';
 import type { EventStyle } from '@/types/shared';
 import { normalizeHttpUrl } from '@/lib/safeUrl';
+import { reportError } from '@/lib/errors';
 
 type AnnouncementRef = {
   messageId: string;
@@ -139,7 +140,7 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
       .then(({ data, error }) => {
         if (error) {
           if (error.code !== '42703') {
-            console.error('[events announcement lookup]', error);
+            reportError('events.announcement_lookup', error);
           }
           return;
         }
@@ -225,7 +226,7 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
 
     if (error) {
       toast.error('Could not create event. Check DB migrations are applied.');
-      console.error('[handleCreateEvent]', error);
+      reportError('events.create', error);
     } else {
       setEvents(prev => [...prev, data].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
       resetCreateEvent();

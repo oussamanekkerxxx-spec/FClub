@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, ArrowRight, CheckCircle2, Clock } from 'lucide-react';
+import { Mail, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { normalizeEmail, reportError } from '@/lib/errors';
 
@@ -41,15 +41,10 @@ export default function Signup() {
             <span className="font-heading font-semibold text-xl text-[var(--color-navy)]">FightClub</span>
           </Link>
 
-          {/* Coming soon badge */}
-          <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-4 py-1.5 text-sm font-semibold mb-6">
-            <Clock className="w-4 h-4" />
-            Currently in private testing
-          </div>
 
           {!submitted ? (
             <>
-              <h1 className="text-3xl font-heading text-[var(--color-navy)] mb-2">Coming Soon</h1>
+              <h1 className="text-3xl font-heading text-[var(--color-navy)] mb-2">Join the Waitlist</h1>
               <p className="text-[var(--color-text-secondary)] mb-8 text-lg leading-relaxed">
                 We're putting the finishing touches on something special. Leave your email and we'll reach out when a spot opens up.
               </p>

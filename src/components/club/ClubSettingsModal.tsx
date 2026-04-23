@@ -4,10 +4,10 @@
  * Available to: Admin only.
  * Evaluation: [authenticated] + [admin] -> Edit club settings or delete club
  */
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { X, Loader2, Trash2, AlertTriangle, Globe, Lock } from 'lucide-react';
+import { X, Loader2, Trash2, AlertTriangle, Globe, Lock, Image as ImageIcon } from 'lucide-react';
 import type { Club } from '@/types/fightclub';
 
 interface Props {
@@ -28,6 +28,9 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
   const [showDanger, setShowDanger]   = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [deleting, setDeleting]       = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(club.cover_image_url);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +40,40 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
     const tags  = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
     const rules = rulesInput.split('\n').map(r => r.trim()).filter(Boolean);
 
+    let newCoverUrl = club.cover_image_url;
+    if (coverFile) {
+      const ext = coverFile.name.split('.').pop();
+      const fileName = `${club.id}_${Math.random()}.${ext}`;
+      const filePath = `covers/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('club-covers')
+        .upload(filePath, coverFile, { upsert: true });
+        
+      if (uploadError) {
+        toast.error('Failed to upload new cover image.');
+        setSaving(false);
+        return;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('club-covers')
+        .getPublicUrl(filePath);
+        
+      newCoverUrl = publicUrl;
+    }
+
     const { data, error } = await supabase
       .from('clubs')
-      .update({ name: name.trim(), description: description.trim() || null, is_private: isPrivate, city: city.trim() || null, tags, rules })
+      .update({ 
+        name: name.trim(), 
+        description: description.trim() || null, 
+        is_private: isPrivate, 
+        city: city.trim() || null, 
+        tags, 
+        rules,
+        cover_image_url: newCoverUrl 
+      })
       .eq('id', club.id)
       .select('*')
       .single();
@@ -83,6 +117,53 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
 
         {/* Body */}
         <form onSubmit={handleSave} className="p-6 space-y-4 overflow-y-auto flex-1">
+
+          {/* Cover Image Upload */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+              Cover Image
+            </label>
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (!file.type.startsWith('image/')) {
+                    toast.error('Please upload an image file.');
+                    return;
+                  }
+                  setCoverFile(file);
+                  setCoverPreview(URL.createObjectURL(file));
+                }
+              }} 
+              className="hidden" 
+              accept="image/*"
+            />
+            
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="relative h-32 border-2 border-dashed border-[var(--color-border)] rounded-2xl bg-gray-50 text-center hover:bg-parchment transition-colors cursor-pointer group overflow-hidden flex flex-col items-center justify-center"
+            >
+              {coverPreview ? (
+                <>
+                  <img src={coverPreview} alt="Cover Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                  <div className="relative z-10 w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-sm flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                    <ImageIcon className="w-4 h-4 text-[var(--color-amber)]" />
+                  </div>
+                  <strong className="relative z-10 block text-navy font-body text-xs drop-shadow-md">Change Cover Image</strong>
+                </>
+              ) : (
+                <>
+                  <div className="w-10 h-10 bg-white rounded-full shadow-sm flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                    <ImageIcon className="w-4 h-4 text-[var(--color-amber)]" />
+                  </div>
+                  <strong className="block text-navy font-body text-xs mb-1">Upload Cover Image</strong>
+                  <span className="text-[10px] text-[var(--color-text-secondary)] font-body">1200 x 400px recommended</span>
+                </>
+              )}
+            </div>
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">

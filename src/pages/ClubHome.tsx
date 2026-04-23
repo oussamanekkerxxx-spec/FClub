@@ -13,7 +13,10 @@ import {
 import { useClubActions } from '@/hooks/useClubActions';
 import { useClubData } from '@/hooks/useClubData';
 import { queryKeys } from '@/lib/queryKeys';
-import { CATEGORY_COLORS_WITH_GRADIENT } from '@/constants/categories';
+import { CATEGORIES, CATEGORY_COLORS_WITH_GRADIENT } from '@/constants/categories';
+import { getClubTemplate } from '@/constants/clubTemplates';
+import type { Tab } from '@/constants/clubTemplates';
+import StudentClubHome from '@/components/club/student/StudentClubHome';
 import ClubJoinButton from '@/components/club/ClubJoinButton';
 import ClubSettingsModal from '@/components/club/ClubSettingsModal';
 import ProjectsTab from '@/components/club/ProjectsTab';
@@ -32,9 +35,22 @@ import { format } from 'date-fns';
 
 const CATEGORY_COLORS = CATEGORY_COLORS_WITH_GRADIENT;
 
-type Tab = 'feed' | 'members' | 'quests' | 'rooms' | 'resources' | 'playlists' | 'events' | 'projects' | 'leaderboard' | 'requests';
+// Emoji lookup built from CATEGORIES — covers all known IDs from the DB,
+// with fallbacks from the full gradients/colors map for legacy categories.
+const CATEGORY_EMOJI: Record<string, string> = {
+  // Current platform categories
+  technology: '💻',
+  student:    '🎓',
+  // Legacy (DB backward-compat)
+  music: '🎵', languages: '🌍', cooking: '🍳', art: '🎨', fitness: '💪',
+  photography: '📷', business: '📊', writing: '✍️', crafts: '🧵',
+  events: '📅', club_lounge: '🛋️', deve_sandbox: '🛠️',
+  wellness_support: '🧘', connection_lounge: '🤝',
+  ...Object.fromEntries(CATEGORIES.map(c => [c.id, c.emoji])),
+};
 
 const VALID_TABS: Tab[] = ['feed', 'members', 'quests', 'rooms', 'resources', 'playlists', 'events', 'projects', 'leaderboard', 'requests'];
+
 
 export default function ClubHome() {
   const { id } = useParams<{ id: string }>();
@@ -57,12 +73,14 @@ export default function ClubHome() {
     [location.search]
   );
 
+  // Resolved on first render — updates when club loads. URL param always wins.
   const [activeTab, setActiveTab] = useState<Tab>(tabFromQuery ?? 'feed');
   const [showSettings, setShowSettings] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
 
   const clubId = club?.id ?? '';
   const catColors = club ? (CATEGORY_COLORS[club.category] ?? CATEGORY_COLORS.music) : CATEGORY_COLORS.music;
+  const template  = useMemo(() => getClubTemplate(club?.category ?? ''), [club?.category]);
 
   const { data: hasActiveRoom = false } = useQuery({
     queryKey: queryKeys.clubs.hasActiveRoom(clubId),
@@ -92,6 +110,18 @@ export default function ClubHome() {
   const isMember    = canPost;
   const isModOrAdmin = canModerate;
   const isAdmin     = joinState === 'admin';
+
+  // Apply the category template's default tab when the club first loads.
+  // URL query param always wins; a user-selected tab also wins (don't re-apply after first render).
+  const [templateApplied, setTemplateApplied] = useState(false);
+  useEffect(() => {
+    if (!club || templateApplied || tabFromQuery) return;
+    // Only switch away from 'feed' (the pre-club-load default) if the template wants something else
+    if (template.defaultTab !== 'feed') {
+      setActiveTab(template.defaultTab);
+    }
+    setTemplateApplied(true);
+  }, [club, template, tabFromQuery, templateApplied]);
 
   useEffect(() => {
     if (!tabFromQuery) return;
@@ -171,7 +201,13 @@ export default function ClubHome() {
   }
   if (!club) return null;
 
-  const TABS: { id: Tab; label: string; icon: React.FC<{ className?: string }>; modOnly?: boolean }[] = [
+  // Render the new specialized immersive layout for student clubs
+  if (club.category === 'student') {
+    return <StudentClubHome club={club} user={user} />;
+  }
+
+  // ── Build tab list based on category template ──────────────────────────────
+  const ALL_TAB_DEFS: { id: Tab; label: string; icon: React.FC<{ className?: string }>; modOnly?: boolean }[] = [
     { id: 'feed',        label: 'Activity',    icon: MessageSquare },
     { id: 'members',     label: 'Members',     icon: Users },
     { id: 'projects',    label: 'Projects',    icon: FolderKanban },
@@ -184,6 +220,20 @@ export default function ClubHome() {
     ...(isModOrAdmin ? [{ id: 'requests' as Tab, label: 'Requests', icon: UserCheck, modOnly: true }] : []),
   ];
 
+  const hiddenSet = new Set<Tab>(template.hiddenTabs ?? []);
+
+  // Build ordered list: template order first, then any remaining tabs not in order and not hidden
+  const orderedIds = [
+    ...template.tabOrder,
+    ...ALL_TAB_DEFS.map(t => t.id).filter(id => !template.tabOrder.includes(id)),
+  ];
+
+  const TABS = orderedIds
+    .filter(id => !hiddenSet.has(id))
+    .map(id => ALL_TAB_DEFS.find(t => t.id === id))
+    .filter((t): t is typeof ALL_TAB_DEFS[number] => !!t);
+
+
   return (
     <div className="max-w-6xl mx-auto">
 
@@ -194,19 +244,23 @@ export default function ClubHome() {
       </button>
 
       {/* ── Header / Banner ── */}
-      <div className="relative rounded-2xl overflow-hidden mb-6" style={{ minHeight: '200px' }}>
+      <div
+        className="relative mb-6 overflow-hidden rounded-[30px] border border-[rgba(196,135,58,0.16)] shadow-[0_22px_60px_rgba(196,135,58,0.14)]"
+        style={{ minHeight: '220px' }}
+      >
         {club.cover_image_url
           ? <img src={club.cover_image_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
           : <div className={`absolute inset-0 bg-gradient-to-br ${club.cover_gradient ?? catColors.gradient}`} />}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,248,241,0.16)_0%,rgba(244,240,232,0.72)_50%,rgba(255,249,243,0.96)_100%)]" />
 
-        <div className="relative p-6 flex flex-col sm:flex-row items-end sm:items-center gap-4">
+        <div className="relative p-5 sm:p-6">
+          <div className="flex flex-col gap-4 rounded-[28px] border border-white/70 bg-[rgba(255,249,243,0.82)] p-5 shadow-[0_18px_40px_rgba(196,135,58,0.12)] backdrop-blur-md sm:flex-row sm:items-center">
           {/* Avatar */}
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg flex-shrink-0 border-2 border-white/30"
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg flex-shrink-0 border-2 border-white/80"
             style={{ background: catColors.bg }}>
             {club.avatar_url
               ? <img src={club.avatar_url} alt="" className="w-full h-full object-cover rounded-2xl" />
-              : <span>{club.category === 'music' ? '🎵' : club.category === 'technology' ? '💻' : club.category === 'art' ? '🎨' : club.category === 'cooking' ? '🍳' : club.category === 'fitness' ? '💪' : '✨'}</span>}
+              : <span>{CATEGORY_EMOJI[club.category] ?? '✨'}</span>}
           </div>
 
           {/* Info */}
@@ -217,11 +271,11 @@ export default function ClubHome() {
                 {club.category}
               </span>
               {club.is_private
-                ? <span className="text-xs font-semibold text-white/70 flex items-center gap-1"><Lock className="w-3 h-3" /> Private</span>
-                : <span className="text-xs font-semibold text-white/70 flex items-center gap-1"><Globe className="w-3 h-3" /> Public</span>}
+                ? <span className="text-xs font-semibold text-[var(--color-text-secondary)] flex items-center gap-1"><Lock className="w-3 h-3" /> Private</span>
+                : <span className="text-xs font-semibold text-[var(--color-text-secondary)] flex items-center gap-1"><Globe className="w-3 h-3" /> Public</span>}
             </div>
-            <h1 className="font-heading text-2xl text-white font-bold">{club.name}</h1>
-            <div className="flex items-center gap-4 mt-1 text-sm text-white/70 flex-wrap">
+            <h1 className="font-heading text-2xl text-[var(--color-navy)] font-bold">{club.name}</h1>
+            <div className="flex items-center gap-4 mt-1 text-sm text-[var(--color-text-secondary)] flex-wrap">
               <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {club.member_count} members</span>
               {onlineCount > 0 && (
                 <span className="flex items-center gap-1.5 font-semibold" style={{ color: '#4ade80' }}>
@@ -233,11 +287,11 @@ export default function ClubHome() {
             </div>
 
             {posts.filter(p => p.is_pinned).length > 0 && (
-              <div className="mt-4 pt-3 border-t border-white/20">
+              <div className="mt-4 pt-3 border-t border-[rgba(196,135,58,0.16)]">
                 <div className="flex flex-col gap-1.5">
                   {posts.filter(p => p.is_pinned).slice(0, 2).map(p => (
                     <button key={p.id} onClick={() => setActiveTab('feed')}
-                      className="text-left text-[13px] text-white/80 hover:text-white transition-colors line-clamp-1 flex items-start gap-1.5">
+                      className="text-left text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-navy)] transition-colors line-clamp-1 flex items-start gap-1.5">
                       <Pin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-[var(--color-amber)]" />
                       <span className="leading-tight">{p.content}</span>
                     </button>
@@ -251,7 +305,7 @@ export default function ClubHome() {
           <div className="flex items-center gap-2">
             {isAdmin && (
               <button onClick={() => setShowSettings(true)}
-                className="p-2 rounded-xl bg-white/10 text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+                className="p-2 rounded-xl bg-white/78 text-[var(--color-text-secondary)] hover:text-[var(--color-navy)] hover:bg-white transition-colors shadow-sm"
                 title="Club Settings">
                 <Settings className="w-4 h-4" />
               </button>
@@ -259,7 +313,7 @@ export default function ClubHome() {
             {isMember && (
               <button
                 onClick={() => navigate(`/app/club/${club.id}/chat`, { state: { clubName: club.name, clubCategory: club.category } })}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-white/10 text-white hover:bg-white hover:text-[var(--color-navy)] transition-colors backdrop-blur-sm">
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] text-white hover:opacity-95 transition-colors shadow-[0_8px_22px_rgba(225,107,59,0.2)]">
                 <MessageSquare className="w-4 h-4" /> Live Chat
               </button>
             )}
@@ -271,6 +325,7 @@ export default function ClubHome() {
               onLeave={handleLeave}
               onCancelRequest={handleCancelRequest}
             />
+          </div>
           </div>
         </div>
       </div>
@@ -362,7 +417,7 @@ export default function ClubHome() {
                   className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${
                     activeTab === tab.id ? 'text-white' : 'text-[var(--color-text-secondary)] hover:bg-white hover:text-navy'
                   }`}
-                  style={activeTab === tab.id ? { background: 'var(--color-navy)' } : {}}>
+                  style={activeTab === tab.id ? { background: 'linear-gradient(135deg, #C4873A 0%, #E16B3B 100%)' } : {}}>
                   <Icon className="w-3.5 h-3.5" />
                   {tab.label}
                   {tab.id === 'requests' && pendingRequestCount > 0 && (

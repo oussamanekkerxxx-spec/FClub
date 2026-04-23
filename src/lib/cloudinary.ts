@@ -7,10 +7,11 @@ export interface CloudinaryUploadResult {
   resourceType: 'image' | 'video' | 'raw';
 }
 
-/** Determine the Cloudinary resource_type path segment from the file's MIME type. */
+/** Determine the Cloudinary resource_type path segment from the file's MIME type.
+ *  Cloudinary routes both video AND audio through the `/video/upload` endpoint. */
 function getResourceType(file: File): 'image' | 'video' | 'raw' {
   if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'raw';
-  if (file.type.startsWith('video/')) return 'video';
+  if (file.type.startsWith('video/') || file.type.startsWith('audio/')) return 'video';
   return 'image';
 }
 

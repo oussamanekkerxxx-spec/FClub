@@ -112,7 +112,7 @@ export default function Welcome() {
       {/* CTA */}
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <Link
-          to="/app/browse"
+          to="/app/board"
           className="btn-amber text-sm flex items-center gap-2"
           style={{ padding: '0.75rem 1.5rem' }}
         >
@@ -120,10 +120,10 @@ export default function Welcome() {
           <ArrowRight className="w-4 h-4" />
         </Link>
         <Link
-          to="/app/feed"
+          to="/app/discover"
           className="text-sm font-semibold font-body px-5 py-3 rounded-xl border border-[var(--color-border)] text-navy hover:bg-parchment transition-colors"
         >
-          Go to Feed
+          Go to Discover
         </Link>
       </div>
     </div>

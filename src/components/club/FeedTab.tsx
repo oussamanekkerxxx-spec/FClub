@@ -327,7 +327,7 @@ export default function FeedTab({ clubId, isMember, isPrivate }: Props) {
       <div className="sc-card p-4 sm:p-5 overflow-hidden relative">
         <div
           className="absolute inset-x-0 top-0 h-1"
-          style={{ background: 'linear-gradient(90deg, #0f172a, #f59e0b)' }}
+          style={{ background: 'linear-gradient(90deg, #C4873A, #E16B3B, #C05A81)' }}
         />
         <div className="flex items-start justify-between gap-4">
           <div>

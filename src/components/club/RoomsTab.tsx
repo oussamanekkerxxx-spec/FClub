@@ -1,6 +1,6 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
 import type { VoiceRoom } from '@/types/fightclub';
 import { useLazyQuery } from '@/hooks/useSupabaseQuery';
 import { queryKeys } from '@/lib/queryKeys';
@@ -31,6 +31,7 @@ export default function RoomsTab({
   clubId, isMember, isPrivate, canStartRoom, canRequestRoom, userId, onRequestRoom,
 }: RoomsTabProps) {
   const [showRoomModal, setShowRoomModal] = useState(false);
+  const navigate = useNavigate();
 
   const { data: rooms, loading, setData: setRooms } = useLazyQuery<VoiceRoom>(
     queryKeys.clubs.rooms(clubId),
@@ -111,7 +112,7 @@ export default function RoomsTab({
                   <button
                     className="text-sm font-semibold px-4 py-1.5 rounded-xl text-white flex-shrink-0 transition-all hover:scale-105"
                     style={{ background: 'var(--color-forest)' }}
-                    onClick={() => toast.info('Voice rooms require WebRTC — coming in Phase 4!')}>
+                    onClick={() => navigate(`/app/voice-room/${room.id}`)}>
                     Join
                   </button>
                 )}

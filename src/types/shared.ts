@@ -1,18 +1,16 @@
 // Primitive union types and cross-cutting domain models shared across features.
 
+import { type CategoryId } from '@/constants/categories';
+
 // ── Skill primitives ─────────────────────────────────────────────────────────
-export type Category =
-  | 'music' | 'languages' | 'technology' | 'cooking' | 'art'
-  | 'fitness' | 'crafts' | 'writing' | 'photography' | 'business';
+export type Category = CategoryId;
 
 export type Format = 'online' | 'in-person' | 'both';
 export type SkillLevel = 'all levels' | 'beginner' | 'intermediate' | 'advanced';
 export type SkillStatus = 'active' | 'paused';
 
 // ── Club primitives ──────────────────────────────────────────────────────────
-export type ClubCategory =
-  | 'music' | 'languages' | 'technology' | 'cooking' | 'art'
-  | 'fitness' | 'crafts' | 'writing' | 'photography' | 'business';
+export type ClubCategory = CategoryId;
 
 export type MemberRole = 'member' | 'moderator' | 'admin';
 export type MemberStatus = 'active' | 'pending' | 'banned';

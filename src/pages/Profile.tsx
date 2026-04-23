@@ -1,32 +1,41 @@
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth, TRUST_TIER_LABELS } from '@/contexts/AuthContext';
 import { MOROCCO_REGIONS } from '@/lib/morocco';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
-// supabase used directly for profile updates + cover preset
 import { useStorageUpload } from '@/hooks/useStorageUpload';
-import TrustProgress from '@/components/profile/TrustProgress';
+import { useProfileData } from '@/hooks/useProfileData';
 import BookingsDashboard from '@/components/bookings/BookingsDashboard';
-import {
-  Shield,
-  Edit3,
-  Globe,
-  BookOpen,
-  Sparkles,
-  Check,
-  Upload,
-  X,
-  Phone,
-  Camera,
-  BadgeCheck,
-  Palette,
-} from 'lucide-react';
-import '@/styles/ProfileCard.css';
+import GovernmentIDModal from '@/components/profile/GovernmentIDModal';
+import ProfileCoverPicker from '@/components/profile/ProfileCoverPicker';
+import ProfileEditModal, { type ProfileEditValues } from '@/components/profile/ProfileEditModal';
+import ProfileHeroCard from '@/components/profile/ProfileHeroCard';
+import ProfileTagGroup from '@/components/profile/ProfileTagGroup';
+import TrustProgress from '@/components/profile/TrustProgress';
+import { BookOpen, Check, Globe, MapPin, Phone, Shield, Sparkles, Users } from 'lucide-react';
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'];
-const ID_DOC_MIME_TYPES = [...IMAGE_MIME_TYPES, 'application/pdf'];
-const ID_DOC_EXTENSIONS = [...IMAGE_EXTENSIONS, 'pdf'];
+
+const COVER_GRADIENTS = [
+  { label: 'Navy Glow', value: 'linear-gradient(135deg,#1B2A4A 0%,#35507B 50%,#5C3D8F 100%)' },
+  { label: 'Amber Warmth', value: 'linear-gradient(135deg,#C4873A 0%,#E3A450 100%)' },
+  { label: 'Forest Depths', value: 'linear-gradient(135deg,#24523C 0%,#2D7A4F 100%)' },
+  { label: 'Sunrise', value: 'linear-gradient(135deg,#D97706 0%,#EA580C 55%,#DC2626 100%)' },
+  { label: 'Ocean', value: 'linear-gradient(135deg,#2563EB 0%,#0891B2 100%)' },
+  { label: 'Rose Gold', value: 'linear-gradient(135deg,#FB7185 0%,#F59E0B 100%)' },
+];
+
+const COVER_PHOTOS = [
+  { label: 'Mountains', value: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&h=500&fit=crop' },
+  { label: 'Forest', value: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&h=500&fit=crop' },
+  { label: 'Ocean', value: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=1200&h=500&fit=crop' },
+  { label: 'Desert', value: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1200&h=500&fit=crop' },
+  { label: 'City', value: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=1200&h=500&fit=crop' },
+  { label: 'Morocco', value: 'https://images.unsplash.com/photo-1489493887464-892be6d1daae?w=1200&h=500&fit=crop' },
+];
+
+type ProfileTab = 'about' | 'relations' | 'trust';
 
 function parseUniqueCsv(value: string): string[] {
   const seen = new Set<string>();
@@ -42,42 +51,59 @@ function parseUniqueCsv(value: string): string[] {
   return out;
 }
 
-const COVER_GRADIENTS = [
-  { label: 'Navy Glow',      value: 'linear-gradient(135deg,#1B2A4A 0%,#3a4b70 100%)' },
-  { label: 'Amber Warmth',   value: 'linear-gradient(135deg,#C4873A 0%,#e0a358 100%)' },
-  { label: 'Forest Depths',  value: 'linear-gradient(135deg,#2D7A4F 0%,#46966a 100%)' },
-  { label: 'Plum Twilight',  value: 'linear-gradient(135deg,#5C3D8F 0%,#7d5ab8 100%)' },
-  { label: 'Sunrise',        value: 'linear-gradient(135deg,#f59e0b 0%,#ef4444 100%)' },
-  { label: 'Ocean',          value: 'linear-gradient(135deg,#3b82f6 0%,#06b6d4 100%)' },
-  { label: 'Midnight',       value: 'linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%)' },
-  { label: 'Rose Gold',      value: 'linear-gradient(135deg,#fda4af 0%,#f43f5e 100%)' },
-];
-
-const COVER_PHOTOS = [
-  { label: 'Mountains',  url: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=320&fit=crop' },
-  { label: 'Forest',     url: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=320&fit=crop' },
-  { label: 'Ocean',      url: 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?w=800&h=320&fit=crop' },
-  { label: 'Desert',     url: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=800&h=320&fit=crop' },
-  { label: 'City',       url: 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&h=320&fit=crop' },
-  { label: 'Abstract',   url: 'https://images.unsplash.com/photo-1557682250-33bd709cbe85?w=800&h=320&fit=crop' },
-  { label: 'Stars',      url: 'https://images.unsplash.com/photo-1475274047050-1d0c0975de51?w=800&h=320&fit=crop' },
-  { label: 'Morocco',    url: 'https://images.unsplash.com/photo-1489493887464-892be6d1daae?w=800&h=320&fit=crop' },
-];
-
+function TabButton({
+  active,
+  label,
+  panelId,
+  tabId,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  panelId: string;
+  tabId: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      id={tabId}
+      role="tab"
+      aria-selected={active}
+      aria-controls={panelId}
+      onClick={onClick}
+      className={`rounded-2xl px-4 py-3 text-sm font-semibold transition sm:px-5 ${
+        active
+          ? 'bg-[var(--color-navy)] text-white shadow-lg'
+          : 'text-[var(--color-text-secondary)] hover:bg-slate-50 hover:text-[var(--color-navy)]'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export default function Profile() {
-  const { user, updateUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<'#about' | '#bookings' | '#verification'>('#about');
+  const navigate = useNavigate();
+  const { user: authUser, updateUser } = useAuth();
+  const { user, setLocalUser, saveProfile, updateCover } = useProfileData({ authUser, updateUser });
+  const [activeTab, setActiveTab] = useState<ProfileTab>('about');
   const [isEditing, setIsEditing] = useState(false);
-  const [editBio, setEditBio] = useState('');
-  const [editCity, setEditCity] = useState('');
-  const [editRegion, setEditRegion] = useState('');
-  const [editPhone, setEditPhone] = useState('');
-  const [editLanguages, setEditLanguages] = useState('');
-  const [editTeach, setEditTeach] = useState('');
-  const [editLearn, setEditLearn] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
+  const [coverPickerTab, setCoverPickerTab] = useState<'gradients' | 'photos'>('gradients');
+  const [showIdModal, setShowIdModal] = useState(false);
+  const [form, setForm] = useState<ProfileEditValues>({
+    bio: '',
+    city: '',
+    region: '',
+    phone: '',
+    languages: '',
+    teach: '',
+    learn: '',
+  });
+
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const avatarUpload = useStorageUpload({
     bucket: 'avatars',
@@ -85,78 +111,64 @@ export default function Profile() {
     allowedMimeTypes: IMAGE_MIME_TYPES,
     allowedExtensions: IMAGE_EXTENSIONS,
     profileField: 'avatar_url',
-    onSuccess: (url) => updateUser({ avatar: url }),
+    onSuccess: (url) => setLocalUser({ avatar: url }),
   });
   const coverUpload = useStorageUpload({
     bucket: 'avatars',
     allowedMimeTypes: IMAGE_MIME_TYPES,
     allowedExtensions: IMAGE_EXTENSIONS,
     profileField: 'cover_url',
-    onSuccess: (url) => { updateUser({ cover_url: url }); setShowCoverPicker(false); },
+    onSuccess: (url) => {
+      setLocalUser({ cover_url: url });
+      setShowCoverPicker(false);
+    },
   });
-  const idUpload = useStorageUpload({
-    bucket: 'id-documents',
-    allowedMimeTypes: ID_DOC_MIME_TYPES,
-    allowedExtensions: ID_DOC_EXTENSIONS,
-    onSuccess: () => updateUser({ id_card_status: 'pending' }),
-  });
-  const [coverPickerTab, setCoverPickerTab] = useState<'gradients' | 'photos'>('gradients');
-
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-  const idInputRef = useRef<HTMLInputElement>(null);
+  const setFormField = <K extends keyof ProfileEditValues,>(field: K, value: ProfileEditValues[K]) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
   const openEditModal = () => {
-    if (user) {
-      setEditBio(user.bio || '');
-      setEditCity(user.city || '');
-      setEditRegion(user.region || '');
-      setEditPhone(user.phone || '');
-      setEditLanguages(user.languages?.join(', ') || '');
-      setEditTeach(user.what_i_teach?.join(', ') || '');
-      setEditLearn(user.what_i_learn?.join(', ') || '');
-      setIsEditing(true);
+    if (!user) return;
+    setForm({
+      bio: user.bio || '',
+      city: user.city || '',
+      region: user.region || '',
+      phone: user.phone || '',
+      languages: user.languages.join(', '),
+      teach: user.what_i_teach.join(', '),
+      learn: user.what_i_learn.join(', '),
+    });
+    setIsEditing(true);
+  };
+
+  const handleTrustAction = (key: string) => {
+    switch (key) {
+      case 'photo':   avatarInputRef.current?.click(); break;
+      case 'bio':
+      case 'phone':   openEditModal(); break;
+      case 'id':      setShowIdModal(true); break;
+      case 'skill':   navigate('/app/teach'); break;
+      case 'session': navigate('/app/board'); break;
     }
   };
 
   const handleSaveProfile = async () => {
     if (!user) return;
     setIsSaving(true);
-    const languages = parseUniqueCsv(editLanguages);
-    const whatITeach = parseUniqueCsv(editTeach);
-    const whatILearn = parseUniqueCsv(editLearn);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          bio: editBio,
-          city: editCity || null,
-          region: editRegion || null,
-          phone: editPhone || null,
-          languages,
-          what_i_teach: whatITeach,
-          what_i_learn: whatILearn,
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        toast.error('Failed to save profile');
-      } else {
-        toast.success('Profile updated!');
-        updateUser({
-          bio: editBio,
-          city: editCity || undefined,
-          region: editRegion || undefined,
-          location: editCity || undefined,
-          phone: editPhone || undefined,
-          languages,
-          what_i_teach: whatITeach,
-          what_i_learn: whatILearn,
-        });
-        setIsEditing(false);
-      }
+      await saveProfile({
+        bio: form.bio,
+        city: form.city,
+        region: form.region,
+        phone: form.phone,
+        languages: parseUniqueCsv(form.languages),
+        what_i_teach: parseUniqueCsv(form.teach),
+        what_i_learn: parseUniqueCsv(form.learn),
+      });
+      toast.success('Profile updated.');
+      setIsEditing(false);
     } catch {
-      toast.error('An error occurred');
+      toast.error('Failed to save profile.');
     } finally {
       setIsSaving(false);
     }
@@ -165,461 +177,205 @@ export default function Profile() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    await avatarUpload.upload(file, user.id, `${user.id}/profile`, 'Profile photo updated!');
+    await avatarUpload.upload(file, user.id, `${user.id}/profile`, 'Profile photo updated.');
     e.target.value = '';
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
-    await coverUpload.upload(file, user.id, `${user.id}/cover`, 'Cover photo updated!');
+    await coverUpload.upload(file, user.id, `${user.id}/cover`, 'Cover photo updated.');
     e.target.value = '';
   };
 
-  const handleCoverPreset = async (gradient: string) => {
+  const handleCoverPreset = async (coverUrl: string) => {
     if (!user) return;
-    const { error } = await supabase
-      .from('profiles')
-      .update({ cover_url: gradient })
-      .eq('id', user.id);
-    if (error) {
-      toast.error('Failed to update cover');
-    } else {
-      updateUser({ cover_url: gradient });
-      toast.success('Cover updated!');
+    try {
+      await updateCover(coverUrl);
+      toast.success('Cover updated.');
       setShowCoverPicker(false);
+    } catch {
+      toast.error('Failed to update cover.');
     }
-  };
-
-  const handleIdUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
-    const url = await idUpload.upload(file, user.id, `${user.id}/id`, 'ID submitted for review!');
-    if (url) {
-      // Also write id_card_status = 'pending' alongside the URL
-      await supabase.from('profiles').update({ id_card_status: 'pending' }).eq('id', user.id);
-    }
-    e.target.value = '';
   };
 
   if (!user) return null;
 
+  const locationSummary = [user.city, user.region].filter(Boolean).join(', ') || user.location;
+  const verificationItems = [
+    { label: 'Email on account', done: true, icon: Check },
+    { label: user.phone ? 'Phone number added' : 'Add your phone number', done: !!user.phone, icon: Phone },
+    { label: user.id_verified ? 'Government ID approved' : 'Government ID pending', done: user.id_verified, icon: Shield },
+  ];
 
   return (
-    <div className="profile-container-wrapper">
-      <input
-        ref={avatarInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleAvatarUpload}
+    <div className="mx-auto max-w-6xl space-y-5">
+      <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+      <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+
+      <ProfileHeroCard
+        name={`${user.firstName} ${user.lastName}`.trim()}
+        subtitle={TRUST_TIER_LABELS[user.trust_tier]}
+        location={locationSummary}
+        bio={user.bio || 'Tell your community what you teach, what you are learning, and how you like to collaborate.'}
+        avatar={user.avatar}
+        cover={user.cover_url}
+        badgeLabel="Member card"
+        verified={user.trust_tier >= 2 || user.id_verified}
+        onEditAvatar={() => avatarInputRef.current?.click()}
+        onChangeCover={() => setShowCoverPicker(true)}
+        onEditProfile={openEditModal}
+        avatarUploading={avatarUpload.uploading}
+        coverUploading={coverUpload.uploading}
+        stats={[
+          { label: 'Sessions', value: user.sessions_completed, tone: 'forest' },
+          { label: 'Reviews', value: user.reviews_count, tone: 'default' },
+          { label: 'Trust', value: user.trust_score, tone: 'warm' },
+          { label: 'Learning', value: user.what_i_learn.length, tone: 'plum' },
+        ]}
       />
-      <input
-        ref={coverInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleCoverUpload}
-      />
-      <input
-        ref={idInputRef}
-        type="file"
-        accept="image/*,application/pdf"
-        className="hidden"
-        onChange={handleIdUpload}
-      />
 
-      <div className={`profile-card ${activeTab !== '#about' ? 'is-active' : ''}`} data-state={activeTab}>
-        <div className="card-header">
-          {/* Cover image / gradient */}
-          <div
-            className="card-cover"
-            style={
-              user.cover_url?.startsWith('linear-gradient')
-                ? { background: user.cover_url }
-                : { backgroundImage: `url('${user.cover_url || user.avatar || 'https://images.unsplash.com/photo-1549068106-b024baf5062d'}')` }
-            }
-          />
-
-          {/* Cover change button — always visible, hides when card is collapsed */}
-          <button
-            className="cover-change-btn"
-            onClick={() => setShowCoverPicker(true)}
-            disabled={coverUpload.uploading}
-          >
-            {coverUpload.uploading
-              ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <Camera className="w-3 h-3" />}
-            Change cover
-          </button>
-
-          {/* Avatar + edit button wrapped together so they animate as one unit */}
-          <div className="relative z-10 mx-auto w-full h-full">
-            <div className="card-avatar-wrap">
-              <img className="card-avatar" src={user.avatar || 'https://images.unsplash.com/photo-1549068106-b024baf5062d'} alt="avatar" />
-              <button
-                className="card-avatar-edit-btn"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={avatarUpload.uploading}
-                title="Change photo"
-              >
-                {avatarUpload.uploading
-                  ? <div className="w-2.5 h-2.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-                  : <Edit3 className="w-2.5 h-2.5 text-navy" />}
-              </button>
-            </div>
-            <h1 className="card-fullname flex items-center justify-center gap-1.5">
-              {user.firstName} {user.lastName}
-              {user.trust_tier >= 2 && <BadgeCheck className="w-5 h-5 text-amber-500" />}
-            </h1>
-            <h2 className="card-jobtitle">{TRUST_TIER_LABELS[user.trust_tier]} {user.city ? `• ${user.city}` : ''}</h2>
-          </div>
-        </div>
-
-        <div className="card-main">
-          {/* ABOUT SECTION */}
-          <div className={`card-section ${activeTab === '#about' ? 'is-active' : ''}`} id="about">
-            <div className="card-content">
-              <div className="flex justify-end items-center mb-2 mt-2">
-                <button onClick={openEditModal} className="text-amber-600 hover:text-amber-700 text-sm font-medium flex items-center gap-1"><Edit3 className="w-3.5 h-3.5"/> Edit</button>
-              </div>
-              <p className="card-desc mb-8 text-center text-[15px]">{user.bio || 'Tell us about yourself. Add a bio to help others know you better.'}</p>
-              
-              <div className="mt-4 space-y-4">
-                <div>
-                  <div className="text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wide flex items-center gap-1.5"><BookOpen className="w-3 h-3"/> What I Teach</div>
-                  <div className="flex flex-wrap gap-2">
-                    {user.what_i_teach.length > 0 ? user.what_i_teach.map(t => (
-                      <span key={t} className="px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-[13px] font-medium border border-amber-200/50">{t}</span>
-                    )) : <span className="text-sm text-gray-400 italic">None listed</span>}
-                  </div>
-                </div>
-                <div>
-                  <div className="text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wide flex items-center gap-1.5"><Sparkles className="w-3 h-3"/> What I Learn</div>
-                  <div className="flex flex-wrap gap-2">
-                    {user.what_i_learn.length > 0 ? user.what_i_learn.map(l => (
-                      <span key={l} className="px-3 py-1 bg-purple-50 text-purple-700 rounded-full text-[13px] font-medium border border-purple-200/50">{l}</span>
-                    )) : <span className="text-sm text-gray-400 italic">None listed</span>}
-                  </div>
-                </div>
-                {user.languages.length > 0 && (
-                  <div>
-                    <div className="text-[11px] font-bold text-gray-500 mb-2 uppercase tracking-wide flex items-center gap-1.5"><Globe className="w-3 h-3"/> Languages</div>
-                    <div className="flex flex-wrap gap-2">
-                      {user.languages.map(lang => (
-                        <span key={lang} className="px-3 py-1 bg-slate-50 text-slate-600 rounded-full text-[13px] font-medium border border-slate-200">{lang}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Social / Extra info area from template */}
-            <div className="flex justify-center border-t border-gray-100 pt-5 pb-2 mt-4 mx-5">
-              <div className="grid grid-cols-3 gap-4 w-full">
-                 <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-50/50 hover:bg-emerald-50 hover:scale-105 transition-all cursor-default">
-                    <div className="font-bold text-xl text-navy">{user.sessions_completed}</div>
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Activities</div>
-                 </div>
-                 <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-50/50 hover:bg-amber-50 hover:scale-105 transition-all cursor-default">
-                    <div className="font-bold text-xl text-amber-600 flex items-center justify-center gap-1">
-                      {user.trust_score}
-                    </div>
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Position</div>
-                 </div>
-                 <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-gray-50/50 hover:bg-blue-50 hover:scale-105 transition-all cursor-default">
-                    <div className="font-bold text-xl text-navy">{user.reviews_count}</div>
-                    <div className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Connections</div>
-                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* BOOKINGS SECTION */}
-          <div className={`card-section ${activeTab === '#bookings' ? 'is-active' : ''}`} id="bookings">
-            <div className="card-content">
-              <div className="card-subtitle">MY RELATIONS</div>
-              <div className="mt-2 -mx-2">
-                <BookingsDashboard />
-              </div>
-            </div>
-          </div>
-
-          {/* VERIFICATION SECTION */}
-          <div className={`card-section ${activeTab === '#verification' ? 'is-active' : ''}`} id="verification">
-            <div className="card-content">
-              <div className="card-subtitle">VERIFICATION & TRUST</div>
-              <div className="mb-6"><TrustProgress user={user} /></div>
-
-              <div className="card-subtitle mt-8">CONTACT INFO & STATUS</div>
-              <div className="mt-5 space-y-4">
-                {[
-                  { label: 'Email verified', done: true, icon: Check },
-                  { label: 'Phone number added', done: !!user.phone, icon: Phone },
-                  { label: 'Government ID verified', done: user.id_verified, icon: Shield },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${item.done ? 'bg-emerald-100 text-emerald-600' : 'bg-gray-100 text-gray-400'}`}>
-                       <item.icon className="w-4 h-4" />
-                    </div>
-                    <span className={`text-[13px] font-medium ${item.done ? 'text-navy' : 'text-gray-400'}`}>
-                      {item.label}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Upload ID button */}
-              {(!user.id_card_status || user.id_card_status === 'not_submitted' || user.id_card_status === 'rejected') && !user.id_verified && (
-                <button
-                  onClick={() => idInputRef.current?.click()}
-                  disabled={idUpload.uploading}
-                  className="w-full mt-8 flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-dashed border-gray-300 text-sm font-semibold text-gray-600 hover:bg-gray-50 hover:border-gray-400 transition-all disabled:opacity-50"
-                >
-                  {idUpload.uploading ? (
-                    <><div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" /> Uploading...</>
-                  ) : (
-                    <><Upload className="w-4 h-4" /> {user.id_card_status === 'rejected' ? 'Re-submit Government ID' : 'Submit ID for Verification'}</>
-                  )}
-                </button>
-              )}
-              {user.id_card_status && user.id_card_status !== 'not_submitted' && !user.id_verified && (
-                <div className="mt-8 text-center px-4 py-3 rounded-xl bg-amber-50 text-amber-700 text-sm font-medium border border-amber-200">
-                  ID Document is currently under review
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="card-buttons">
-          <button className={activeTab === '#about' ? 'is-active' : ''} onClick={() => setActiveTab('#about')}>ABOUT</button>
-          <button className={activeTab === '#bookings' ? 'is-active' : ''} onClick={() => setActiveTab('#bookings')}>RELATIONS</button>
-          <button className={activeTab === '#verification' ? 'is-active' : ''} onClick={() => setActiveTab('#verification')}>TRUST</button>
+      <div className="sc-card p-2">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Profile sections">
+          <TabButton active={activeTab === 'about'} label="About" tabId="profile-tab-about" panelId="profile-panel-about" onClick={() => setActiveTab('about')} />
+          <TabButton active={activeTab === 'relations'} label="Relations" tabId="profile-tab-relations" panelId="profile-panel-relations" onClick={() => setActiveTab('relations')} />
+          <TabButton active={activeTab === 'trust'} label="Trust" tabId="profile-tab-trust" panelId="profile-panel-trust" onClick={() => setActiveTab('trust')} />
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
-      {isEditing && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-heading font-bold text-xl text-navy">Edit Profile</h2>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg text-gray-500 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      {activeTab === 'about' ? (
+        <div id="profile-panel-about" role="tabpanel" aria-labelledby="profile-tab-about" className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+          <div className="space-y-4">
+            <div className="sc-card p-6">
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">About me</div>
+              <p className="text-[15px] leading-7 text-[var(--color-text-secondary)]">
+                {user.bio || 'Add a short bio so people understand your interests, context, and how they can work with you.'}
+              </p>
+            </div>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <div className="sc-card p-6">
+                <ProfileTagGroup label="What I teach" icon={<BookOpen className="h-3.5 w-3.5" />} items={user.what_i_teach} emptyLabel="No skills listed yet" tone="amber" />
+              </div>
+              <div className="sc-card p-6">
+                <ProfileTagGroup label="What I learn" icon={<Sparkles className="h-3.5 w-3.5" />} items={user.what_i_learn} emptyLabel="No learning goals listed yet" tone="plum" />
+              </div>
+            </div>
+            <div className="sc-card p-6">
+              <ProfileTagGroup label="Languages" icon={<Globe className="h-3.5 w-3.5" />} items={user.languages} emptyLabel="No languages added yet" tone="slate" />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="sc-card p-6">
+              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Profile details</div>
+              <div className="space-y-3">
+                {[
+                  { label: 'City', value: user.city || 'Add your city', icon: MapPin },
+                  { label: 'Region', value: user.region || 'Add your region', icon: Shield },
+                  { label: 'Phone', value: user.phone || 'Add your phone number', icon: Phone },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3">
+                    <item.icon className="mt-0.5 h-4 w-4 text-[var(--color-amber)]" />
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--color-navy)]">{item.label}</div>
+                      <div className="text-sm text-[var(--color-text-secondary)]">{item.value}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">Bio</label>
-                <textarea
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="Tell us about yourself"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">City</label>
-                <input
-                  type="text"
-                  value={editCity}
-                  onChange={(e) => setEditCity(e.target.value)}
-                  placeholder="e.g. Casablanca, Rabat, Fès…"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">Region</label>
-                <select
-                  value={editRegion}
-                  onChange={(e) => setEditRegion(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                >
-                  <option value="">Select region…</option>
-                  {MOROCCO_REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">
-                  <span className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" />Phone number</span>
-                </label>
-                <input
-                  type="tel"
-                  value={editPhone}
-                  onChange={(e) => setEditPhone(e.target.value)}
-                  placeholder="e.g., +212 6XX XXX XXX"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">Languages (comma-separated)</label>
-                <input
-                  type="text"
-                  value={editLanguages}
-                  onChange={(e) => setEditLanguages(e.target.value)}
-                  placeholder="e.g., Arabic, French, English"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">What I Teach (comma-separated)</label>
-                <input
-                  type="text"
-                  value={editTeach}
-                  onChange={(e) => setEditTeach(e.target.value)}
-                  placeholder="e.g., Piano, French, Cooking"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-navy mb-1">What I Learn (comma-separated)</label>
-                <input
-                  type="text"
-                  value={editLearn}
-                  onChange={(e) => setEditLearn(e.target.value)}
-                  placeholder="e.g., Spanish, Photography, Yoga"
-                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSaveProfile}
-                  disabled={isSaving}
-                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-50 shadow-md hover:shadow-lg"
-                  style={{ background: 'var(--color-amber)' }}
-                >
-                  {isSaving ? 'Saving...' : 'Save Profile'}
-                </button>
+            <div className="sc-card p-6">
+              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Snapshot</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-4"><div className="text-2xl font-semibold text-amber-700">{user.what_i_teach.length}</div><div className="mt-1 text-xs font-medium text-amber-700/80">Teaching topics</div></div>
+                <div className="rounded-2xl border border-violet-200/70 bg-violet-50 px-4 py-4"><div className="text-2xl font-semibold text-violet-700">{user.languages.length}</div><div className="mt-1 text-xs font-medium text-violet-700/80">Languages</div></div>
+                <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50 px-4 py-4"><div className="text-2xl font-semibold text-emerald-700">{user.sessions_completed}</div><div className="mt-1 text-xs font-medium text-emerald-700/80">Sessions done</div></div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"><div className="text-2xl font-semibold text-[var(--color-navy)]">{user.reviews_count}</div><div className="mt-1 text-xs font-medium text-[var(--color-text-secondary)]">Reviews</div></div>
               </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Cover Picker Modal */}
-      {showCoverPicker && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm"
-          onClick={() => setShowCoverPicker(false)}
-        >
-          <div
-            className="bg-white w-full max-w-lg rounded-t-2xl shadow-2xl animate-in slide-in-from-bottom duration-300"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Handle bar */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-gray-200" />
+      {activeTab === 'relations' ? (
+        <div id="profile-panel-relations" role="tabpanel" aria-labelledby="profile-tab-relations" className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="sc-card p-6">
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]"><Users className="h-3.5 w-3.5" />Your network</div>
+              <p className="text-[15px] leading-7 text-[var(--color-text-secondary)]">
+                This section keeps the relationship layer grounded in real activity. Session requests, confirmations, and completed exchanges stay connected to the same booking flow the app already uses.
+              </p>
             </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pt-2 pb-3 border-b border-gray-100">
-              <div className="flex items-center gap-2">
-                <Palette className="w-4 h-4 text-amber-500" />
-                <span className="font-bold text-[15px] text-navy">Profile Background</span>
+            <div className="sc-card p-6">
+              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Collaboration snapshot</div>
+              <div className="space-y-3">
+                {[
+                  ['Trust tier', TRUST_TIER_LABELS[user.trust_tier]],
+                  ['Completed sessions', String(user.sessions_completed)],
+                  ['Reviews received', String(user.reviews_count)],
+                  ['Skills shared', String(user.what_i_teach.length)],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                    <span className="text-sm text-[var(--color-text-secondary)]">{label}</span>
+                    <span className="text-sm font-semibold text-[var(--color-navy)]">{value}</span>
+                  </div>
+                ))}
               </div>
-              <button
-                onClick={() => setShowCoverPicker(false)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
             </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--color-navy)]">Session requests</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Incoming requests, confirmations, and history are unchanged. This is a visual refresh only.</p>
+            </div>
+            <BookingsDashboard />
+          </div>
+        </div>
+      ) : null}
 
-            {/* Tabs */}
-            <div className="flex px-5 pt-3 gap-1">
-              {(['gradients', 'photos'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setCoverPickerTab(tab)}
-                  className={`px-4 py-1.5 rounded-full text-[12px] font-semibold transition-all capitalize ${
-                    coverPickerTab === tab
-                      ? 'bg-navy text-white shadow-sm'
-                      : 'text-gray-500 hover:bg-gray-100'
-                  }`}
-                >
-                  {tab === 'gradients' ? 'Colors' : 'Photos'}
-                </button>
+      {activeTab === 'trust' ? (
+        <div id="profile-panel-trust" role="tabpanel" aria-labelledby="profile-tab-trust" className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+          <TrustProgress user={user} onActionClick={handleTrustAction} />
+          <div className="sc-card p-6">
+            <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Verification status</div>
+            <div className="space-y-3">
+              {verificationItems.map((item) => (
+                <div key={item.label} className="flex items-center gap-3 rounded-2xl border border-slate-200/70 bg-slate-50 px-4 py-3">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}><item.icon className="h-4 w-4" /></div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-[var(--color-navy)]">{item.label}</div>
+                    <div className="text-sm text-[var(--color-text-secondary)]">{item.done ? 'Completed' : 'Still needed'}</div>
+                  </div>
+                </div>
               ))}
             </div>
 
-            {/* Content */}
-            <div className="px-5 py-4">
-              {coverPickerTab === 'gradients' ? (
-                <div className="grid grid-cols-4 gap-3">
-                  {COVER_GRADIENTS.map(g => (
-                    <button
-                      key={g.label}
-                      onClick={() => handleCoverPreset(g.value)}
-                      title={g.label}
-                      className={`h-16 rounded-xl border-[3px] transition-all hover:scale-105 ${
-                        user.cover_url === g.value ? 'border-amber-400 shadow-md' : 'border-transparent'
-                      }`}
-                      style={{ background: g.value }}
-                    >
-                      {user.cover_url === g.value && (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Check className="w-5 h-5 text-white drop-shadow" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {COVER_PHOTOS.map(p => (
-                    <button
-                      key={p.label}
-                      onClick={() => handleCoverPreset(p.url)}
-                      title={p.label}
-                      className={`h-20 rounded-xl border-[3px] transition-all hover:scale-[1.02] bg-cover bg-center relative overflow-hidden ${
-                        user.cover_url === p.url ? 'border-amber-400 shadow-md' : 'border-transparent'
-                      }`}
-                      style={{ backgroundImage: `url('${p.url}')` }}
-                    >
-                      <span className="absolute bottom-1 left-2 text-[10px] font-bold text-white drop-shadow">{p.label}</span>
-                      {user.cover_url === p.url && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                          <Check className="w-6 h-6 text-white drop-shadow" />
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Upload own photo */}
-            <div className="px-5 pb-6">
+            {!user.id_verified && (
               <button
-                onClick={() => coverInputRef.current?.click()}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-gray-200 hover:border-amber-400 text-[13px] font-semibold text-gray-500 hover:text-amber-600 transition-all"
+                onClick={() => setShowIdModal(true)}
+                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)] hover:bg-amber-50"
               >
-                <Upload className="w-4 h-4" />
-                Upload your own photo
+                {user.id_card_status === 'pending' ? 'View ID verification status' : user.id_card_status === 'rejected' ? 'Re-submit government ID' : 'Submit ID for verification'}
               </button>
-            </div>
+            )}
           </div>
         </div>
-      )}
+      ) : null}
+
+      <ProfileEditModal open={isEditing} values={form} regions={MOROCCO_REGIONS} isSaving={isSaving} onClose={() => setIsEditing(false)} onSave={handleSaveProfile} onChange={setFormField} />
+      <ProfileCoverPicker open={showCoverPicker} currentCover={user.cover_url} currentTab={coverPickerTab} gradients={COVER_GRADIENTS} photos={COVER_PHOTOS} onClose={() => setShowCoverPicker(false)} onTabChange={setCoverPickerTab} onChoose={handleCoverPreset} onUpload={() => coverInputRef.current?.click()} />
+      <GovernmentIDModal
+        open={showIdModal}
+        onClose={() => setShowIdModal(false)}
+        userId={user.id}
+        idCardStatus={user.id_card_status}
+        idVerified={user.id_verified}
+        onSubmitted={() => {
+          setLocalUser({ id_card_status: 'pending' });
+          setShowIdModal(false);
+        }}
+      />
     </div>
   );
 }

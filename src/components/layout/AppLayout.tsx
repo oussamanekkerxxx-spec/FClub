@@ -12,7 +12,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   Compass,
-  Search,
   MessageCircle,
   User,
   Settings,
@@ -59,10 +58,9 @@ interface NavItem {
 const navItems: NavItem[] = [
   { id: 'discover', icon: Flame,         label: 'Discover',     path: '/app/discover',  description: 'Community feed' },
   { id: 'clubs',    icon: Users,         label: 'Clubs',        path: '/app/clubs',     description: 'All clubs in Morocco' },
-  { id: 'browse',   icon: Search,        label: 'Browse Skills', path: '/app/browse',         description: 'Find a skill or a person' },
-  { id: 'board',    icon: Map,           label: 'City Board',    path: '/app/board',          description: 'Community board' },
+  { id: 'board',    icon: Map,           label: 'Board',         path: '/app/board',     description: 'Flares & skills' },
   { id: 'messages', icon: MessageCircle, label: 'Messages',      path: '/app/messages',       description: 'Your conversations' },
-  { id: 'teach',    icon: BookOpen,      label: 'Teach',         path: '/app/teach',          description: 'Share what you know' },
+  { id: 'path',    icon: BookOpen,      label: 'Path',         path: '/app/path',          description: 'Share what you know' },
   { id: 'profile',  icon: User,          label: 'My Profile',    path: '/app/profile',        description: 'Your member card' },
 ];
 
@@ -103,16 +101,15 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-white/8">
-          <Link to="/app/feed" className="flex items-center gap-2.5" onClick={() => setIsSidebarOpen(false)}>
-            <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm text-white"
-              style={{ background: 'var(--color-amber)' }}
-            >
-              SC
-            </div>
+          <Link to="/app/discover" className="flex items-center gap-2.5" onClick={() => setIsSidebarOpen(false)}>
+            <img 
+              src="/logo.png" 
+              alt="Lumina Logo" 
+              className="w-8 h-8 object-contain rounded-xl overflow-hidden" 
+            />
             <div>
               <span className="font-heading font-semibold text-base text-white tracking-wide">
-                FightClub
+                Lumina
               </span>
             </div>
           </Link>
@@ -125,10 +122,10 @@ export default function AppLayout() {
         </div>
 
         {/* City Badge */}
-        <div className="px-5 py-3 border-b border-white/8">
-          <div className="flex items-center gap-2 text-white/50 text-xs font-medium">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span>Morocco · FightClub</span>
+        <div className="px-5 py-3 border-b border-white/8 flex-shrink-0">
+          <div className="flex items-center gap-2 text-white/50 text-xs font-medium truncate">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+            <span className="truncate">{user?.location || 'Morocco'} · Lumina</span>
           </div>
         </div>
 
@@ -268,12 +265,18 @@ export default function AppLayout() {
             borderBottom: '1px solid var(--color-border)',
           }}
         >
-          <button
-            className="lg:hidden p-2 rounded-lg hover:bg-parchment-dark transition-colors"
-            onClick={() => setIsSidebarOpen(true)}
-          >
-            <Menu className="w-5 h-5 text-navy" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden p-2 rounded-lg hover:bg-parchment-dark transition-colors -ml-2"
+              onClick={() => setIsSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5 text-navy" />
+            </button>
+            <Link to="/app/discover" className="lg:hidden flex items-center gap-2">
+              <img src="/logo.png" alt="Lumina Logo" className="w-7 h-7 object-contain rounded-lg" />
+              <span className="font-heading font-bold text-[var(--color-navy)]">Lumina</span>
+            </Link>
+          </div>
 
           {/* Right */}
           <div className="flex items-center gap-2 ml-auto">

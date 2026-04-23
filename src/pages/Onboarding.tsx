@@ -213,7 +213,7 @@ export default function Onboarding() {
           <span className="font-heading font-semibold text-navy text-lg">FightClub</span>
         </div>
         <button
-          onClick={() => navigate('/app/feed')}
+          onClick={() => navigate('/app/discover')}
           className="text-xs font-body text-[var(--color-text-muted)] hover:text-navy transition-colors"
         >
           Skip for now →
