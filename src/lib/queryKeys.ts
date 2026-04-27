@@ -52,6 +52,15 @@ export const queryKeys = {
 
     /** Upcoming events for a club */
     upcomingEvents: (clubId: string) => ['club', clubId, 'upcoming-events'] as const,
+
+    /** Activity feed: parsed chat messages for a club */
+    activity: (clubId: string) => ['club', clubId, 'activity'] as const,
+
+    /** Active bans for a club */
+    bans: (clubId: string) => ['club', clubId, 'bans'] as const,
+
+    /** Active mutes for a club */
+    mutes: (clubId: string) => ['club', clubId, 'mutes'] as const,
   },
 
   // ── Memberships ──────────────────────────────────────────────────────────
@@ -112,7 +121,42 @@ export const queryKeys = {
   // ── Stories ──────────────────────────────────────────────────────────────
 
   stories: {
-    /** Active stories grouped by author */
-    active: () => ['stories', 'active'] as const,
+    /** Active stories, optionally scoped to a club */
+    active: (clubId?: string) => ['stories', 'active', clubId ?? 'all'] as const,
+  },
+
+  // ── Projects ────────────────────────────────────────────────────────────
+
+  projects: {
+    /** All projects for a club (ProjectsTab) */
+    list: (clubId: string) => ['projects', 'list', clubId] as const,
+
+    /** Single project detail (ProjectDetails page) */
+    detail: (projectId: string) => ['project', projectId] as const,
+
+    /** Kanban board: tasks + members for a project */
+    board: (projectId: string) => ['project', projectId, 'board'] as const,
+
+    /** Chat messages for a project channel */
+    chat: (channelId: string) => ['project-chat', channelId] as const,
+  },
+
+  // ── Student Learning ───────────────────────────────────────────────────────
+
+  student: {
+    /** Courses for a student club */
+    courses: (clubId: string) => ['student', clubId, 'courses'] as const,
+
+    /** Lessons for a course */
+    lessons: (courseId: string) => ['student', 'lessons', courseId] as const,
+
+    /** Shared files for a student club */
+    sharedFiles: (
+      clubId: string,
+      courseId?: string,
+      lessonId?: string,
+      kindsKey?: string,
+    ) =>
+      ['student', clubId, 'files', courseId ?? 'all', lessonId ?? 'all', kindsKey ?? 'all'] as const,
   },
 } as const;

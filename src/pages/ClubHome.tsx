@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +9,7 @@ import {
   Lock, Globe, MapPin, Clock,
   ArrowLeft, Settings,
   FolderKanban, Trophy, UserCheck, PlaySquare, Pin, Loader2,
+  ShieldOff,
 } from 'lucide-react';
 import { useClubActions } from '@/hooks/useClubActions';
 import { useClubData } from '@/hooks/useClubData';
@@ -31,6 +32,7 @@ import ResourcesTab from '@/components/club/ResourcesTab';
 import RequestsTab from '@/components/club/RequestsTab';
 import MemberGate from '@/components/club/MemberGate';
 import { TabErrorBoundary } from '@/components/errors/TabErrorBoundary';
+import ClubStoriesStrip from '@/components/club/ClubStoriesStrip';
 import { format } from 'date-fns';
 
 const CATEGORY_COLORS = CATEGORY_COLORS_WITH_GRADIENT;
@@ -52,7 +54,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 const VALID_TABS: Tab[] = ['feed', 'members', 'quests', 'rooms', 'resources', 'playlists', 'events', 'projects', 'leaderboard', 'requests'];
 
 
-export default function ClubHome() {
+export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -64,17 +66,13 @@ export default function ClubHome() {
     setClub, setMembership, setJoinRequestPending, setPendingRequestCount,
   } = useClubData({ id, userId: user?.id });
 
-  const tabFromQuery = useMemo(() => {
-    const value = new URLSearchParams(location.search).get('tab');
-    return value && VALID_TABS.includes(value as Tab) ? (value as Tab) : null;
-  }, [location.search]);
-  const focusedEventId = useMemo(
-    () => new URLSearchParams(location.search).get('event'),
-    [location.search]
-  );
+  const tabFromUrl = useMemo(() => {
+    const parts = location.pathname.split('/');
+    const last = parts[parts.length - 1];
+    return VALID_TABS.includes(last as Tab) ? (last as Tab) : null;
+  }, [location.pathname]);
 
-  // Resolved on first render — updates when club loads. URL param always wins.
-  const [activeTab, setActiveTab] = useState<Tab>(tabFromQuery ?? 'feed');
+  const activeTab = tabFromUrl ?? initialTab ?? 'feed';
   const [showSettings, setShowSettings] = useState(false);
   const [onlineCount, setOnlineCount] = useState(0);
 
@@ -96,10 +94,14 @@ export default function ClubHome() {
     staleTime: 30_000,
   });
   const { joinState, canPost, canModerate, canStartRoom, canRequestRoom,
-          handleJoin, handleLeave, handleCancelRequest, handleRequestRoom } = useClubActions({
+          canCreateQuestsEvents, canPromoteModerator, canPromoteAdmin,
+          canMute, canBan, isBanned, isMuted,
+          handleJoin, handleLeave, handleCancelRequest, handleRequestRoom,
+          handleBan, handleMute, handleUnmute } = useClubActions({
     club,
     membership,
     userId: user?.id,
+    trustTier: user?.trust_tier,
     joinRequestPending,
     hasActiveRoom,
     onMembershipChange: (m) => { setMembership(m); },
@@ -110,27 +112,6 @@ export default function ClubHome() {
   const isMember    = canPost;
   const isModOrAdmin = canModerate;
   const isAdmin     = joinState === 'admin';
-
-  // Apply the category template's default tab when the club first loads.
-  // URL query param always wins; a user-selected tab also wins (don't re-apply after first render).
-  const [templateApplied, setTemplateApplied] = useState(false);
-  useEffect(() => {
-    if (!club || templateApplied || tabFromQuery) return;
-    // Only switch away from 'feed' (the pre-club-load default) if the template wants something else
-    if (template.defaultTab !== 'feed') {
-      setActiveTab(template.defaultTab);
-    }
-    setTemplateApplied(true);
-  }, [club, template, tabFromQuery, templateApplied]);
-
-  useEffect(() => {
-    if (!tabFromQuery) return;
-    if (tabFromQuery === 'requests' && !isModOrAdmin) {
-      setActiveTab('feed');
-      return;
-    }
-    setActiveTab(tabFromQuery);
-  }, [tabFromQuery, isModOrAdmin]);
 
   // ── realtime presence ──
   useEffect(() => {
@@ -200,10 +181,28 @@ export default function ClubHome() {
     );
   }
   if (!club) return null;
+  if (isBanned) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-6 text-center">
+        <ShieldOff className="w-12 h-12 text-red-400" />
+        <h2 className="text-xl font-semibold text-navy">You are banned from this club</h2>
+        <p className="text-sm text-[var(--color-text-muted)] max-w-sm">
+          Contact a club admin if you believe this was a mistake.
+        </p>
+      </div>
+    );
+  }
 
   // Render the new specialized immersive layout for student clubs
   if (club.category === 'student') {
-    return <StudentClubHome club={club} user={user} />;
+    return (
+      <StudentClubHome
+        club={club}
+        user={user}
+        isMember={isMember}
+        canModerate={canModerate}
+      />
+    );
   }
 
   // ── Build tab list based on category template ──────────────────────────────
@@ -290,11 +289,11 @@ export default function ClubHome() {
               <div className="mt-4 pt-3 border-t border-[rgba(196,135,58,0.16)]">
                 <div className="flex flex-col gap-1.5">
                   {posts.filter(p => p.is_pinned).slice(0, 2).map(p => (
-                    <button key={p.id} onClick={() => setActiveTab('feed')}
+                    <Link key={p.id} to={`/club/${club.id}/feed`}
                       className="text-left text-[13px] text-[var(--color-text-secondary)] hover:text-[var(--color-navy)] transition-colors line-clamp-1 flex items-start gap-1.5">
                       <Pin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-[var(--color-amber)]" />
                       <span className="leading-tight">{p.content}</span>
-                    </button>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -347,14 +346,14 @@ export default function ClubHome() {
                 <CalendarDays className="w-3 h-3 text-[var(--color-amber)]" /> Upcoming
               </h3>
               <div className="space-y-3">
-                {events.slice(0, 2).map(ev => (
-                  <button key={ev.id} onClick={() => setActiveTab('events')} className="w-full text-left group">
-                    <div className="font-semibold text-sm text-navy group-hover:text-[var(--color-amber)] transition-colors line-clamp-1">{ev.title}</div>
-                    <div className="text-xs text-[var(--color-text-muted)] mt-0.5 flex items-center gap-1">
-                      <Clock className="w-3 h-3" /> {format(new Date(ev.starts_at), 'MMM d, HH:mm')}
-                    </div>
-                  </button>
-                ))}
+{events.slice(0, 2).map(ev => (
+                    <Link key={ev.id} to={`/club/${club.id}/events`} className="w-full text-left group">
+                      <div className="font-semibold text-sm text-navy group-hover:text-[var(--color-amber)] transition-colors line-clamp-1">{ev.title}</div>
+                      <div className="text-xs text-[var(--color-text-muted)] mt-0.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> {format(new Date(ev.starts_at), 'MMM d, HH:mm')}
+                      </div>
+                    </Link>
+                  ))}
               </div>
             </div>
           )}
@@ -365,12 +364,13 @@ export default function ClubHome() {
               {[
                 { label: 'Members', value: club.member_count, icon: Users },
                 { label: 'Posts',   value: club.post_count,   icon: MessageSquare },
-              ].map(({ label, value, icon: Icon }) => (
+                ...(onlineCount > 0 ? [{ label: 'Online', value: onlineCount, icon: Users, highlight: true }] : []),
+              ].map(({ label, value, icon: Icon, highlight }) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
                     <Icon className="w-3.5 h-3.5" /> {label}
                   </span>
-                  <span className="font-bold text-sm text-navy">{value}</span>
+                  <span className={`font-bold text-sm ${highlight ? 'text-green-600' : 'text-navy'}`}>{value}</span>
                 </div>
               ))}
             </div>
@@ -408,13 +408,20 @@ export default function ClubHome() {
         {/* ── Main content ── */}
         <div className="flex-1 min-w-0">
 
+          {isMember && (
+            <div className="mb-5">
+              <ClubStoriesStrip clubId={club.id} clubName={club.name} isMember={isMember} />
+            </div>
+          )}
+
           {/* Tab bar */}
           <div className="flex items-center gap-1 overflow-x-auto pb-1 mb-5 scrollbar-none">
             {TABS.map(tab => {
               const Icon = tab.icon;
+              const to = `/club/${club.id}/${tab.id}`;
               return (
-                <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all ${
+                <Link key={tab.id} to={to}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold flex-shrink-0 transition-all no-underline ${
                     activeTab === tab.id ? 'text-white' : 'text-[var(--color-text-secondary)] hover:bg-white hover:text-navy'
                   }`}
                   style={activeTab === tab.id ? { background: 'linear-gradient(135deg, #C4873A 0%, #E16B3B 100%)' } : {}}>
@@ -425,7 +432,7 @@ export default function ClubHome() {
                       {pendingRequestCount}
                     </span>
                   )}
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -448,6 +455,13 @@ export default function ClubHome() {
               isPrivate={club.is_private}
               isAdmin={isAdmin}
               currentUserId={user?.id}
+              canPromoteModerator={canPromoteModerator}
+              canPromoteAdmin={canPromoteAdmin}
+              canMute={canMute}
+              canBan={canBan}
+              handleBan={handleBan}
+              handleMute={handleMute}
+              handleUnmute={handleUnmute}
               onMemberRemoved={() => setClub(c => c ? { ...c, member_count: Math.max(0, c.member_count - 1) } : c)}
             />
           )}
@@ -459,6 +473,8 @@ export default function ClubHome() {
               isPrivate={club.is_private}
               userId={user?.id}
               isModOrAdmin={isModOrAdmin}
+              canCreateQuestsEvents={canCreateQuestsEvents}
+              isMuted={isMuted}
             />
           )}
 
@@ -489,6 +505,8 @@ export default function ClubHome() {
                 userId={user?.id}
                 isMember={isMember}
                 isModOrAdmin={isModOrAdmin}
+                canCreateQuestsEvents={canCreateQuestsEvents}
+                isMuted={isMuted}
                 focusEventId={focusedEventId}
               />
             </TabErrorBoundary>
@@ -523,6 +541,7 @@ export default function ClubHome() {
       {showSettings && (
         <ClubSettingsModal
           club={club}
+          canBan={canBan}
           onClose={() => setShowSettings(false)}
           onUpdated={(updated) => { setClub(updated); setShowSettings(false); }}
           onDeleted={() => navigate('/app/discover')}

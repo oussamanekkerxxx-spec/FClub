@@ -6,6 +6,8 @@ import {
   ChevronDown, ChevronUp, Play, Plus, Trash2, Loader2,
   PlaySquare, Clock, Pencil, X, Check, ExternalLink,
 } from 'lucide-react';
+import EmptyState from './EmptyState';
+import SkeletonCard from './SkeletonCard';
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -577,13 +579,7 @@ export default function PlaylistsTab({ clubId, userId, canManage, isMember }: Pl
     toast('Playlist deleted.');
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--color-amber)]" />
-      </div>
-    );
-  }
+if (loading) return <SkeletonCard />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -696,14 +692,12 @@ export default function PlaylistsTab({ clubId, userId, canManage, isMember }: Pl
       )}
 
       {/* Playlist list */}
-      {playlists.length === 0 ? (
-        <div className="sc-card p-10 text-center text-[var(--color-text-secondary)]">
-          <PlaySquare className="w-8 h-8 mx-auto mb-3 opacity-40" />
-          <p className="font-semibold text-sm">No playlists yet</p>
-          <p className="text-xs mt-1">
-            {canManage ? 'Create the first playlist to start organizing videos.' : 'No video playlists have been added yet.'}
-          </p>
-        </div>
+{playlists.length === 0 ? (
+        <EmptyState
+          icon={<PlaySquare className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No playlists yet"
+          subtitle={canManage ? 'Create the first playlist to start organizing videos.' : 'No video playlists have been added yet.'}
+        />
       ) : (
         <div className="flex flex-col gap-3">
           {playlists.map(pl => (

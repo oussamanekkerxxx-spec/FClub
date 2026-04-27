@@ -1,23 +1,24 @@
 /**
  * ClubSettingsModal
  *
- * Available to: Admin only.
- * Evaluation: [authenticated] + [admin] -> Edit club settings or delete club
+ * Available to: Admin + trust tier >= 3 only.
+ * Evaluation: [authenticated] + [admin] + [trust_tier >= 3] -> Edit club settings or delete club
  */
 import { useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { X, Loader2, Trash2, AlertTriangle, Globe, Lock, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Trash2, AlertTriangle, Globe, Lock, Image as ImageIcon, ShieldOff } from 'lucide-react';
 import type { Club } from '@/types/fightclub';
 
 interface Props {
   club: Club;
+  canBan?: boolean;
   onClose: () => void;
   onUpdated: (club: Club) => void;
   onDeleted: () => void;
 }
 
-export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted }: Props) {
+export default function ClubSettingsModal({ club, canBan = false, onClose, onUpdated, onDeleted }: Props) {
   const [name, setName]               = useState(club.name);
   const [description, setDescription] = useState(club.description ?? '');
   const [isPrivate, setIsPrivate]     = useState(club.is_private);
@@ -32,6 +33,26 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
   const [coverPreview, setCoverPreview] = useState<string | null>(club.cover_image_url);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  if (!canBan) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-10 text-center animate-fade-in-up">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-red-50">
+            <ShieldOff className="w-6 h-6 text-red-500" />
+          </div>
+          <p className="font-semibold text-navy text-sm mb-1">Admin access required</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">
+            You need higher trust tier to manage this club.
+          </p>
+          <button onClick={onClose} className="mt-4 btn-amber text-sm px-6 py-2">
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
@@ -40,39 +61,39 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
     const tags  = tagsInput.split(',').map(t => t.trim()).filter(Boolean);
     const rules = rulesInput.split('\n').map(r => r.trim()).filter(Boolean);
 
-    let newCoverUrl = club.cover_image_url;
+    let newCoverUrl: string | null = club.cover_image_url;
     if (coverFile) {
-      const ext = coverFile.name.split('.').pop();
-      const fileName = `${club.id}_${Math.random()}.${ext}`;
+      const ext = coverFile.name.split('.').pop() ?? 'jpg';
+      const fileName = `${club.id}_${Date.now()}.${ext}`;
       const filePath = `covers/${fileName}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from('club-covers')
         .upload(filePath, coverFile, { upsert: true });
-        
+
       if (uploadError) {
-        toast.error('Failed to upload new cover image.');
+        toast.error('Failed to upload cover image. Settings not saved.');
         setSaving(false);
         return;
       }
-      
+
       const { data: { publicUrl } } = supabase.storage
         .from('club-covers')
         .getPublicUrl(filePath);
-        
+
       newCoverUrl = publicUrl;
     }
 
     const { data, error } = await supabase
       .from('clubs')
-      .update({ 
-        name: name.trim(), 
-        description: description.trim() || null, 
-        is_private: isPrivate, 
-        city: city.trim() || null, 
-        tags, 
+      .update({
+        name: name.trim(),
+        description: description.trim() || null,
+        is_private: isPrivate,
+        city: city.trim() || null,
+        tags,
         rules,
-        cover_image_url: newCoverUrl 
+        cover_image_url: newCoverUrl,
       })
       .eq('id', club.id)
       .select('*')
@@ -94,11 +115,11 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
     const { error } = await supabase.from('clubs').delete().eq('id', club.id);
     if (error) {
       toast.error('Could not delete club.');
-      setDeleting(false);
     } else {
       toast('Club deleted.');
       onDeleted();
     }
+    setDeleting(false);
   };
 
   return (
@@ -123,9 +144,9 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
               Cover Image
             </label>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
+            <input
+              type="file"
+              ref={fileInputRef}
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
@@ -136,12 +157,12 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
                   setCoverFile(file);
                   setCoverPreview(URL.createObjectURL(file));
                 }
-              }} 
-              className="hidden" 
+              }}
+              className="hidden"
               accept="image/*"
             />
-            
-            <div 
+
+            <div
               onClick={() => fileInputRef.current?.click()}
               className="relative h-32 border-2 border-dashed border-[var(--color-border)] rounded-2xl bg-gray-50 text-center hover:bg-parchment transition-colors cursor-pointer group overflow-hidden flex flex-col items-center justify-center"
             >
@@ -172,6 +193,15 @@ export default function ClubSettingsModal({ club, onClose, onUpdated, onDeleted 
             <input type="text" value={name} onChange={e => setName(e.target.value)}
               className="input-sc w-full" maxLength={80} />
           </div>
+
+          {club.slug && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Club URL</label>
+              <div className="px-3 py-2.5 rounded-xl bg-gray-50 border border-[var(--color-border)] text-xs text-[var(--color-text-secondary)] font-mono">
+                /club/{club.slug}
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">Description</label>

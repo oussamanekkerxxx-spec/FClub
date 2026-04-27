@@ -12,9 +12,11 @@ import { useNavigate } from 'react-router-dom';
 interface StudentClubHomeProps {
   club: any;
   user: any;
+  isMember: boolean;
+  canModerate: boolean;
 }
 
-export default function StudentClubHome({ club, user }: StudentClubHomeProps) {
+export default function StudentClubHome({ club, user, isMember, canModerate }: StudentClubHomeProps) {
   // Mobile sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<StudentTabId>('chat');
@@ -104,7 +106,13 @@ export default function StudentClubHome({ club, user }: StudentClubHomeProps) {
         />
         
         <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent relative z-10">
-          <StudentViews activeTab={activeTab} clubId={club.id} />
+          <StudentViews
+            activeTab={activeTab}
+            clubId={club.id}
+            isMember={isMember}
+            canModerate={canModerate}
+            userId={user?.id}
+          />
         </div>
       </div>
       

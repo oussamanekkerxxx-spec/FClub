@@ -7,49 +7,17 @@ import {
 import AudioPlayerBubble from '@/components/AudioPlayerBubble';
 import { ProjectBubble, type ClubProject } from '@/components/chat/ProjectBubble';
 import { supabase } from '@/lib/supabase';
-import type { Poll } from '@/types/messaging';
 import { extractFileNameFromUrl, normalizeHttpUrl } from '@/lib/safeUrl';
+import type { ChannelRead } from '@/types/clubs';
+import type { ClubMessage } from '@/types/clubs';
 
-interface Reaction {
-  id: string;
-  message_id: string;
-  user_id: string;
-  emoji: string;
-}
-
-interface ChannelRead {
-  channel_id: string;
-  user_id: string;
-  last_read_at: string;
-}
-
-interface Message {
-  id: string;
-  channel_id: string;
-  sender_id: string;
-  content: string;
-  image_url?: string | null;
-  video_url?: string | null;
-  pdf_url?: string | null;
-  voice_url?: string | null;
-  location_lat?: number | null;
-  location_lng?: number | null;
-  created_at: string;
-  reply_to_id?: string | null;
-  is_edited?: boolean;
-  deleted_at?: string | null;
-  caption?: string | null;
-  sender?: { first_name: string; last_name: string; avatar_url: string };
-  reply_to_message?: Message | null;
-  reactions?: Reaction[];
-  poll?: Poll | null;
-  project?: ClubProject | null;
-  forwarded_from_id?: string | null;
-  forwarded_from_name?: string | null;
-}
+/** Extends ClubMessage with reply-to tracking used by the chat UI */
+type ChatMessage = ClubMessage & {
+  reply_to_message?: ChatMessage | null;
+};
 
 interface MessageItemProps {
-  msg: Message;
+  msg: ChatMessage;
   isOwn: boolean;
   isGroupFirst: boolean;
   isGroupLast: boolean;
@@ -60,16 +28,16 @@ interface MessageItemProps {
   currentUserId: string | undefined;
   isAdminOrMod: boolean;
   channelReads: ChannelRead[];
-  allMessages: Message[];
+  allMessages: ChatMessage[];
   searchQuery: string;
   parseMessageContent: (text: string, query: string) => React.ReactNode;
-  onReply: (msg: Message) => void;
-  onEdit: (msg: Message) => void;
+  onReply: (msg: ChatMessage) => void;
+  onEdit: (msg: ChatMessage) => void;
   onDelete: (msgId: string) => void;
-  onPin: (msg: Message) => void | Promise<void>;
+  onPin: (msg: ChatMessage) => void | Promise<void>;
   onToggleReaction: (msgId: string, emoji: string) => void;
-  onForward: (msg: Message) => void;
-  onViewImage: (msg: Message) => void;
+  onForward: (msg: ChatMessage) => void;
+  onViewImage: (msg: ChatMessage) => void;
   onApplyToProject: (project: ClubProject) => void;
   onViewApplicants: (project: ClubProject) => void;
 }

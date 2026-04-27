@@ -1,10 +1,13 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
-import { uploadToCloudinary } from '@/lib/cloudinary';
+import { uploadToCloudinary, detectFileKind } from '@/lib/cloudinary';
+import type { MathField } from '@/types/clubs';
 
 export function useClubChatComposerActions(ctx: any) {
   const {
+    clubId,
+    clubCategory,
     user,
     activeChannelId,
     activeChannel,
@@ -39,6 +42,8 @@ export function useClubChatComposerActions(ctx: any) {
     setScheduledTime,
     setIsSilentSend,
     setMessages,
+    setShowLearningFileModal,
+    setLearningFileData,
   } = ctx;
 
   const applyFormat = useCallback((syntax: string) => {
@@ -189,13 +194,30 @@ export function useClubChatComposerActions(ctx: any) {
         setSending(false);
         return;
       }
+
+      // Intercept for student clubs: show metadata modal instead of immediate send
+      const isStudentClub = clubCategory === 'student' && clubId && activeChannelId;
+      if (isStudentClub && !overrides?.scheduled_at) {
+        const fileKind = detectFileKind(chatAttachment.file);
+        const validKinds: string[] = ['pdf', 'document', 'slides', 'spreadsheet', 'video', 'audio', 'image'];
+        if (!validKinds.includes(fileKind)) {
+          toast.error('This file type is not supported for course linking.');
+          setSending(false);
+          return;
+        }
+        setLearningFileData({ file: chatAttachment.file, fileKind });
+        setShowLearningFileModal(true);
+        setSending(false);
+        return;
+      }
+
       try {
         setUploadProgress(1);
         const result = await uploadToCloudinary(chatAttachment.file, setUploadProgress);
         setUploadProgress(0);
         if (chatAttachment.type === 'image') imageUrl = result.url;
         else if (chatAttachment.type === 'video') videoUrl = result.url;
-        else if (chatAttachment.type === 'pdf') pdfUrl = result.url;
+        else if (chatAttachment.type === 'pdf' || chatAttachment.type === 'document') pdfUrl = result.url;
         setChatAttachment(null);
       } catch (err: any) {
         toast.error('Upload failed: ' + (err?.message ?? 'unknown error'));
@@ -273,5 +295,116 @@ export function useClubChatComposerActions(ctx: any) {
     stopRecordingAndSend,
     handleSend,
     submitScheduledMessage,
+    handleLearningFileSubmit: async (data: {
+      file: File;
+      fileKind: string;
+      title: string;
+      description: string;
+      courseId: string;
+      lessonId: string | null;
+      category: string;
+      mathField: MathField | null;
+    }) => {
+      if (!activeChannelId || !user || !clubId) return;
+      
+      try {
+        setUploadProgress(1);
+        
+        // 1. Upload file
+        const result = await uploadToCloudinary(data.file, setUploadProgress);
+        
+        // 2. Determine which message field to set based on file kind
+        let payload: any = {
+          channel_id: activeChannelId,
+          sender_id: user.id,
+          content: data.title,
+        };
+        
+        if (data.fileKind === 'image') {
+          payload.image_url = result.url;
+        } else if (data.fileKind === 'video' || data.fileKind === 'audio') {
+          payload.video_url = result.url;
+        } else if (data.fileKind === 'pdf') {
+          payload.pdf_url = result.url;
+        } else {
+          // For documents, slides, spreadsheet - store as pdf_url since cloudinary raw becomes accessible URL
+          payload.pdf_url = result.url;
+        }
+        
+        if (data.description.trim()) {
+          payload.caption = data.description.trim();
+        }
+        
+        // 3. Create chat message
+        const { data: messageData, error: messageError } = await supabase
+          .from('club_messages')
+          .insert(payload)
+          .select('id')
+          .single();
+        
+        if (messageError) {
+          toast.error('Could not send message.');
+          setUploadProgress(0);
+          return;
+        }
+        
+        // 4. Create learning file record
+        const baseSharedFilePayload = {
+          club_id: clubId,
+          course_id: data.courseId,
+          lesson_id: data.lessonId,
+          message_id: messageData?.id,
+          channel_id: activeChannelId,
+          uploaded_by: user.id,
+          title: data.title,
+          description: data.description.trim() || null,
+          category: data.category.trim() || null,
+          file_url: result.url,
+          file_name: data.file.name,
+          mime_type: data.file.type || null,
+          file_kind: data.fileKind,
+          storage_provider: 'cloudinary',
+          storage_public_id: result.publicId,
+          source: 'chat' as const,
+        };
+
+        let { error: fileError } = await supabase
+          .from('club_shared_files')
+          .insert({
+            ...baseSharedFilePayload,
+            math_field: data.mathField,
+          });
+
+        const missingMathFieldInSchema =
+          fileError?.code === 'PGRST204' &&
+          (fileError.message?.includes("'math_field'") ||
+            fileError.message?.toLowerCase().includes('math_field'));
+
+        if (missingMathFieldInSchema) {
+          const retryResult = await supabase
+            .from('club_shared_files')
+            .insert(baseSharedFilePayload);
+
+          fileError = retryResult.error;
+        }
+
+        if (fileError) {
+          // Learning file linking failed, but message was sent
+          console.error('Learning file linking failed:', fileError);
+          toast.info('File shared in chat, but course linking failed.');
+        } else {
+          toast.success('File added to course!');
+        }
+        
+        setUploadProgress(0);
+        setChatAttachment(null);
+        setLearningFileData(null);
+        
+      } catch (err: any) {
+        console.error('Learning file submit error:', err);
+        toast.error('Upload failed: ' + (err?.message ?? 'unknown error'));
+        setUploadProgress(0);
+      }
+    },
   };
 }

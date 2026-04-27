@@ -25,8 +25,8 @@ export interface Conversation {
 
 export interface PollOption {
   id: string;
-  poll_id: string;
-  text: string;
+  poll_id?: string;
+  text?: string;
   votes?: PollVote[];
 }
 
@@ -41,7 +41,7 @@ export interface Poll {
   id: string;
   message_id?: string;
   question: string;
-  is_anonymous: boolean;
-  multiple_answers: boolean;
+  is_anonymous?: boolean;
+  multiple_answers?: boolean;
   options?: PollOption[];
 }

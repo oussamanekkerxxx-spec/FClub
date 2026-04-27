@@ -1,9 +1,10 @@
 import {
   Paperclip, Send, Mic, StopCircle, Loader2, X, FileText, Reply, Edit2,
-  ImageIcon, PlayCircle, Code2, Calendar, MapPin, BarChart2, AlertCircle,
+  ImageIcon, PlayCircle, Code2, Calendar, MapPin, BarChart2, AlertCircle, Mic2,
+  File,
 } from 'lucide-react';
 
-type ChatAttachType = 'image' | 'video' | 'pdf' | 'voice';
+type ChatAttachType = 'image' | 'video' | 'pdf' | 'voice' | 'document';
 interface ChatAttachment { file: File; type: ChatAttachType; previewUrl: string; }
 
 interface Message {
@@ -47,6 +48,7 @@ interface MessageInputProps {
   onOpenProjectWizard?: () => void;
   onOpenEventWizard?: () => void;
   onOpenPollWizard?: () => void;
+  onOpenStartRoomModal?: () => void;
   onShareLocation: () => void;
   onApplyFormat: (syntax: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -87,6 +89,7 @@ export default function MessageInput({
   onOpenProjectWizard,
   onOpenEventWizard,
   onOpenPollWizard,
+  onOpenStartRoomModal,
   onShareLocation,
   onApplyFormat,
   fileInputRef,
@@ -137,9 +140,15 @@ export default function MessageInput({
                   {chatAttachment.type === 'video' && (
                     <video src={chatAttachment.previewUrl} controls className="max-h-40 w-full bg-black" />
                   )}
-                  {chatAttachment.type === 'pdf' && (
+                  {(chatAttachment.type === 'pdf' || chatAttachment.type === 'document') && (
                     <div className="flex items-center gap-2.5 px-3 py-3">
                       <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
+                      <span className="text-sm font-medium text-navy truncate">{chatAttachment.file.name}</span>
+                    </div>
+                  )}
+                  {chatAttachment.type === 'document' && (
+                    <div className="flex items-center gap-2.5 px-3 py-3">
+                      <File className="w-5 h-5 text-blue-500 flex-shrink-0" />
                       <span className="text-sm font-medium text-navy truncate">{chatAttachment.file.name}</span>
                     </div>
                   )}
@@ -241,7 +250,7 @@ export default function MessageInput({
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
-                accept="image/*,video/*,.pdf,application/pdf"
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/rtf"
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (!file) return;
@@ -270,10 +279,26 @@ export default function MessageInput({
                       </button>
                     )}
                     <button
-                      onClick={() => { pendingAttachTypeRef.current = 'pdf'; onSetShowAttachMenu(false); fileInputRef.current!.accept = '.pdf,application/pdf'; fileInputRef.current?.click(); }}
+                      onClick={() => {
+                        pendingAttachTypeRef.current = 'document';
+                        onSetShowAttachMenu(false);
+                        fileInputRef.current!.accept = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/rtf';
+                        fileInputRef.current?.click();
+                      }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
                     >
-                      <FileText className="w-4 h-4 text-red-400" /> PDF / File
+                      <FileText className="w-4 h-4 text-red-400" /> Docs / Files
+                    </button>
+                    <button
+                      onClick={() => { 
+                        pendingAttachTypeRef.current = 'document'; 
+                        onSetShowAttachMenu(false); 
+                        fileInputRef.current!.accept = '.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; 
+                        fileInputRef.current?.click(); 
+                      }}
+                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                    >
+                      <File className="w-4 h-4 text-blue-400" /> Document
                     </button>
                     <div className="h-px bg-[var(--color-border)] my-1" />
                     {onOpenProjectWizard && (
@@ -290,6 +315,14 @@ export default function MessageInput({
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
                       >
                         <Calendar className="w-4 h-4 text-green-500" /> Create Event
+                      </button>
+                    )}
+                    {onOpenStartRoomModal && (
+                      <button
+                        onClick={() => { onSetShowAttachMenu(false); onOpenStartRoomModal(); }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      >
+                        <Mic2 className="w-4 h-4 text-emerald-500" /> Start Voice Room
                       </button>
                     )}
                     <button

@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import { Toaster } from '@/components/ui/sonner';
+import { Toaster } from './components/ui/sonner';
 
 // Landing Page Sections (always needed on first load — keep eager)
 import Login from './pages/auth/Login';
@@ -41,6 +41,11 @@ function PageLoader() {
   );
 }
 
+function ClubIndex() {
+  const { id } = useParams<{ id: string }>();
+  return <Navigate to={`/club/${id}/feed`} replace />;
+}
+
 function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
@@ -65,9 +70,19 @@ function AppRouter() {
           {/* Onboarding */}
           <Route path="/onboarding" element={<ProtectedRoute><Onboarding /></ProtectedRoute>} />
 
-          {/* Club routes — no app shell */}
+          {/* Club routes — AppLayout shell with ClubHome as layout */}
           <Route path="/club/:id" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route index element={<ClubHome />} />
+            <Route index element={<ClubIndex />} />
+            <Route path="feed"        element={<ClubHome tab="feed" />} />
+            <Route path="members"     element={<ClubHome tab="members" />} />
+            <Route path="projects"    element={<ClubHome tab="projects" />} />
+            <Route path="quests"      element={<ClubHome tab="quests" />} />
+            <Route path="rooms"       element={<ClubHome tab="rooms" />} />
+            <Route path="resources"   element={<ClubHome tab="resources" />} />
+            <Route path="playlists"   element={<ClubHome tab="playlists" />} />
+            <Route path="events"      element={<ClubHome tab="events" />} />
+            <Route path="leaderboard" element={<ClubHome tab="leaderboard" />} />
+            <Route path="requests"   element={<ClubHome tab="requests" />} />
           </Route>
 
           {/* App Routes with Layout */}
@@ -80,6 +95,7 @@ function AppRouter() {
             <Route path="messages"        element={<Messages />} />
             <Route path="profile"         element={<Profile />} />
             <Route path="path"           element={<Path />} />
+            <Route path="teach"          element={<Path />} />
             <Route path="board"           element={<Board />} />
             <Route path="room/new"        element={<RoomCreate />} />
             <Route path="room/:id"        element={<RoomChat />} />

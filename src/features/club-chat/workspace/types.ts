@@ -41,7 +41,7 @@ export interface TypingUser {
   name: string;
 }
 
-export type ChatAttachType = 'image' | 'video' | 'pdf';
+export type ChatAttachType = 'image' | 'video' | 'pdf' | 'document';
 
 export interface ChatAttachment {
   file: File;

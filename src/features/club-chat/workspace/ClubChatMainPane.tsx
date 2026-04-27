@@ -347,6 +347,11 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
               c.setPollOptions(['', '']);
               c.setShowPollWizard(true);
             }}
+            onOpenStartRoomModal={
+              c.allowStartRoomFromComposer && c.composerRoomHostId
+                ? () => c.setShowStartRoomModal(true)
+                : undefined
+            }
             onShareLocation={c.handleShareLocation}
             onApplyFormat={c.applyFormat}
             fileInputRef={c.fileInputRef}

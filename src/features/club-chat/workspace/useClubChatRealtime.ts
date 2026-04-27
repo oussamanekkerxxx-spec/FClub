@@ -54,7 +54,7 @@ export function useClubChatRealtime(ctx: any) {
         .eq('club_id', clubId)
         .eq('user_id', user.id)
         .eq('status', 'active')
-        .single();
+        .maybeSingle();
 
       const isMod = mem?.role === 'admin' || mem?.role === 'moderator';
       setIsAdminOrMod(isMod);

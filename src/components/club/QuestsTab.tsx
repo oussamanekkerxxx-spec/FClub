@@ -7,6 +7,8 @@ import { queryKeys } from '@/lib/queryKeys';
 import { Users, Sword, ChevronRight, Check, PlusCircle, X, Loader2 } from 'lucide-react';
 import MemberGate from './MemberGate';
 import { reportError } from '@/lib/errors';
+import EmptyState from './EmptyState';
+import SkeletonCard from './SkeletonCard';
 
 const DIFFICULTY_COLORS: Record<string, { bg: string; text: string }> = {
   beginner: { bg: '#DCFCE7', text: '#16A34A' },
@@ -132,9 +134,11 @@ interface QuestsTabProps {
   isPrivate: boolean;
   userId: string | undefined;
   isModOrAdmin?: boolean;
+  canCreateQuestsEvents?: boolean;
+  isMuted?: boolean;
 }
 
-export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOrAdmin = false }: QuestsTabProps) {
+export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOrAdmin = false, canCreateQuestsEvents = false, isMuted = false }: QuestsTabProps) {
   const { data: rawQuests, loading, setData: setQuests } = useLazyQuery<QuestRow>(
     queryKeys.clubs.quests(clubId),
     () => supabase
@@ -174,7 +178,7 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
     setQuestSteps('');
   };
 
-  const handleCreateQuest = async () => {
+const handleCreateQuest = async () => {
     if (!isModOrAdmin || !userId || !questTitle.trim()) return;
 
     const parsedSteps = questSteps
@@ -182,7 +186,35 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
       .map(step => step.trim())
       .filter(Boolean);
 
+    const optimisticRow: QuestRow = {
+      id: `optimistic-${Date.now()}`,
+      club_id: clubId,
+      title: questTitle.trim(),
+      description: questDescription.trim() || null,
+      status: 'open',
+      difficulty: questDifficulty,
+      max_participants: questMaxParticipants ? parseInt(questMaxParticipants, 10) : null,
+      participant_count: 0,
+      step_count: parsedSteps.length,
+      deadline: questDeadline ? new Date(`${questDeadline}T23:59:59`).toISOString() : null,
+      created_by: userId,
+      created_at: new Date().toISOString(),
+      steps: parsedSteps.map((title, index) => ({
+        id: `optimistic-step-${Date.now()}-${index}`,
+        quest_id: '',
+        title,
+        description: null,
+        order_index: index,
+        is_completed: false,
+      })),
+      participants: [],
+      i_am_participant: false,
+    } as QuestRow;
+
+    setQuests(prev => [optimisticRow, ...prev]);
     setCreatingQuest(true);
+    setShowCreate(false);
+
     try {
       const payload = {
         club_id: clubId,
@@ -221,7 +253,7 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
           })))
           .select('*');
 
-        if (stepsError) {
+if (stepsError) {
           reportError('quests.create_steps', stepsError);
           toast.info('Quest created, but we could not save steps.');
         } else {
@@ -229,16 +261,18 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
         }
       }
 
-      const newQuestRow: QuestRow = {
+      const serverRow: QuestRow = {
         ...(createQuest.data as QuestRow),
         steps: insertedSteps,
         participants: [],
+        i_am_participant: false,
       };
 
-      setQuests(prev => [newQuestRow, ...prev]);
+      setQuests(prev => prev.map(q => q.id === optimisticRow.id ? serverRow : q));
       resetQuestForm();
       toast.success('Quest created!');
     } catch (error) {
+      setQuests(prev => prev.filter(q => q.id !== optimisticRow.id));
       reportError('quests.create', error);
       toast.error('Could not create quest.');
     } finally {
@@ -248,21 +282,29 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
 
   const handleJoinQuest = async (questId: string) => {
     if (!userId) return;
+    const snapshot = quests.find(q => q.id === questId);
+    setQuests(prev => prev.map(q => q.id === questId
+      ? { ...q, participant_count: q.participant_count + 1, i_am_participant: true }
+      : q));
     const { error } = await supabase.from('quest_participants').insert({ quest_id: questId, user_id: userId });
-    if (!error) {
-      setQuests(prev => prev.map(q => q.id === questId
-        ? { ...q, participant_count: q.participant_count + 1, i_am_participant: true }
-        : q));
+    if (error) {
+      if (snapshot) setQuests(prev => prev.map(q => q.id === questId ? snapshot : q));
+      toast.error('Could not join quest.');
+    } else {
       toast.success('You joined this quest!');
     }
   };
 
   const handleLeaveQuest = async (questId: string) => {
     if (!userId) return;
-    await supabase.from('quest_participants').delete().eq('quest_id', questId).eq('user_id', userId);
+    const snapshot = quests.find(q => q.id === questId);
     setQuests(prev => prev.map(q => q.id === questId
       ? { ...q, participant_count: Math.max(0, q.participant_count - 1), i_am_participant: false }
       : q));
+    const { error } = await supabase.from('quest_participants').delete().eq('quest_id', questId).eq('user_id', userId);
+    if (error) {
+      if (snapshot) setQuests(prev => prev.map(q => q.id === questId ? snapshot : q));
+    }
   };
 
   const handleStepToggle = async (stepId: string, questId: string, current: boolean) => {
@@ -281,23 +323,11 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
 
   if (!isMember) return <MemberGate isPrivate={isPrivate} />;
 
-  if (loading) {
-    return (
-      <div className="space-y-3">
-        {[...Array(3)].map((_, i) => (
-          <div key={i} className="sc-card p-5 animate-pulse space-y-3">
-            <div className="h-4 bg-gray-200 rounded w-1/2" />
-            <div className="h-3 bg-gray-100 rounded w-full" />
-            <div className="h-2 bg-gray-100 rounded w-full" />
-          </div>
-        ))}
-      </div>
-    );
-  }
+if (loading) return <SkeletonCard />;
 
   return (
     <div className="space-y-4">
-      {isModOrAdmin && (
+      {(isModOrAdmin || canCreateQuestsEvents) && !isMuted && (
         <div className="sc-card p-4">
           {!showCreate ? (
             <button
@@ -393,11 +423,8 @@ export default function QuestsTab({ clubId, isMember, isPrivate, userId, isModOr
         </div>
       )}
 
-      {quests.length === 0 ? (
-        <div className="sc-card p-10 text-center">
-          <Sword className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-muted)]" />
-          <p className="text-[var(--color-text-secondary)] text-sm">No quests yet. Launch one to start contributions.</p>
-        </div>
+{quests.length === 0 ? (
+        <EmptyState icon={<Sword className="w-6 h-6 text-[var(--color-text-muted)]" />} title="No quests yet" subtitle="Launch one to start contributions." />
       ) : (
         (['open', 'in_progress', 'completed'] as const).map(status => {
           const statusQuests = quests.filter(q => q.status === status);

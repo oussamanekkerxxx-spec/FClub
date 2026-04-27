@@ -8,6 +8,10 @@ import { Plus, RefreshCw, Search } from 'lucide-react';
 import CreateClubModal from '@/components/club/CreateClubModal';
 import ClubDirectoryCard from '@/components/club/ClubDirectoryCard';
 import type { Club } from '@/types/fightclub';
+import { useStories } from '@/hooks/useStories';
+import type { UserStoryGroup } from '@/types/stories';
+import StoryViewerModal from '@/components/stories/StoryViewerModal';
+import StoryComposerModal from '@/components/stories/StoryComposerModal';
 
 type PrivacyFilter = 'all' | 'public' | 'private';
 
@@ -44,7 +48,7 @@ export default function Discover() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [privacyFilter, setPrivacyFilter] = useState<PrivacyFilter>('all');
   const [isCreateClubModalOpen, setIsCreateClubModalOpen] = useState(false);
-  const [activeStoryPopup, setActiveStoryPopup] = useState<{
+  const [activeClubPopup, setActiveClubPopup] = useState<{
     id: string;
     title: string;
     description: string;
@@ -52,6 +56,18 @@ export default function Discover() {
     link?: string;
     linkText?: string;
   } | null>(null);
+  const [activeStoryViewer, setActiveStoryViewer] = useState<{
+    groups: UserStoryGroup[];
+    initialIndex: number;
+  } | null>(null);
+  const [isStoryComposerOpen, setIsStoryComposerOpen] = useState(false);
+
+  const { storyGroups, isLoading: storiesLoading } = useStories();
+
+  const textStoryGroups = useMemo(
+    () => storyGroups.filter((g) => g.stories[0]?.media_type === 'text'),
+    [storyGroups]
+  );
 
   const { data: clubs, loading: clubsLoading, error: clubsError, refetch } = useSupabaseQuery<Club>(
     queryKeys.clubs.list(),
@@ -223,6 +239,13 @@ export default function Discover() {
                     <RefreshCw className="h-4.5 w-4.5" />
                   </button>
                   <button
+                    onClick={() => setIsStoryComposerOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(196,135,58,0.14)] bg-white/80 px-4 py-3 text-sm font-semibold text-[var(--color-navy)] shadow-[0_4px_16px_rgba(196,135,58,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(196,135,58,0.14)] hover:bg-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Post story
+                  </button>
+                  <button
                     onClick={() => setIsCreateClubModalOpen(true)}
                     className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(225,107,59,0.32)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_34px_rgba(225,107,59,0.4)]"
                   >
@@ -310,37 +333,37 @@ export default function Discover() {
               {/* ── MOBILE STORIES ROW (< md) ── */}
               <div className="md:hidden pt-2">
                 <div className="flex gap-4 overflow-x-auto scrollbar-none px-4 pb-4">
-                  {/* Community Pulses Story */}
-                  <button
-                    onClick={() => setActiveStoryPopup({
-                      id: 'pulses', title: 'Community Pulses', description: 'See the latest local flares and events happening around you right now.', color: 'var(--color-plum)', link: '/app/board', linkText: 'View Board'
-                    })}
-                    className="flex flex-col items-center gap-1.5 flex-shrink-0"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-[var(--color-plum)] flex items-center justify-center text-white text-xl shadow-md border-2 border-white ring-2 ring-[var(--color-plum)] ring-offset-1 transition active:scale-95">
-                      🔥
-                    </div>
-                    <span className="text-[10px] font-semibold text-[var(--color-navy)]">Pulses</span>
-                  </button>
-
-                  {/* Skills Nearby Story */}
-                  <button
-                    onClick={() => setActiveStoryPopup({
-                      id: 'skills', title: 'Skills Nearby', description: 'Discover talented individuals in your city offering to teach new skills.', color: 'var(--color-amber)', link: '/app/board', linkText: 'Browse Skills'
-                    })}
-                    className="flex flex-col items-center gap-1.5 flex-shrink-0"
-                  >
-                    <div className="w-14 h-14 rounded-full bg-[var(--color-amber)] flex items-center justify-center text-white text-xl shadow-md border-2 border-white ring-2 ring-[var(--color-amber)] ring-offset-1 transition active:scale-95">
-                      💡
-                    </div>
-                    <span className="text-[10px] font-semibold text-[var(--color-navy)]">Skills</span>
-                  </button>
+                  {storiesLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                      <div key={i} className="flex flex-col items-center gap-1.5 flex-shrink-0">
+                        <div className="w-14 h-14 rounded-full bg-slate-200 animate-pulse" />
+                        <div className="w-10 h-2.5 rounded-full bg-slate-200 animate-pulse" />
+                      </div>
+                    ))
+                  ) : textStoryGroups.length > 0 ? (
+                    textStoryGroups.map((group, idx) => (
+                      <button
+                        key={group.author_id}
+                        onClick={() => setActiveStoryViewer({ groups: textStoryGroups, initialIndex: idx })}
+                        className="flex flex-col items-center gap-1.5 flex-shrink-0"
+                      >
+                        <div className={`w-14 h-14 rounded-full flex items-center justify-center text-white text-xl shadow-md border-2 border-white ring-2 ring-offset-1 transition active:scale-95 ${group.has_unread ? 'ring-[var(--color-plum)]' : 'ring-[var(--color-navy)]'}`}>
+                          {group.author.avatar_url ? (
+                            <img src={group.author.avatar_url} alt={group.author.first_name} className="w-full h-full object-cover rounded-full" />
+                          ) : (
+                            <span>{group.author.first_name.charAt(0)}</span>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-semibold text-[var(--color-navy)] truncate w-14 text-center">{group.author.first_name}</span>
+                      </button>
+                    ))
+                  ) : null}
 
                   {/* Joined Clubs as Stories */}
                   {joinedClubs.map((club) => (
                     <button
                       key={club.id}
-                      onClick={() => setActiveStoryPopup({
+                      onClick={() => setActiveClubPopup({
                         id: club.id, title: club.name, description: club.description || 'Community space for people who share this club\'s interests.', color: 'var(--color-navy)', link: `/club/${club.slug || club.id}`, linkText: 'Enter Club'
                       })}
                       className="flex flex-col items-center gap-1.5 flex-shrink-0"
@@ -423,30 +446,40 @@ export default function Discover() {
       </div>
 
       {isCreateClubModalOpen ? <CreateClubModal onClose={() => setIsCreateClubModalOpen(false)} /> : null}
+      {isStoryComposerOpen && (
+        <StoryComposerModal isOpen={isStoryComposerOpen} onClose={() => setIsStoryComposerOpen(false)} />
+      )}
 
-      {/* ── STORY POPUP MODAL ── */}
-      {activeStoryPopup ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 md:hidden" onClick={() => setActiveStoryPopup(null)}>
+      {activeClubPopup ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4 md:hidden" onClick={() => setActiveClubPopup(null)}>
           <div className="sc-card w-full max-w-sm p-5 space-y-4 animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm" style={{ background: activeStoryPopup.color }}>
-                {activeStoryPopup.title.charAt(0)}
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm" style={{ background: activeClubPopup.color }}>
+                {activeClubPopup.title.charAt(0)}
               </div>
-              <h3 className="font-heading text-lg text-navy flex-1">{activeStoryPopup.title}</h3>
+              <h3 className="font-heading text-lg text-navy flex-1">{activeClubPopup.title}</h3>
             </div>
             <div className="bg-parchment rounded-xl p-3 border border-[var(--color-border)] relative">
               <div className="absolute -top-2 left-6 w-4 h-4 bg-parchment border-t border-l border-[var(--color-border)] rotate-45" />
               <p className="font-body text-sm text-[var(--color-text-secondary)] relative z-10 leading-relaxed">
-                {activeStoryPopup.description}
+                {activeClubPopup.description}
               </p>
             </div>
-            {activeStoryPopup.link ? (
-              <a href={activeStoryPopup.link} className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm" style={{ background: activeStoryPopup.color }}>
-                {activeStoryPopup.linkText}
+            {activeClubPopup.link ? (
+              <a href={activeClubPopup.link} className="block w-full text-center py-2.5 rounded-xl text-sm font-semibold text-white transition-all active:scale-95 shadow-sm" style={{ background: activeClubPopup.color }}>
+                {activeClubPopup.linkText}
               </a>
             ) : null}
           </div>
         </div>
+      ) : null}
+
+      {activeStoryViewer ? (
+        <StoryViewerModal
+          groups={activeStoryViewer.groups}
+          initialGroupIndex={activeStoryViewer.initialIndex}
+          onClose={() => setActiveStoryViewer(null)}
+        />
       ) : null}
     </div>
   );

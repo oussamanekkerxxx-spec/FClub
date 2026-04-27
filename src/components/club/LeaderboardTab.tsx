@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Trophy, Flame, Zap, Info } from 'lucide-react';
+import { Trophy, Flame, Zap, Info } from 'lucide-react';
+import SkeletonCard from './SkeletonCard';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -93,13 +94,7 @@ export default function LeaderboardTab({ clubId, currentUserId }: LeaderboardTab
   const myRow = rows.find(r => r.user_id === currentUserId);
   const myRank = myRow ? rows.indexOf(myRow) + 1 : null;
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--color-amber)]" />
-      </div>
-    );
-  }
+  if (loading) return <SkeletonCard />;
 
   return (
     <div className="flex flex-col gap-5">

@@ -30,8 +30,8 @@ export default function FeedStoryStrip() {
 
   return (
     <>
-      <section className="rounded-[28px] border border-[rgba(196,135,58,0.14)] bg-[rgba(255,250,245,0.96)] p-4 shadow-[0_18px_45px_rgba(196,135,58,0.09)]">
-        <div className="mb-3 flex items-center justify-between">
+      <section className="rounded-[20px] border border-[rgba(196,135,58,0.14)] bg-[rgba(255,250,245,0.96)] p-3 shadow-[0_18px_45px_rgba(196,135,58,0.09)] md:rounded-[28px] md:p-4">
+        <div className="mb-3 hidden md:flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-[var(--color-navy)]">People in motion</h2>
             <p className="mt-1 text-sm text-[var(--color-text-secondary)]">

@@ -1,27 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import type { Club } from '@/types/fightclub';
+import { unwrapRelation } from '@/lib/utils';
+import type { Club, JoinRequest, ProfileMini } from '@/types/clubs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserCheck, UserX, MapPin, Loader2, FolderKanban, Mic2, Inbox } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { reportError } from '@/lib/errors';
-
-type ProfileMini = {
-  first_name: string;
-  last_name: string;
-  avatar_url: string | null;
-  city: string | null;
-};
-
-type JoinRequestRow = {
-  id: string;
-  user_id: string;
-  created_at: string;
-  status: string;
-  profile?: ProfileMini | ProfileMini[] | null;
-};
 
 type ClubRequestRow = {
   id: string;
@@ -57,7 +43,7 @@ type InboxItem = {
   title: string;
   subtitle: string;
   details: string | null;
-  raw: JoinRequestRow | ClubRequestRow | ProjectApplicationRow;
+  raw: JoinRequest | ClubRequestRow | ProjectApplicationRow;
 };
 
 interface RequestsTabProps {
@@ -67,8 +53,7 @@ interface RequestsTabProps {
 }
 
 function toProfile(value: ProfileMini | ProfileMini[] | null | undefined): ProfileMini | null {
-  if (!value) return null;
-  return Array.isArray(value) ? (value[0] ?? null) : value;
+  return unwrapRelation(value);
 }
 
 function requestIcon(kind: InboxItem['kind'], requestType?: ClubRequestRow['request_type']) {
@@ -120,7 +105,7 @@ export default function RequestsTab({ clubId, club, onResolved }: RequestsTabPro
       if (clubResult.error && clubResult.error.code !== '42P01') reportError('requests.club_requests_query', clubResult.error);
       if (appResult.error) reportError('requests.project_applications_query', appResult.error);
 
-      const joinItems: InboxItem[] = (joinResult.data ?? []).map((row: JoinRequestRow) => {
+      const joinItems: InboxItem[] = (joinResult.data ?? []).map((row: JoinRequest) => {
         const profile = toProfile(row.profile);
         return {
           id: row.id,
@@ -208,8 +193,8 @@ export default function RequestsTab({ clubId, club, onResolved }: RequestsTabPro
     setItems(prev => prev.filter(item => item.id !== id));
   };
 
-  const resolveJoin = async (item: InboxItem, approved: boolean) => {
-    const row = item.raw as JoinRequestRow;
+const resolveJoin = async (item: InboxItem, approved: boolean) => {
+    const row = item.raw as JoinRequest;
     setResolvingId(item.id);
 
     try {

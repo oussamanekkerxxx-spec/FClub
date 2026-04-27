@@ -8,6 +8,8 @@ import type { ClubEvent } from '@/types/fightclub';
 import type { EventStyle } from '@/types/shared';
 import { normalizeHttpUrl } from '@/lib/safeUrl';
 import { reportError } from '@/lib/errors';
+import EmptyState from './EmptyState';
+import SkeletonCard from './SkeletonCard';
 
 type AnnouncementRef = {
   messageId: string;
@@ -45,10 +47,12 @@ interface Props {
   userId: string | undefined;
   isMember: boolean;
   isModOrAdmin: boolean;
+  canCreateQuestsEvents?: boolean;
+  isMuted?: boolean;
   focusEventId?: string | null;
 }
 
-export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focusEventId }: Props) {
+export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, canCreateQuestsEvents = false, isMuted = false, focusEventId }: Props) {
   const navigate = useNavigate();
 
   const [events, setEvents] = useState<ClubEvent[]>([]);
@@ -177,7 +181,7 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
     setEventLocation('');
   };
 
-  const handleCreateEvent = async () => {
+const handleCreateEvent = async () => {
     if (!userId || !eventTitle.trim() || !eventDate) return;
     const safeMeetingLink = normalizeHttpUrl(eventLink);
     if (eventIsOnline && eventLink.trim() && !safeMeetingLink) {
@@ -185,9 +189,32 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
       return;
     }
 
+    const startsAtIso = new Date(`${eventDate}T${eventTime}`).toISOString();
+    const optimisticEvent: ClubEvent = {
+      id: `optimistic-${Date.now()}`,
+      club_id: clubId,
+      created_by: userId,
+      title: eventTitle.trim(),
+      description: eventDesc.trim() || null,
+      starts_at: startsAtIso,
+      duration_mins: parseInt(eventDuration, 10) || 60,
+      format: eventIsOnline ? 'online' : 'in-person',
+      is_online: eventIsOnline,
+      meeting_link: eventIsOnline ? safeMeetingLink : null,
+      location: !eventIsOnline ? eventLocation.trim() || null : null,
+      rsvp_count: 0,
+    } as unknown as ClubEvent;
+
+    const insertPosition = [...events, optimisticEvent].sort(
+      (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+    ).findIndex(e => e.id === optimisticEvent.id);
+
+    const insertAt = insertPosition === -1 ? events.length : insertPosition;
+    const newEvents = [...events];
+    newEvents.splice(insertAt, 0, optimisticEvent);
+    setEvents(newEvents);
     setCreatingEvent(true);
 
-    const startsAtIso = new Date(`${eventDate}T${eventTime}`).toISOString();
     const payload = {
       club_id: clubId,
       created_by: userId,
@@ -225,10 +252,11 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
     const { data, error } = result;
 
     if (error) {
+      setEvents(prev => prev.filter(e => e.id !== optimisticEvent.id));
       toast.error('Could not create event. Check DB migrations are applied.');
       reportError('events.create', error);
     } else {
-      setEvents(prev => [...prev, data].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()));
+      setEvents(prev => prev.map(e => e.id === optimisticEvent.id ? data as ClubEvent : e));
       resetCreateEvent();
       toast.success('Event created!');
     }
@@ -236,24 +264,36 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
     setCreatingEvent(false);
   };
 
-  const handleRsvp = async (eventId: string) => {
+const handleRsvp = async (eventId: string) => {
     if (!userId) return;
 
     const already = myRsvpIds.has(eventId);
-    if (already) {
-      await supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', userId);
-      setMyRsvpIds(prev => {
-        const next = new Set(prev);
-        next.delete(eventId);
-        return next;
-      });
-      setEvents(prev => prev.map(e => e.id === eventId ? { ...e, rsvp_count: Math.max(0, (e.rsvp_count ?? 0) - 1) } : e));
-      return;
-    }
+    const snapshot = events.find(e => e.id === eventId);
 
-    await supabase.from('event_rsvps').insert({ event_id: eventId, user_id: userId });
-    setMyRsvpIds(prev => new Set([...prev, eventId]));
-    setEvents(prev => prev.map(e => e.id === eventId ? { ...e, rsvp_count: (e.rsvp_count ?? 0) + 1 } : e));
+    setEvents(prev => prev.map(e => e.id === eventId
+      ? { ...e, rsvp_count: already ? Math.max(0, (e.rsvp_count ?? 0) - 1) : (e.rsvp_count ?? 0) + 1 }
+      : e));
+    setMyRsvpIds(prev => {
+      const next = new Set(prev);
+      if (already) next.delete(eventId); else next.add(eventId);
+      return next;
+    });
+
+    if (already) {
+      const { error } = await supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', userId);
+      if (error && snapshot) {
+        setEvents(prev => prev.map(e => e.id === eventId ? snapshot : e));
+        setMyRsvpIds(prev => { const next = new Set(prev); next.add(eventId); return next; });
+        toast.error('Could not remove RSVP.');
+      }
+    } else {
+      const { error } = await supabase.from('event_rsvps').insert({ event_id: eventId, user_id: userId });
+      if (error) {
+        setEvents(prev => prev.map(e => e.id === eventId ? snapshot : e));
+        setMyRsvpIds(prev => { const next = new Set(prev); next.delete(eventId); return next; });
+        toast.error('Could not RSVP.');
+      }
+    }
   };
 
   const sortedEvents = useMemo(
@@ -263,7 +303,7 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
 
   return (
     <div className="space-y-3">
-      {isModOrAdmin && (
+      {(isModOrAdmin || canCreateQuestsEvents) && !isMuted && (
         <div className="sc-card p-4">
           {!showCreateEvent ? (
             <button
@@ -409,20 +449,10 @@ export default function EventsTab({ clubId, userId, isMember, isModOrAdmin, focu
         </div>
       )}
 
-      {!eventsLoaded ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="sc-card p-5 animate-pulse space-y-3">
-              <div className="h-4 bg-gray-200 rounded w-1/2" />
-              <div className="h-3 bg-gray-100 rounded w-full" />
-            </div>
-          ))}
-        </div>
+{!eventsLoaded ? (
+        <SkeletonCard />
       ) : sortedEvents.length === 0 ? (
-        <div className="sc-card p-10 text-center">
-          <CalendarDays className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-muted)]" />
-          <p className="text-[var(--color-text-secondary)] text-sm">No upcoming events scheduled.</p>
-        </div>
+        <EmptyState icon={<CalendarDays className="w-6 h-6 text-[var(--color-text-muted)]" />} title="No upcoming events" subtitle="Schedule one to bring members together." />
       ) : (
         sortedEvents.map(event => {
           const eventStyleValue: EventStyle = event.event_style ?? 'workshop';

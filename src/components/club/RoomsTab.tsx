@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import type { VoiceRoom } from '@/types/fightclub';
-import { useLazyQuery } from '@/hooks/useSupabaseQuery';
-import { queryKeys } from '@/lib/queryKeys';
 import { Users, Mic2, Mic, MicOff, Clock } from 'lucide-react';
 import { format } from 'date-fns';
+import EmptyState from './EmptyState';
+import SkeletonCard from './SkeletonCard';
 import StartRoomModal from '@/components/club/StartRoomModal';
 import RequestRoundButton from '@/components/club/RequestRoundButton';
 import MemberGate from './MemberGate';
@@ -31,17 +31,68 @@ export default function RoomsTab({
   clubId, isMember, isPrivate, canStartRoom, canRequestRoom, userId, onRequestRoom,
 }: RoomsTabProps) {
   const [showRoomModal, setShowRoomModal] = useState(false);
+  const [rooms, setRooms] = useState<VoiceRoom[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  const { data: rooms, loading, setData: setRooms } = useLazyQuery<VoiceRoom>(
-    queryKeys.clubs.rooms(clubId),
-    () => supabase
-      .from('voice_rooms')
-      .select('*, host:profiles!voice_rooms_host_id_fkey(first_name, last_name, avatar_url)')
-      .eq('club_id', clubId).neq('status', 'ended').order('created_at', { ascending: false }),
-    isMember && !!clubId,
-    { errorMessage: 'Failed to load voice rooms' }
-  );
+  useEffect(() => {
+    if (!isMember || !clubId) return;
+
+    const loadRooms = async () => {
+      const { data } = await supabase
+        .from('voice_rooms')
+        .select('*, host:profiles!voice_rooms_host_id_fkey(first_name, last_name, avatar_url)')
+        .eq('club_id', clubId).neq('status', 'ended')
+        .order('created_at', { ascending: false });
+      setRooms((data ?? []) as VoiceRoom[]);
+      setLoading(false);
+    };
+    loadRooms();
+
+    const ch = supabase
+      .channel(`rooms:${clubId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'voice_rooms',
+        filter: `club_id=eq.${clubId}`,
+      }, (payload) => {
+        const room = payload.new as VoiceRoom;
+        if (room.status === 'ended') return;
+        setRooms(prev => {
+          if (prev.some(r => r.id === room.id)) return prev;
+          return [room, ...prev];
+        });
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'voice_rooms',
+        filter: `club_id=eq.${clubId}`,
+      }, (payload) => {
+        const room = payload.new as VoiceRoom;
+        setRooms(prev => {
+          if (room.status === 'ended') {
+            const next = prev.filter(r => r.id !== room.id);
+            return next;
+          }
+          return prev.map(r => r.id === room.id ? { ...r, ...room } : r);
+        });
+      });
+    ch.subscribe();
+    channelRef.current = ch;
+
+    return () => { supabase.removeChannel(ch); };
+  }, [isMember, clubId]);
+
+  const handleCreated = (room: VoiceRoom) => {
+    setRooms(prev => {
+      if (prev.some(r => r.id === room.id)) return prev;
+      return [room, ...prev];
+    });
+    setShowRoomModal(false);
+  };
 
   if (!isMember) return <MemberGate isPrivate={isPrivate} />;
 
@@ -60,22 +111,9 @@ export default function RoomsTab({
       {canRequestRoom && <RequestRoundButton clubId={clubId} onRequest={onRequestRoom} />}
 
       {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="sc-card p-5 animate-pulse flex gap-4">
-              <div className="w-10 h-10 rounded-xl bg-gray-200 flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-1/2" />
-                <div className="h-3 bg-gray-100 rounded w-1/3" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <SkeletonCard />
       ) : rooms.length === 0 ? (
-        <div className="sc-card p-10 text-center">
-          <Mic2 className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-muted)]" />
-          <p className="text-[var(--color-text-secondary)] text-sm">No voice rooms open right now.</p>
-        </div>
+        <EmptyState icon={<Mic2 className="w-6 h-6 text-[var(--color-text-muted)]" />} title="No voice rooms open" subtitle="Start one to bring members together." />
       ) : (
         rooms.map(room => {
           const cfg = STATUS_CONFIG[room.status] ?? STATUS_CONFIG.ended;
@@ -127,10 +165,7 @@ export default function RoomsTab({
           clubId={clubId}
           hostId={userId}
           onClose={() => setShowRoomModal(false)}
-          onCreated={(room) => {
-            setRooms(prev => [room, ...prev]);
-            setShowRoomModal(false);
-          }}
+          onCreated={handleCreated}
         />
       )}
     </div>

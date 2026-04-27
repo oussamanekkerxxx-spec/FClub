@@ -9,13 +9,15 @@ import {
   BookOpen,
   ExternalLink,
   FileText,
+  Image,
   Link as LinkIcon,
   Loader2,
   Plus,
   Trash2,
   Video,
-  Image,
 } from 'lucide-react';
+import EmptyState from './EmptyState';
+import SkeletonCard from './SkeletonCard';
 import { formatDistanceToNow } from 'date-fns';
 
 const RESOURCE_ICONS: Record<string, React.FC<{ className?: string }>> = {
@@ -264,22 +266,9 @@ export default function ResourcesTab({ clubId, userId, isMember, isModOrAdmin }:
       </div>
 
       {loading ? (
-        <div className="space-y-2">
-          {[...Array(4)].map((_, index) => (
-            <div key={index} className="sc-card p-4 animate-pulse flex gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gray-200 flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-gray-200 rounded w-1/2" />
-                <div className="h-2 bg-gray-100 rounded w-1/4" />
-              </div>
-            </div>
-          ))}
-        </div>
+        <SkeletonCard count={4} />
       ) : resources.length === 0 ? (
-        <div className="sc-card p-10 text-center">
-          <BookOpen className="w-8 h-8 mx-auto mb-2 text-[var(--color-text-muted)]" />
-          <p className="text-[var(--color-text-secondary)] text-sm">No custom resources added yet.</p>
-        </div>
+        <EmptyState icon={<BookOpen className="w-6 h-6 text-[var(--color-text-muted)]" />} title="No resources yet" subtitle="Add links, files, and tools for the club." />
       ) : (
         <div className="space-y-2">
           {resources.map((resource) => {

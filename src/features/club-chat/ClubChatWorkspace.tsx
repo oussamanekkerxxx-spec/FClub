@@ -11,6 +11,8 @@ import { useClubChatProjectActions } from '@/features/club-chat/workspace/useClu
 import { useClubChatComposerActions } from '@/features/club-chat/workspace/useClubChatComposerActions';
 import { useClubChatUiActions } from '@/features/club-chat/workspace/useClubChatUiActions';
 import { normalizeHttpUrl } from '@/lib/safeUrl';
+import StartRoomModal from '@/components/club/StartRoomModal';
+import LearningFileMetadataModal from '@/components/club/student/LearningFileMetadataModal';
 import type {
   Channel,
   ChannelRead,
@@ -24,9 +26,18 @@ import type {
 export interface ClubChatWorkspaceProps {
   isEmbedded?: boolean;
   clubId?: string;
+  clubCategory?: string;
+  allowStartRoomFromComposer?: boolean;
+  composerRoomHostId?: string;
 }
 
-export default function ClubChatWorkspace({ isEmbedded, clubId: propClubId }: ClubChatWorkspaceProps = {}) {
+export default function ClubChatWorkspace({
+  isEmbedded,
+  clubId: propClubId,
+  clubCategory,
+  allowStartRoomFromComposer = false,
+  composerRoomHostId,
+}: ClubChatWorkspaceProps = {}) {
   const params = useParams<{ id: string }>();
   const clubId = propClubId || params.id;
   const { user } = useAuth();
@@ -139,6 +150,13 @@ export default function ClubChatWorkspace({ isEmbedded, clubId: propClubId }: Cl
   const [newChannelDesc, setNewChannelDesc] = useState('');
   const [isAnnouncements, setIsAnnouncements] = useState(false);
   const [addingChannel, setAddingChannel] = useState(false);
+  const [showStartRoomModal, setShowStartRoomModal] = useState(false);
+
+  const [showLearningFileModal, setShowLearningFileModal] = useState(false);
+  const [learningFileData, setLearningFileData] = useState<{
+    file: File;
+    fileKind: string;
+  } | null>(null);
 
   useEffect(() => {
     const handleOpenSettings = () => setShowChatSettings(true);
@@ -202,7 +220,7 @@ export default function ClubChatWorkspace({ isEmbedded, clubId: propClubId }: Cl
   }
 
   const controller: any = {
-    clubId, user, clubName, focusChannelId, focusMessageId,
+    clubId, clubCategory, user, clubName, focusChannelId, focusMessageId,
     loading, setLoading,
     isAdminOrMod, setIsAdminOrMod,
     channels, setChannels,
@@ -234,8 +252,10 @@ export default function ClubChatWorkspace({ isEmbedded, clubId: propClubId }: Cl
     replyingTo, setReplyingTo, editingMessage, setEditingMessage, showScrollBottom, setShowScrollBottom, didFocusMessageRef,
     mobileView, setMobileView, messagesEndRef,
     showAddChannel, setShowAddChannel, newChannelName, setNewChannelName, newChannelDesc, setNewChannelDesc, isAnnouncements, setIsAnnouncements, addingChannel, setAddingChannel,
+    showStartRoomModal, setShowStartRoomModal, allowStartRoomFromComposer, composerRoomHostId,
     canPost,
     parseMessageContent,
+    showLearningFileModal, setShowLearningFileModal, learningFileData, setLearningFileData,
   };
 
   const realtimeActions = useClubChatRealtime(controller);
@@ -295,6 +315,34 @@ export default function ClubChatWorkspace({ isEmbedded, clubId: propClubId }: Cl
       <ClubChatMainPane c={controller} />
       <ClubChatDetailsSidebar c={controller} />
       <ClubChatModalStack c={controller} />
+      {showStartRoomModal && clubId && composerRoomHostId ? (
+        <StartRoomModal
+          clubId={clubId}
+          hostId={composerRoomHostId}
+          onClose={() => setShowStartRoomModal(false)}
+          onCreated={(room) => {
+            setShowStartRoomModal(false);
+            navigate(`/app/voice-room/${room.id}`);
+          }}
+        />
+      ) : null}
+      {showLearningFileModal && learningFileData && clubId && activeChannelId ? (
+        <LearningFileMetadataModal
+          file={learningFileData.file}
+          fileKind={learningFileData.fileKind}
+          clubId={clubId}
+          user={user ?? undefined}
+          onSubmit={async (data) => {
+            if (controller.handleLearningFileSubmit) {
+              await controller.handleLearningFileSubmit(data);
+            }
+          }}
+          onClose={() => {
+            setShowLearningFileModal(false);
+            setLearningFileData(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

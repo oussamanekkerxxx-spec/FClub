@@ -7,12 +7,70 @@ export interface CloudinaryUploadResult {
   resourceType: 'image' | 'video' | 'raw';
 }
 
+export type FileKind = 'video' | 'pdf' | 'document' | 'slides' | 'spreadsheet' | 'image' | 'audio' | 'other';
+
+/** Detect file_kind from file for learning files system */
+export function detectFileKind(file: File): FileKind {
+  const name = file.name.toLowerCase();
+  const type = file.type.toLowerCase();
+  
+  // PDF
+  if (type === 'application/pdf' || name.endsWith('.pdf')) {
+    return 'pdf';
+  }
+  
+  // Slides (PowerPoint)
+  if (
+    name.endsWith('.ppt') || name.endsWith('.pptx') ||
+    type === 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+  ) {
+    return 'slides';
+  }
+  
+  // Spreadsheets (Excel)
+  if (
+    name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv') ||
+    type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+    type === 'text/csv'
+  ) {
+    return 'spreadsheet';
+  }
+  
+  // Documents (Word)
+  if (
+    name.endsWith('.doc') || name.endsWith('.docx') ||
+    name.endsWith('.txt') || name.endsWith('.rtf') ||
+    type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+    type === 'text/plain'
+  ) {
+    return 'document';
+  }
+  
+  // Video
+  if (type.startsWith('video/')) {
+    return 'video';
+  }
+  
+  // Audio
+  if (type.startsWith('audio/') || name.endsWith('.mp3') || name.endsWith('.wav') || name.endsWith('.webm') || name.endsWith('.m4a')) {
+    return 'audio';
+  }
+  
+  // Image
+  if (type.startsWith('image/')) {
+    return 'image';
+  }
+  
+  return 'other';
+}
+
 /** Determine the Cloudinary resource_type path segment from the file's MIME type.
  *  Cloudinary routes both video AND audio through the `/video/upload` endpoint. */
 function getResourceType(file: File): 'image' | 'video' | 'raw' {
-  if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'raw';
-  if (file.type.startsWith('video/') || file.type.startsWith('audio/')) return 'video';
-  return 'image';
+  const fileKind = detectFileKind(file);
+  if (fileKind === 'video' || fileKind === 'audio') return 'video';
+  if (fileKind === 'image') return 'image';
+  return 'raw';
 }
 
 export function uploadToCloudinary(

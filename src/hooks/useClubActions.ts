@@ -18,7 +18,7 @@ import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import type { Club, ClubMembership } from '@/types/fightclub';
+import type { Club, ClubMembership, ClubBan, ClubMute } from '@/types/clubs';
 
 export type JoinState =
   | 'visitor'
@@ -35,12 +35,26 @@ export interface ClubActionsResult {
   canPost: boolean;
   /** Whether the current user can moderate (pin, delete, mute) */
   canModerate: boolean;
-  /** Whether the current user can start a live room */
+  /** Whether the current user can start a live room (mod+admin + trust tier >= 2) */
   canStartRoom: boolean;
   /** Whether the current user should see "Request a Room" (member, no active rooms) */
   canRequestRoom: boolean;
   /** Whether the current user can complete quest steps */
   canCompleteSteps: boolean;
+  /** Whether the current user can create quests/events (mod+admin + trust tier >= 2) */
+  canCreateQuestsEvents: boolean;
+  /** Whether the current user can promote to moderator (admin + trust tier >= 3) */
+  canPromoteModerator: boolean;
+  /** Whether the current user can promote to admin (admin + trust tier >= 4) */
+  canPromoteAdmin: boolean;
+  /** Whether the current user can mute members (mod + trust tier >= 2) */
+  canMute: boolean;
+  /** Whether the current user can ban members (admin + trust tier >= 3) */
+  canBan: boolean;
+  /** Whether the current user is banned from this club */
+  isBanned: boolean;
+  /** Whether the current user is muted in this club */
+  isMuted: boolean;
 
   // ── Actions ──
   handleJoin: () => Promise<void>;
@@ -54,12 +68,29 @@ export interface ClubActionsResult {
    * Cancel a pending join request.
    */
   handleCancelRequest: (clubId: string) => Promise<void>;
+  /**
+   * Ban a member from the club. Sets membership to 'banned', creates ban record.
+   */
+  handleBan: (targetUserId: string, reason?: string, expiresInDays?: number) => Promise<void>;
+  /**
+   * Mute a member in the club. Prevents posting while muted.
+   */
+  handleMute: (targetUserId: string, reason?: string, expiresInDays?: number) => Promise<void>;
+  /**
+   * Unmute a member. Removes the mute record; does not restore posting ability.
+   */
+  handleUnmute: (targetUserId: string) => Promise<void>;
 }
 
 interface UseClubActionsOptions {
   club: Club | null;
   membership: ClubMembership | null;
   userId: string | undefined;
+  trustTier: number | undefined;
+  /** Optional active bans for the current club — pass to hydrate isBanned without extra query */
+  activeBans?: ClubBan[];
+  /** Optional active mutes for the current club — pass to hydrate isMuted without extra query */
+  activeMutes?: ClubMute[];
   joinRequestPending: boolean;
   hasActiveRoom: boolean;
   onMembershipChange?: (m: ClubMembership | null) => void;
@@ -71,6 +102,9 @@ export function useClubActions({
   club,
   membership,
   userId,
+  trustTier,
+  activeBans,
+  activeMutes,
   joinRequestPending,
   hasActiveRoom,
   onMembershipChange,
@@ -94,9 +128,25 @@ export function useClubActions({
   const isActiveMember  = joinState === 'active' || joinState === 'moderator' || joinState === 'admin';
   const canPost          = isActiveMember;
   const canModerate      = joinState === 'moderator' || joinState === 'admin';
-  const canStartRoom     = canModerate;
+  const canStartRoom     = canModerate && (trustTier ?? 0) >= 2;
   const canRequestRoom   = isActiveMember && !canStartRoom && !hasActiveRoom;
   const canCompleteSteps = isActiveMember;
+
+  // ── Trust tier-gated capabilities ──────────────────────────────
+  // Create quests/events: mod+admin + trust tier >= 2
+  const canCreateQuestsEvents = canModerate && (trustTier ?? 0) >= 2;
+  // Promote to moderator: admin + trust tier >= 3
+  const canPromoteModerator = (joinState === 'admin') && (trustTier ?? 0) >= 3;
+  // Promote to admin: admin + trust tier >= 4
+  const canPromoteAdmin = (joinState === 'admin') && (trustTier ?? 0) >= 4;
+  // Mute members: mod+admin + trust tier >= 2
+  const canMute = canModerate && (trustTier ?? 0) >= 2;
+  // Ban members: admin + trust tier >= 3
+  const canBan = (joinState === 'admin') && (trustTier ?? 0) >= 3;
+
+  // ── Ban/mute status ──────────────────────────────────────────────
+  const isBanned = membership?.status === 'banned' || !!(activeBans?.some(b => b.user_id === userId));
+  const isMuted  = !!(activeMutes?.some(m => m.user_id === userId));
 
   // ── handleJoin ────────────────────────────────────────────
   const handleJoin = useCallback(async () => {
@@ -182,7 +232,7 @@ export function useClubActions({
     }
 
     setBusy(false);
-  }, [userId, club, busy, navigate, onMembershipChange, onClubCountChange]);
+  }, [userId, club, busy, navigate, onMembershipChange, onJoinRequestChange, onClubCountChange]);
 
   // ── handleLeave ───────────────────────────────────────────
   const handleLeave = useCallback(async () => {
@@ -274,6 +324,99 @@ export function useClubActions({
     // Caller is responsible for showing the tooltip confirmation
   }, [userId, club]);
 
+  // ── handleBan ────────────────────────────────────────────────
+  const handleBan = useCallback(async (
+    targetUserId: string,
+    reason?: string,
+    expiresInDays?: number,
+  ) => {
+    if (!userId || !club || !canBan) return;
+    if (busy) return;
+    setBusy(true);
+
+    const expiresAt = expiresInDays
+      ? new Date(Date.now() + expiresInDays * 86_400_000).toISOString()
+      : null;
+
+    const [, banError] = await Promise.all([
+      supabase
+        .from('club_memberships')
+        .update({ status: 'banned' })
+        .eq('club_id', club.id)
+        .eq('user_id', targetUserId)
+        .eq('status', 'active'),
+      supabase
+        .from('club_bans')
+        .upsert({
+          club_id: club.id,
+          user_id: targetUserId,
+          reason: reason || null,
+          banned_by: userId,
+          expires_at: expiresAt,
+        }),
+    ]);
+
+    if (banError) {
+      toast.error('Could not ban member. Please try again.');
+    } else {
+      toast.success('Member has been banned from this club.');
+      if (targetUserId === userId) {
+        onMembershipChange?.(null);
+        navigate('/');
+      }
+    }
+    setBusy(false);
+  }, [userId, club, canBan, busy, navigate, onMembershipChange]);
+
+  // ── handleMute ────────────────────────────────────────────────
+  const handleMute = useCallback(async (
+    targetUserId: string,
+    reason?: string,
+    expiresInDays?: number,
+  ) => {
+    if (!userId || !club || !canMute) return;
+    if (busy) return;
+    setBusy(true);
+
+    const expiresAt = expiresInDays
+      ? new Date(Date.now() + expiresInDays * 86_400_000).toISOString()
+      : null;
+
+    const { error } = await supabase
+      .from('club_mutes')
+      .upsert({
+        club_id: club.id,
+        user_id: targetUserId,
+        reason: reason || null,
+        muted_by: userId,
+        expires_at: expiresAt,
+      });
+
+    if (error) {
+      toast.error('Could not mute member.');
+    } else {
+      toast.success('Member has been muted.');
+    }
+    setBusy(false);
+  }, [userId, club, canMute, busy]);
+
+  // ── handleUnmute ─────────────────────────────────────────
+  const handleUnmute = useCallback(async (targetUserId: string) => {
+    if (!userId || !club || !canMute) return;
+
+    const { error } = await supabase
+      .from('club_mutes')
+      .delete()
+      .eq('club_id', club.id)
+      .eq('user_id', targetUserId);
+
+    if (error) {
+      toast.error('Could not unmute member.');
+    } else {
+      toast.success('Member unmuted.');
+    }
+  }, [userId, club, canMute]);
+
   return {
     joinState,
     canPost,
@@ -281,9 +424,19 @@ export function useClubActions({
     canStartRoom,
     canRequestRoom,
     canCompleteSteps,
+    canCreateQuestsEvents,
+    canPromoteModerator,
+    canPromoteAdmin,
+    canMute,
+    canBan,
+    isBanned,
+    isMuted,
     handleJoin,
     handleLeave,
     handleCancelRequest,
     handleRequestRoom,
+    handleBan,
+    handleMute,
+    handleUnmute,
   };
 }

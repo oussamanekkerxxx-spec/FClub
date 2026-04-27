@@ -1,21 +1,44 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { isToday } from 'date-fns';
 import { type StudentTabId } from './StudentClubConstants';
 import ClubChatWorkspace from '@/features/club-chat/ClubChatWorkspace';
+import { useClubRooms } from '@/hooks/useClubRooms';
+import { useStudentClubNotifications } from '@/hooks/useStudentClubNotifications';
+import { useStudentCourses } from '@/hooks/useStudentCourses';
+import { useStudentSharedFiles } from '@/hooks/useStudentSharedFiles';
+import { Mic2, Users, FileText, FolderOpen } from 'lucide-react';
+import EmptyState from '@/components/club/EmptyState';
+import SkeletonCard from '@/components/club/SkeletonCard';
+import type { ClubSharedFile, MathField, VoiceRoom } from '@/types/clubs';
+import StartRoomModal from '@/components/club/StartRoomModal';
 
-export default function StudentViews({ activeTab, clubId }: { activeTab: StudentTabId; clubId: string }) {
+export default function StudentViews({
+  activeTab,
+  clubId,
+  isMember,
+  canModerate,
+  userId,
+}: {
+  activeTab: StudentTabId;
+  clubId: string;
+  isMember: boolean;
+  canModerate: boolean;
+  userId?: string;
+}) {
   // Render the view matching activeTab
   switch (activeTab) {
-    case 'chat': return <ChatView clubId={clubId} />;
-    case 'voice': return <VoiceRoomsView />;
-    case 'notifs': return <NotifsView />;
-    case 'courses': return <CoursesView />;
+    case 'chat': return <ChatView clubId={clubId} isMember={isMember} userId={userId} />;
+    case 'voice': return <VoiceRoomsView clubId={clubId} isMember={isMember} userId={userId} />;
+    case 'notifs': return <NotifsView clubId={clubId} isMember={isMember} canModerate={canModerate} />;
+    case 'courses': return <CoursesView clubId={clubId} />;
     case 'smart-explain': return <SmartExplainView />;
     case 'quizzes': return <QuizzesView />;
     case 'flashcards': return <FlashcardsView />;
     case 'notes': return <NotesView />;
-    case 'docs': return <DocsView />;
+    case 'docs': return <DocsView clubId={clubId} />;
     case 'tasks': return <TasksView />;
-    case 'files': return <FilesView />;
+    case 'files': return <FilesView clubId={clubId} />;
     case 'studyrooms': return <StudyRoomsView />;
     case 'pomodoro': return <PomodoroView />;
     case 'library': return <LibraryView />;
@@ -61,6 +84,34 @@ const PillNav = ({ items, activeIdx }: { items: string[], activeIdx?: number }) 
   </div>
 );
 
+const MATH_FIELD_LABELS: Record<string, string> = {
+  math: 'Math',
+  physics: 'Physics',
+  biology: 'Biology',
+  chemistry: 'Chemistry',
+  algebra: 'Algebra',
+  analysis: 'Analyses',
+};
+
+function groupFilesByMathField(files: ClubSharedFile[]) {
+  const knownFields = Object.keys(MATH_FIELD_LABELS) as MathField[];
+  const groups: Array<{ key: string; label: string; items: ClubSharedFile[] }> = [];
+
+  knownFields.forEach((field) => {
+    const items = files.filter((file) => file.math_field === field);
+    if (items.length > 0) {
+      groups.push({ key: field, label: MATH_FIELD_LABELS[field], items });
+    }
+  });
+
+  const general = files.filter((file) => !file.math_field);
+  if (general.length > 0) {
+    groups.push({ key: 'general', label: 'General', items: general });
+  }
+
+  return groups;
+}
+
 const FeedItem = ({ icon, iconBg, title, desc, tag, tagColor, btnText }: any) => (
   <div className="flex gap-3 p-4 bg-white border border-[var(--color-border)] rounded-2xl mb-2.5 cursor-pointer hover:border-orange-200 hover:shadow-sm transition-all group">
     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 ${iconBg}`}>{icon}</div>
@@ -79,87 +130,321 @@ const FeedItem = ({ icon, iconBg, title, desc, tag, tagColor, btnText }: any) =>
 
 // ── Views ─────────────────────────────────────────────────────────────────────
 
-function ChatView({ clubId }: { clubId: string }) {
+function ChatView({
+  clubId,
+  isMember,
+  userId,
+}: {
+  clubId: string;
+  isMember: boolean;
+  userId?: string;
+}) {
   return (
     <div className="h-[calc(100vh-140px)] w-full bg-white rounded-tl-xl overflow-hidden shadow-sm">
-      <ClubChatWorkspace isEmbedded clubId={clubId} />
+      <ClubChatWorkspace
+        isEmbedded
+        clubId={clubId}
+        clubCategory="student"
+        allowStartRoomFromComposer={isMember}
+        composerRoomHostId={userId}
+      />
     </div>
   );
 }
 
-function VoiceRoomsView() {
-  return (
-    <div className="p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        {[
-          { name: 'General Lounge', count: 3, live: true, users: [5,11,44] },
-          { name: 'Code Pairing', count: 2, live: true, users: [15,33] },
-          { name: 'Design Critique', count: 0, live: false, users: [] },
-          { name: 'Study Hall', count: 0, live: false, users: [] }
-        ].map((v, i) => (
-          <div key={i} className="bg-white border border-[var(--color-border)] rounded-2xl p-4.5 hover:border-orange-200 transition-colors">
-            <div className="flex items-center gap-2 mb-3.5">
-              <span className={`w-2 h-2 rounded-full ${v.live ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-              <span className="text-[14px] font-bold text-navy flex-1">{v.name}</span>
-              <span className="text-[11px] text-[var(--color-text-muted)]">{v.count > 0 ? `${v.count} in room` : 'Empty'}</span>
-            </div>
-            
-            <div className="flex gap-2 flex-wrap mb-4 h-[60px]">
-              {v.users.map((u, j) => (
-                <div key={j} className="flex flex-col items-center gap-1 w-12">
-                  <img src={`https://i.pravatar.cc/80?img=${u}`} className={`w-10 h-10 rounded-full object-cover border-2 border-white ${j === 0 ? 'ring-2 ring-green-500 ring-offset-1' : ''}`} alt="" />
-                  <span className="text-[9px] text-[var(--color-text-muted)] truncate w-full text-center">User</span>
-                </div>
-              ))}
-            </div>
+function VoiceRoomsView({
+  clubId,
+  isMember,
+  userId,
+}: {
+  clubId: string;
+  isMember: boolean;
+  userId?: string;
+}) {
+  const navigate = useNavigate();
+  const { rooms, loading } = useClubRooms({ clubId, enabled: isMember });
+  const [showRoomModal, setShowRoomModal] = useState(false);
 
-            <button className={`w-full py-2.5 rounded-xl text-[12px] font-bold transition-all ${v.live ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100' : 'bg-gray-50 text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-gray-100'}`}>
-              {v.live ? 'Join Voice' : 'Start Room'}
-            </button>
-          </div>
-        ))}
+  const handleCreated = (room: VoiceRoom) => {
+    setShowRoomModal(false);
+    navigate(`/app/voice-room/${room.id}`);
+  };
+
+  if (!isMember) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<Mic2 className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="Join the club to use voice rooms"
+          subtitle="Voice study sessions and live room discussions are available to members."
+        />
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-function NotifsView() {
+  if (loading) {
+    return (
+      <div className="p-6">
+        <SkeletonCard count={3} />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
-      <SectionLabel>Today</SectionLabel>
-      <FeedItem icon="🔔" iconBg="bg-orange-100/50" title="Amina mentioned you in Group Chat" desc='"@Oussama can you check the RLS migration?"' tag="Chat" tagColor="bg-orange-100 text-[var(--color-amber)]" />
-      <FeedItem icon="✅" iconBg="bg-green-100/50" title="Quiz completed: React Hooks Basics" desc="You scored 9/10 — earned +45 XP" tag="Learning" tagColor="bg-green-100 text-green-600" />
-      <FeedItem icon="🎖" iconBg="bg-purple-100/50" title="New badge unlocked: Code Reviewer" desc="Complete 10 code reviews in the guild" tag="Badge" tagColor="bg-purple-100 text-purple-600" />
-      
-      <div className="mt-8"><SectionLabel>Yesterday</SectionLabel></div>
-      <FeedItem icon="📅" iconBg="bg-red-100/50" title="Event reminder: Monthly Meetup" desc="Friday, Apr 11 · 7:00 PM · Café L'Horloge" tag="Event" tagColor="bg-red-100 text-red-600" />
-      <FeedItem icon="👤" iconBg="bg-blue-100/50" title="Nora Fassi requested to join the club" desc='"UI designer looking to learn React"' tag="Request" tagColor="bg-blue-100 text-blue-600" />
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold text-navy">Voice Rooms</h2>
+        {userId ? (
+          <button
+            onClick={() => setShowRoomModal(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-[var(--color-forest)] text-white hover:opacity-90 transition-opacity"
+          >
+            <Mic2 className="w-4 h-4" /> Start Room
+          </button>
+        ) : null}
+      </div>
+
+      {rooms.length === 0 ? (
+        <EmptyState
+          icon={<Mic2 className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No voice rooms open"
+          subtitle="Start one to bring members together."
+        />
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {rooms.map((room) => (
+            <RoomCard key={room.id} room={room} onJoin={() => navigate(`/app/voice-room/${room.id}`)} />
+          ))}
+        </div>
+      )}
+
+      {showRoomModal && userId ? (
+        <StartRoomModal
+          clubId={clubId}
+          hostId={userId}
+          onClose={() => setShowRoomModal(false)}
+          onCreated={handleCreated}
+        />
+      ) : null}
     </div>
   );
 }
 
-function CoursesView() {
+function RoomCard({ room, onJoin }: { room: VoiceRoom; onJoin: () => void }) {
+  const isLive = room.status === 'active';
+  const host = room.host as { first_name?: string; last_name?: string; avatar_url?: string | null } | null;
+
+  return (
+    <div className="bg-white border border-[var(--color-border)] rounded-2xl p-4.5 hover:border-orange-200 transition-colors">
+      <div className="flex items-center gap-2 mb-3.5">
+        <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
+        <span className="text-[14px] font-bold text-navy flex-1 truncate">
+          {room.name || 'Voice Room'}
+        </span>
+        <span className="text-[11px] text-[var(--color-text-muted)]">
+          {isLive ? 'Live' : room.status}
+        </span>
+      </div>
+
+      {host ? (
+        <div className="flex items-center gap-2 mb-3">
+          <img
+            src={host.avatar_url ?? `https://ui-avatars.com/api/?name=${host.first_name}+${host.last_name}&background=random`}
+            className="w-8 h-8 rounded-full object-cover"
+            alt=""
+          />
+          <span className="text-xs text-[var(--color-text-secondary)]">
+            {host.first_name} {host.last_name}
+          </span>
+        </div>
+      ) : null}
+
+      <button
+        onClick={onJoin}
+        className={`w-full py-2.5 rounded-xl text-[12px] font-bold transition-all ${
+          isLive
+            ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+            : 'bg-gray-50 text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-gray-100'
+        }`}
+      >
+        {isLive ? 'Join Voice' : 'Join'}
+      </button>
+    </div>
+  );
+}
+
+function NotifsView({
+  clubId,
+  isMember,
+  canModerate,
+}: {
+  clubId: string;
+  isMember: boolean;
+  canModerate: boolean;
+}) {
+  const { items, loading } = useStudentClubNotifications({
+    clubId,
+    enabled: isMember,
+    canModerate,
+  });
+
+  if (!isMember) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<Users className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="Join the club to see notifications"
+          subtitle="Mentions, reminders, and club updates appear here for members."
+        />
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <SkeletonCard count={4} />
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<Users className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No notifications yet"
+          subtitle="Mentions, event reminders, and admin requests will show up here."
+        />
+      </div>
+    );
+  }
+
+  const todayItems = items.filter((item) => isToday(new Date(item.createdAt)));
+  const earlierItems = items.filter((item) => !isToday(new Date(item.createdAt)));
+
+  return (
+    <div className="p-6">
+      {todayItems.length > 0 ? (
+        <>
+          <SectionLabel>Today</SectionLabel>
+          {todayItems.map((item) => (
+            <FeedItem
+              key={item.id}
+              icon={item.icon}
+              iconBg={item.iconBg}
+              title={item.title}
+              desc={item.description}
+              tag={item.tag}
+              tagColor={item.tagColor}
+            />
+          ))}
+        </>
+      ) : null}
+
+      {earlierItems.length > 0 ? (
+        <>
+          <div className={todayItems.length > 0 ? 'mt-8' : ''}>
+            <SectionLabel>Earlier</SectionLabel>
+          </div>
+          {earlierItems.map((item) => (
+            <FeedItem
+              key={item.id}
+              icon={item.icon}
+              iconBg={item.iconBg}
+              title={item.title}
+              desc={item.description}
+              tag={item.tag}
+              tagColor={item.tagColor}
+            />
+          ))}
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function CoursesView({ clubId }: { clubId: string }) {
+  const { data: courses, isLoading, error } = useStudentCourses(clubId, !!clubId);
+
+  if (!clubId) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FolderOpen className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="Select a club"
+          subtitle="Join a student club to view courses."
+        />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <SkeletonCard count={3} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FolderOpen className="w-6 h-6 text-red-400" />}
+          title="Failed to load courses"
+          subtitle="Please try again later."
+        />
+      </div>
+    );
+  }
+
+  if (!courses || courses.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FolderOpen className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No courses yet"
+          subtitle="Courses will appear here once added by club moderators."
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <PillNav items={['All', 'In Progress', 'Completed', 'New']} />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {[
-          { img: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&q=60', title: 'React Hooks Masterclass', meta: 'By Amina K. · 4.9★ · 2h 30m', prog: 72, badge: '12 lessons' },
-          { img: 'https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=400&q=60', title: 'Figma Design Tokens', meta: 'By Layla B. · 4.8★ · 1h 45m', prog: 35, badge: '8 lessons' },
-          { img: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&q=60', title: 'Supabase RLS Deep Dive', meta: 'By Oussama H. · 5.0★ · 3h 10m', prog: 100, badge: '15 lessons' },
-        ].map((c, i) => (
-          <div key={i} className="bg-white border border-[var(--color-border)] rounded-2xl overflow-hidden hover:-translate-y-1 hover:border-orange-200 transition-all cursor-pointer group shadow-sm">
+        {courses.map((course) => (
+          <div
+            key={course.id}
+            className="bg-white border border-[var(--color-border)] rounded-2xl overflow-hidden hover:-translate-y-1 hover:border-orange-200 transition-all cursor-pointer group shadow-sm"
+          >
             <div className="h-28 relative">
-              <img src={c.img} alt="" className="w-full h-full object-cover" />
-              <div className="absolute top-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-md rounded-lg text-[9px] font-bold text-white uppercase tracking-wider border border-white/20">{c.badge}</div>
+              {course.cover_image_url ? (
+                <img src={course.cover_image_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center">
+                  <FolderOpen className="w-8 h-8 text-orange-300" />
+                </div>
+              )}
             </div>
             <div className="p-4">
-              <h3 className="text-[14px] font-bold text-navy mb-1 group-hover:text-[var(--color-amber)] transition-colors">{c.title}</h3>
-              <p className="text-[11px] text-[var(--color-text-muted)] mb-3">{c.meta}</p>
-              <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
-                <div className="h-full bg-gradient-to-r from-[var(--color-amber)] to-orange-500 rounded-full" style={{ width: `${c.prog}%` }} />
-              </div>
-              <p className="text-[10px] text-[var(--color-text-secondary)]">{c.prog === 100 ? 'Completed ✓' : `${c.prog}% complete`}</p>
+              <h3 className="text-[14px] font-bold text-navy mb-1 group-hover:text-[var(--color-amber)] transition-colors">
+                {course.title}
+              </h3>
+              {course.math_field ? (
+                <div className="mb-2">
+                  <span className="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                    {MATH_FIELD_LABELS[course.math_field] ?? course.math_field}
+                  </span>
+                </div>
+              ) : null}
+              {course.description ? (
+                <p className="text-[11px] text-[var(--color-text-muted)] mb-3 line-clamp-2">
+                  {course.description}
+                </p>
+              ) : null}
             </div>
           </div>
         ))}
@@ -441,15 +726,70 @@ function NotesView() {
           <span className="text-[12px] font-semibold text-[var(--color-text-muted)]">New note</span>
         </div>
       </div>
+
     </div>
   );
 }
-function DocsView() {
-  const DOCS = [
-    { icon: '📄', iconBg: 'bg-blue-100/60 text-blue-600',   title: 'Sprint #3 Architecture Report', author: 'Oussama', updated: '2h ago',   contributors: 3 },
-    { icon: '🎨', iconBg: 'bg-purple-100/60 text-purple-600', title: 'Design System v2 Spec',         author: 'Layla',   updated: 'Yesterday', contributors: 2 },
-    { icon: '💻', iconBg: 'bg-green-100/60 text-green-600',  title: 'RLS Policy Templates',          author: 'Youssef', updated: '3d ago',     contributors: 4 },
-  ];
+function DocsView({ clubId }: { clubId: string }) {
+  const { data: files, isLoading, error } = useStudentSharedFiles({
+    clubId,
+    kinds: ['pdf', 'document', 'slides', 'spreadsheet'],
+    enabled: !!clubId,
+  });
+
+  const docTypeStyle = (kind: string) => {
+    if (kind === 'pdf') return { icon: '📄', bg: 'bg-red-100/60', text: 'text-red-600' };
+    if (kind === 'slides') return { icon: '📊', bg: 'bg-purple-100/60', text: 'text-purple-600' };
+    if (kind === 'spreadsheet') return { icon: '📈', bg: 'bg-green-100/60', text: 'text-green-600' };
+    return { icon: '📝', bg: 'bg-blue-100/60', text: 'text-blue-600' };
+  };
+
+  if (!clubId) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FileText className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="Select a club"
+          subtitle="Join a student club to view documents."
+        />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <SkeletonCard count={3} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FileText className="w-6 h-6 text-red-400" />}
+          title="Failed to load documents"
+          subtitle="Please try again later."
+        />
+      </div>
+    );
+  }
+
+  if (!files || files.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FileText className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No documents yet"
+          subtitle="Share PDFs, documents, or slides in chat to see them here."
+        />
+      </div>
+    );
+  }
+
+  const fileGroups = groupFilesByMathField(files);
+
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-5">
@@ -458,17 +798,37 @@ function DocsView() {
         />
         <button className="ml-auto px-4 py-2 bg-gradient-to-r from-[var(--color-amber)] to-orange-500 text-white text-[12px] font-bold rounded-xl shadow-sm hover:shadow-md transition-all">+ Upload</button>
       </div>
-      <div className="space-y-2.5">
-        {DOCS.map((d, i) => (
-          <div key={i} className="flex items-center gap-3.5 p-4 bg-white border border-[var(--color-border)] rounded-2xl hover:border-orange-200 hover:shadow-sm transition-all cursor-pointer group">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 ${d.iconBg}`}>{d.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-bold text-navy group-hover:text-[var(--color-amber)] transition-colors truncate">{d.title}</div>
-              <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">{d.author} · Updated {d.updated} · {d.contributors} contributors</div>
+      <div className="space-y-5">
+        {fileGroups.map((group) => (
+          <div key={group.key}>
+            <SectionLabel>{group.label}</SectionLabel>
+            <div className="space-y-2.5">
+              {group.items.map((d) => {
+                const style = docTypeStyle(d.file_kind);
+          return (
+            <div key={d.id} className="flex items-center gap-3.5 p-4 bg-white border border-[var(--color-border)] rounded-2xl hover:border-orange-200 hover:shadow-sm transition-all cursor-pointer group">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 ${style.bg} ${style.text}`}>
+                {style.icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-bold text-navy group-hover:text-[var(--color-amber)] transition-colors truncate">{d.title}</div>
+                <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                  {d.category || 'Uncategorized'} · {new Date(d.created_at).toLocaleDateString()}
+                </div>
+              </div>
+              <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <a
+                  href={d.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-1.5 text-[11px] font-semibold text-navy bg-gray-50 border border-[var(--color-border)] rounded-lg hover:bg-gray-100"
+                >
+                  View
+                </a>
+              </div>
             </div>
-            <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button className="px-3 py-1.5 text-[11px] font-semibold text-navy bg-gray-50 border border-[var(--color-border)] rounded-lg hover:bg-gray-100">View</button>
-              <button className="px-3 py-1.5 text-[11px] font-semibold text-[var(--color-amber)] bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100">Edit</button>
+          );
+              })}
             </div>
           </div>
         ))}
@@ -529,32 +889,107 @@ function TasksView() {
     </div>
   );
 }
-function FilesView() {
-  const FILES = [
-    { icon: '📄', iconBg: 'bg-blue-50',   ext: 'PDF', title: 'react-patterns-cheatsheet.pdf',  size: '2.4 MB',  by: 'Youssef', date: 'Apr 3' },
-    { icon: '📹', iconBg: 'bg-yellow-50', ext: 'MP4', title: 'gsap-workshop-recording.mp4',    size: '128 MB', by: 'Amina',   date: 'Mar 28' },
-    { icon: '💻', iconBg: 'bg-green-50',  ext: 'SQL', title: 'supabase-rls-templates.sql',    size: '18 KB',  by: 'Oussama', date: 'Mar 22' },
-  ];
-  const extStyle = (e: string) => {
-    if (e === 'PDF') return 'bg-red-50    text-red-500   border-red-200';
-    if (e === 'MP4') return 'bg-yellow-50 text-yellow-600 border-yellow-200';
-    return 'bg-green-50 text-green-600 border-green-200';
+function FilesView({ clubId }: { clubId: string }) {
+  const { data: files, isLoading, error } = useStudentSharedFiles({ clubId, enabled: !!clubId });
+
+  const fileKindStyle = (kind: string) => {
+    if (kind === 'pdf') return { bg: 'bg-red-50', text: 'text-red-500', border: 'border-red-200' };
+    if (kind === 'video') return { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-200' };
+    if (kind === 'audio') return { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' };
+    if (kind === 'document' || kind === 'slides' || kind === 'spreadsheet') return { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' };
+    return { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200' };
   };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+
+  if (!clubId) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FileText className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="Select a club"
+          subtitle="Join a student club to view files."
+        />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <SkeletonCard count={4} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FileText className="w-6 h-6 text-red-400" />}
+          title="Failed to load files"
+          subtitle="Please try again later."
+        />
+      </div>
+    );
+  }
+
+  if (!files || files.length === 0) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={<FileText className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No shared files yet"
+          subtitle="Share files in chat to add them to the club library."
+        />
+      </div>
+    );
+  }
+
+  const fileGroups = groupFilesByMathField(files);
+
   return (
     <div className="p-6">
       <div className="flex justify-end mb-5">
         <button className="px-4 py-2 bg-gradient-to-r from-[var(--color-amber)] to-orange-500 text-white text-[12px] font-bold rounded-xl shadow-sm hover:shadow-md transition-all">+ Share File</button>
       </div>
-      <div className="space-y-2.5">
-        {FILES.map((f, i) => (
-          <div key={i} className="flex items-center gap-3.5 p-4 bg-white border border-[var(--color-border)] rounded-2xl hover:border-orange-200 transition-all group">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 ${f.iconBg}`}>{f.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-bold text-navy truncate">{f.title}</div>
-              <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">{f.size} · Shared by {f.by} · {f.date}</div>
+      <div className="space-y-5">
+        {fileGroups.map((group) => (
+          <div key={group.key}>
+            <SectionLabel>{group.label}</SectionLabel>
+            <div className="space-y-2.5">
+              {group.items.map((f) => {
+                const style = fileKindStyle(f.file_kind);
+          return (
+            <div key={f.id} className="flex items-center gap-3.5 p-4 bg-white border border-[var(--color-border)] rounded-2xl hover:border-orange-200 transition-all group">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[18px] flex-shrink-0 ${style.bg}`}>
+                {f.file_kind === 'pdf' ? '📄' : f.file_kind === 'video' ? '🎬' : f.file_kind === 'audio' ? '🎧' : f.file_kind === 'document' ? '📝' : f.file_kind === 'slides' ? '📊' : f.file_kind === 'spreadsheet' ? '📈' : '📎'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[13px] font-bold text-navy truncate">{f.title}</div>
+                <div className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
+                  {f.file_name && `(${formatFileSize(0)})`} · {f.category || 'Uncategorized'}
+                </div>
+              </div>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border flex-shrink-0 ${style.bg} ${style.text} ${style.border}`}>
+                {f.file_kind.toUpperCase()}
+              </span>
+              <a
+                href={f.file_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-bold text-[var(--color-amber)] px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex-shrink-0"
+              >
+                Download
+              </a>
             </div>
-            <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border flex-shrink-0 ${extStyle(f.ext)}`}>{f.ext}</span>
-            <button className="text-[11px] font-bold text-[var(--color-amber)] px-3 py-1.5 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors flex-shrink-0">Download</button>
+          );
+              })}
+            </div>
           </div>
         ))}
       </div>
@@ -1812,3 +2247,4 @@ function RolesView() {
     </div>
   );
 }
+

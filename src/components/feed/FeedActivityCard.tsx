@@ -14,7 +14,7 @@ function initials(firstName?: string | null, lastName?: string | null) {
 
 export default function FeedActivityCard({ event }: FeedActivityCardProps) {
   const personName = `${event.profiles?.first_name ?? 'Community'} ${event.profiles?.last_name ?? ''}`.trim();
-  const skillLink = event.skills?.slug ? `/app/skill/${event.skills.slug}` : '/app/browse';
+  const skillLink = event.skills?.slug ? `/app/skill/${event.skills.slug}` : '/app/board';
 
   return (
     <article className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">

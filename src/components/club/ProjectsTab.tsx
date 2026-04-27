@@ -5,6 +5,8 @@ import { ProjectCard } from '@/features/projects/components/ProjectCard';
 import { useClubProjects } from '@/features/projects/hooks/useClubProjects';
 import type { ProjectStatus } from '@/features/projects/types';
 import { normalizeHttpUrl } from '@/lib/safeUrl';
+import EmptyState from './EmptyState';
+import SkeletonCard from './SkeletonCard';
 
 interface ProjectsTabProps {
   clubId: string;
@@ -73,13 +75,7 @@ export default function ProjectsTab({ clubId, userId, isActiveMember, canModerat
     resetForm();
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-[var(--color-amber)]" />
-      </div>
-    );
-  }
+  if (loading) return <SkeletonCard />;
 
   return (
     <div className="flex flex-col gap-5">
@@ -188,11 +184,11 @@ export default function ProjectsTab({ clubId, userId, isActiveMember, canModerat
       )}
 
       {projects.length === 0 ? (
-        <div className="sc-card p-10 text-center text-[var(--color-text-secondary)]">
-          <KanbanSquare className="w-8 h-8 mx-auto mb-3 opacity-40" />
-          <p className="font-semibold text-sm">No projects yet</p>
-          <p className="text-xs mt-1">{isActiveMember ? 'Start the first project for this club!' : 'Join the club to create projects.'}</p>
-        </div>
+        <EmptyState
+          icon={<KanbanSquare className="w-6 h-6 text-[var(--color-text-muted)]" />}
+          title="No projects yet"
+          subtitle={isActiveMember ? 'Start the first project for this club!' : 'Join the club to create projects.'}
+        />
       ) : (
         <div className="flex flex-col gap-4">
           {projects.map((project) => (

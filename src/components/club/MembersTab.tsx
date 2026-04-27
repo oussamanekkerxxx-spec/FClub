@@ -1,11 +1,14 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import EmptyState from './EmptyState';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import type { ClubMembership } from '@/types/fightclub';
 import { useLazyQuery } from '@/hooks/useSupabaseQuery';
 import { queryKeys } from '@/lib/queryKeys';
-import { MapPin, Shield, UserMinus, Mail } from 'lucide-react';
+import { MapPin, Shield, UserMinus, Mail, MoreHorizontal, Ban, BellOff, BellRing, Users } from 'lucide-react';
 import MemberGate from './MemberGate';
 
 interface MembersTabProps {
@@ -14,13 +17,26 @@ interface MembersTabProps {
   isPrivate: boolean;
   isAdmin: boolean;
   currentUserId: string | undefined;
+  canPromoteModerator?: boolean;
+  canPromoteAdmin?: boolean;
+  canMute?: boolean;
+  canBan?: boolean;
+  handleBan?: (targetUserId: string, reason?: string, days?: number) => Promise<void>;
+  handleMute?: (targetUserId: string, reason?: string, days?: number) => Promise<void>;
+  handleUnmute?: (targetUserId: string) => Promise<void>;
   onMemberRemoved: () => void;
 }
 
 export default function MembersTab({
-  clubId, isMember, isPrivate, isAdmin, currentUserId, onMemberRemoved,
+  clubId, isMember, isPrivate, isAdmin, currentUserId,
+  canPromoteModerator = false, canPromoteAdmin = false,
+  canMute = false, canBan = false,
+  handleBan, handleMute, handleUnmute,
+  onMemberRemoved,
 }: MembersTabProps) {
   const navigate = useNavigate();
+  const [mutedUserIds, setMutedUserIds] = useState<Set<string>>(new Set());
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   const { data: members, loading, setData: setMembers } = useLazyQuery<ClubMembership>(
     queryKeys.clubs.members(clubId),
@@ -48,6 +64,38 @@ export default function MembersTab({
     toast('Member removed.');
   };
 
+  const handleToggleMute = async (userId: string) => {
+    if (!handleMute || !handleUnmute) return;
+    setProcessingId(userId);
+    try {
+      if (mutedUserIds.has(userId)) {
+        await handleUnmute(userId);
+        setMutedUserIds(prev => { const s = new Set(prev); s.delete(userId); return s; });
+      } else {
+        await handleMute(userId);
+        setMutedUserIds(prev => new Set(prev).add(userId));
+      }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleBanMember = async (userId: string) => {
+    if (!handleBan) return;
+    setProcessingId(userId);
+    try {
+      await handleBan(userId);
+      setMembers(prev => prev.filter(m => m.user_id !== userId));
+      onMemberRemoved();
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const showOverflow = isAdmin && (
+    canPromoteModerator || canPromoteAdmin || canMute || canBan || currentUserId !== undefined
+  );
+
   if (!isMember) return <MemberGate isPrivate={isPrivate} />;
 
   if (loading) {
@@ -67,7 +115,7 @@ export default function MembersTab({
   }
 
   if (members.length === 0) {
-    return <div className="sc-card p-10 text-center text-sm text-[var(--color-text-secondary)]">No members yet.</div>;
+    return <EmptyState icon={<Users className="w-6 h-6 text-[var(--color-text-muted)]" />} title="No members yet" />;
   }
 
   return (
@@ -93,6 +141,11 @@ export default function MembersTab({
                       {m.role}
                     </span>
                   )}
+                  {mutedUserIds.has(m.user_id) && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">
+                      muted
+                    </span>
+                  )}
                   {m.profile?.city && (
                     <span className="text-[11px] text-[var(--color-text-muted)] flex items-center gap-0.5">
                       <MapPin className="w-2.5 h-2.5" /> {m.profile.city}
@@ -101,24 +154,52 @@ export default function MembersTab({
                 </div>
               </div>
             </Link>
-            {isAdmin && m.user_id !== currentUserId && m.role !== 'admin' && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {m.role === 'member' ? (
-                  <button onClick={() => handleChangeMemberRole(m.id, 'moderator')} title="Promote to moderator"
-                    className="p-1.5 rounded-lg hover:bg-blue-50 text-[var(--color-text-muted)] hover:text-blue-600 transition-colors">
-                    <Shield className="w-3.5 h-3.5" />
+            {showOverflow && m.user_id !== currentUserId && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="p-1.5 rounded-lg hover:bg-gray-100 text-[var(--color-text-muted)] transition-colors flex-shrink-0">
+                    <MoreHorizontal className="w-4 h-4" />
                   </button>
-                ) : (
-                  <button onClick={() => handleChangeMemberRole(m.id, 'member')} title="Remove moderator role"
-                    className="p-1.5 rounded-lg hover:bg-amber-50 text-[var(--color-amber)] hover:text-amber-700 transition-colors">
-                    <Shield className="w-3.5 h-3.5" />
-                  </button>
-                )}
-                <button onClick={() => handleRemoveMember(m.id)} title="Remove from club"
-                  className="p-1.5 rounded-lg hover:bg-red-50 text-[var(--color-text-muted)] hover:text-red-500 transition-colors">
-                  <UserMinus className="w-3.5 h-3.5" />
-                </button>
-              </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {canPromoteModerator && m.role !== 'admin' && (
+                    <DropdownMenuItem onClick={() => handleChangeMemberRole(m.id, 'moderator')}>
+                      <Shield className="w-4 h-4" /> Promote to moderator
+                    </DropdownMenuItem>
+                  )}
+                  {canPromoteAdmin && m.role === 'moderator' && (
+                    <DropdownMenuItem onClick={() => handleChangeMemberRole(m.id, 'admin')}>
+                      <Shield className="w-4 h-4 fill-current" /> Promote to admin
+                    </DropdownMenuItem>
+                  )}
+                  {canMute && (
+                    <DropdownMenuItem
+                      onClick={() => handleToggleMute(m.user_id)}
+                      disabled={processingId === m.user_id}>
+                      {mutedUserIds.has(m.user_id) ? (
+                        <><BellRing className="w-4 h-4" /> Unmute</>
+                      ) : (
+                        <><BellOff className="w-4 h-4" /> Mute member</>
+                      )}
+                    </DropdownMenuItem>
+                  )}
+                  {canBan && m.role !== 'admin' && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => handleBanMember(m.user_id)}
+                        disabled={processingId === m.user_id}
+                        className="text-red-600">
+                        <Ban className="w-4 h-4" /> Ban from club
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => handleRemoveMember(m.id)} className="text-red-500">
+                    <UserMinus className="w-4 h-4" /> Remove from club
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
           </div>
           <div className="flex items-center gap-2 flex-wrap">

@@ -1,18 +1,23 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { queryKeys } from '@/lib/queryKeys';
 import { useAuth } from '@/contexts/AuthContext';
 import type { StoryWithAuthor, UserStoryGroup } from '@/types/stories';
 
-export function useStories() {
+interface UseStoriesOptions {
+  clubId?: string;
+}
+
+export function useStories(options: UseStoriesOptions = {}) {
+  const { clubId } = options;
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: rawStories, isLoading, error } = useQuery({
-    queryKey: queryKeys.stories.active(),
+    queryKey: queryKeys.stories.active(clubId),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('stories')
         .select(`
           *,
@@ -22,13 +27,44 @@ export function useStories() {
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: true });
 
+      if (clubId) {
+        query = query.eq('club_id', clubId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       return data as any[];
     },
     enabled: !!user,
   });
 
-  // Group stories by author_id
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    channelRef.current = supabase
+      .channel('stories:realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'stories',
+      }, (payload) => {
+        const newRow = payload.new as any;
+        if (newRow.expires_at && new Date(newRow.expires_at) <= new Date()) return;
+        queryClient.setQueryData<any[]>(queryKeys.stories.active(), (prev) => {
+          if (prev?.some(r => r.id === newRow.id)) return prev;
+          return [...(prev ?? []), newRow];
+        });
+      })
+      .subscribe();
+
+    return () => {
+      channelRef.current?.unsubscribe();
+    };
+  }, [user, queryClient]);
+
   const storyGroups = useMemo(() => {
     if (!rawStories || !user) return [];
 

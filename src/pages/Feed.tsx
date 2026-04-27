@@ -112,33 +112,29 @@ export default function Feed() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-[rgba(196,135,58,0.16)] bg-[linear-gradient(135deg,#FFF8F1_0%,#F8EBD9_48%,#FCE6DB_100%)] px-6 py-6 shadow-[0_24px_65px_rgba(196,135,58,0.12)] sm:px-7 sm:py-7">
-        <div className="pointer-events-none absolute -left-16 top-0 h-48 w-48 rounded-full bg-[rgba(225,107,59,0.12)] blur-[80px]" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-56 w-56 rounded-full bg-[rgba(92,61,143,0.14)] blur-[90px]" />
+      <section className="relative overflow-hidden rounded-[18px] border border-[rgba(196,135,58,0.16)] bg-[linear-gradient(135deg,#FFF8F1_0%,#F8EBD9_48%,#FCE6DB_100%)] px-4 py-4 shadow-[0_24px_65px_rgba(196,135,58,0.12)] md:rounded-[32px] md:px-6 md:py-6 sm:px-7 sm:py-7">
+        <div className="pointer-events-none absolute -left-16 top-0 h-48 w-48 rounded-full bg-[rgba(225,107,59,0.12)] blur-[80px] hidden md:block" />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-56 w-56 rounded-full bg-[rgba(92,61,143,0.14)] blur-[90px] hidden md:block" />
 
-        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="space-y-3">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[rgba(27,42,74,0.46)]">
+        <div className="relative flex flex-col gap-4 md:gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="space-y-2 md:space-y-3">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.3em] text-[rgba(27,42,74,0.46)] md:text-[11px]">
               Community feed
             </div>
             <div>
-              <h1 className="font-heading text-3xl text-[var(--color-navy)] sm:text-4xl">
+              <h1 className="font-heading text-xl text-[var(--color-navy)] md:text-3xl sm:text-4xl">
                 {greeting}, {user?.firstName}.
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] sm:text-[15px]">
-                A lighter, more social view of what people are learning, sharing, and publishing across
-                the community right now.
-              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2 md:grid-cols-3 md:gap-3">
             {stats.map((stat) => (
-              <div key={stat.label} className="min-w-[110px] rounded-[22px] border border-white/60 bg-white/80 px-4 py-4 text-center shadow-sm backdrop-blur-sm">
-                <div className={`mx-auto inline-flex rounded-full px-3 py-1 text-[11px] font-semibold ${stat.tone}`}>
+              <div key={stat.label} className="min-w-[90px] rounded-[16px] border border-white/60 bg-white/80 px-2 py-3 text-center shadow-sm backdrop-blur-sm md:min-w-[110px] md:rounded-[22px] md:px-4 md:py-4">
+                <div className={`mx-auto inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold md:text-[11px] md:px-3 md:py-1 ${stat.tone}`}>
                   {stat.label}
                 </div>
-                <div className="mt-3 text-2xl font-semibold text-[var(--color-navy)]">{stat.value}</div>
+                <div className="mt-2 text-lg font-semibold text-[var(--color-navy)] md:mt-3 md:text-2xl">{stat.value}</div>
               </div>
             ))}
           </div>
@@ -149,46 +145,43 @@ export default function Feed() {
         <div className="space-y-6">
           <FeedStoryStrip />
 
-          <section className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
-            <div className="flex items-start gap-4">
-              <Avatar className="h-11 w-11 border-2 border-[rgba(244,240,232,0.92)]">
+          <section className="rounded-[18px] border border-[rgba(196,135,58,0.12)] bg-white p-4 shadow-[0_16px_38px_rgba(27,42,74,0.06)] md:rounded-[28px] md:p-5">
+            <div className="flex items-start gap-3">
+              <Avatar className="h-9 w-9 border-2 border-[rgba(244,240,232,0.92)] flex-shrink-0 md:h-11 md:w-11">
                 <AvatarImage src={user?.avatar} alt={user?.firstName} />
-                <AvatarFallback className="bg-[var(--color-amber)] text-sm font-semibold text-white">
+                <AvatarFallback className="bg-[var(--color-amber)] text-xs font-semibold text-white md:text-sm">
                   {user?.firstName?.[0]}
                   {user?.lastName?.[0]}
                 </AvatarFallback>
               </Avatar>
 
               <div className="min-w-0 flex-1">
-                <div className="rounded-[22px] border border-[rgba(196,135,58,0.12)] bg-[linear-gradient(180deg,#FFF9F3_0%,#FFF4E9_100%)] px-4 py-4">
-                  <div className="text-sm font-medium text-[var(--color-text-secondary)]">
+                <div className="rounded-[18px] border border-[rgba(196,135,58,0.12)] bg-[linear-gradient(180deg,#FFF9F3_0%,#FFF4E9_100%)] px-3 py-3 md:px-4 md:py-4">
+                  <div className="text-xs font-medium text-[var(--color-text-secondary)] md:text-sm">
                     What do you want to put into the community today?
-                  </div>
-                  <div className="mt-1 text-sm text-[var(--color-text-muted)]">
-                    Publish a skill, explore new sessions, or start a club from here.
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-1.5 md:mt-4 md:gap-2">
                   <Link
                     to="/app/teach"
-                    className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(225,107,59,0.22)]"
+                    className="inline-flex items-center gap-1 rounded-full bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_8px_24px_rgba(225,107,59,0.22)] md:px-4 md:py-2.5 md:text-sm"
                   >
-                    <BookOpen className="h-4 w-4" />
+                    <BookOpen className="h-3 w-3 md:h-4 md:w-4" />
                     Teach a skill
                   </Link>
                   <Link
                     to="/app/board"
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[rgba(244,240,232,0.72)] px-4 py-2.5 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)]"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[rgba(244,240,232,0.72)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)] md:px-4 md:py-2.5 md:text-sm"
                   >
-                    <Search className="h-4 w-4" />
+                    <Search className="h-3 w-3 md:h-4 md:w-4" />
                     Browse sessions
                   </Link>
                   <button
                     onClick={() => setIsCreateClubModalOpen(true)}
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[rgba(244,240,232,0.72)] px-4 py-2.5 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)]"
+                    className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[rgba(244,240,232,0.72)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)] md:px-4 md:py-2.5 md:text-sm"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3 w-3 md:h-4 md:w-4" />
                     Start a club
                   </button>
                 </div>
