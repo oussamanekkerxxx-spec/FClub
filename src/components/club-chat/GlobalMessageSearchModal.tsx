@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { Search, X, Loader2, Hash, Megaphone, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
+import { springs } from '@/lib/animation';
 
 interface GlobalMessageSearchModalProps {
   clubId: string;
@@ -25,7 +27,7 @@ export default function GlobalMessageSearchModal({ clubId, onClose, onSelectMess
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [recentSearches] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('lumina_recent_searches') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('fightclub_recent_searches') || '[]'); } catch { return []; }
   });
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -65,7 +67,7 @@ export default function GlobalMessageSearchModal({ clubId, onClose, onSelectMess
     // persist recent search
     if (query.trim()) {
       const updated = [query, ...recentSearches.filter(s => s !== query)].slice(0, 5);
-      localStorage.setItem('lumina_recent_searches', JSON.stringify(updated));
+      localStorage.setItem('fightclub_recent_searches', JSON.stringify(updated));
     }
     onSelectMessage(channelId, messageId);
     onClose();
@@ -75,19 +77,27 @@ export default function GlobalMessageSearchModal({ clubId, onClose, onSelectMess
   const noResults = query.trim() && !loading && results.length === 0;
 
   return (
-    <div
+    <motion.div
       className="fixed inset-0 z-[200] flex items-start justify-center pt-16 px-4"
       style={{ background: 'rgba(10,12,20,0.65)', backdropFilter: 'blur(8px)' }}
       onClick={onClose}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={springs.backdrop}
     >
-      <div
-        className="w-full max-w-xl flex flex-col rounded-2xl overflow-hidden animate-in slide-in-from-top-3 fade-in duration-200"
+      <motion.div
+        className="w-full max-w-xl flex flex-col rounded-2xl overflow-hidden"
         style={{
           maxHeight: 'calc(100vh - 100px)',
           boxShadow: '0 24px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08)',
           background: 'rgba(255,255,255,0.97)',
         }}
         onClick={e => e.stopPropagation()}
+        initial={{ opacity: 0, y: -16, scale: 0.97 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -12, scale: 0.98 }}
+        transition={springs.modal}
       >
         {/* ── Search bar ─────────────────────────────────────────────── */}
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-black/5">
@@ -185,7 +195,7 @@ export default function GlobalMessageSearchModal({ clubId, onClose, onSelectMess
                     >
                       {/* Avatar */}
                       {sender?.avatar_url ? (
-                        <img src={sender.avatar_url} className="w-9 h-9 rounded-full flex-shrink-0 object-cover mt-0.5" alt="" />
+                        <img src={sender.avatar_url} className="w-9 h-9 rounded-full flex-shrink-0 object-cover mt-0.5" alt="" loading="lazy" decoding="async" />
                       ) : (
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-[12px] font-bold flex-shrink-0 mt-0.5">
                           {initials || '?'}
@@ -236,7 +246,7 @@ export default function GlobalMessageSearchModal({ clubId, onClose, onSelectMess
             <span className="ml-auto">{results.length} result{results.length !== 1 ? 's' : ''} across all channels</span>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

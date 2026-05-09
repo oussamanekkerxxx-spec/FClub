@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useSupabaseQuery } from '@/hooks/useSupabaseQuery';
 import { queryKeys } from '@/lib/queryKeys';
 import { CATEGORIES } from '@/constants/categories';
+import { useT } from '@/lib/t';
 import { Plus, RefreshCw, Search } from 'lucide-react';
 import CreateClubModal from '@/components/club/CreateClubModal';
 import ClubDirectoryCard from '@/components/club/ClubDirectoryCard';
@@ -15,7 +16,7 @@ import StoryComposerModal from '@/components/stories/StoryComposerModal';
 
 type PrivacyFilter = 'all' | 'public' | 'private';
 
-function countLabel(count: number, singular: string, plural = `${singular}s`) {
+function countLabel(count: number, singular: string, plural: string) {
   return `${count} ${count === 1 ? singular : plural}`;
 }
 
@@ -44,6 +45,7 @@ function DirectorySkeleton() {
 
 export default function Discover() {
   const { user } = useAuth();
+  const { t } = useT();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [privacyFilter, setPrivacyFilter] = useState<PrivacyFilter>('all');
@@ -172,7 +174,7 @@ export default function Discover() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-3 py-1.5 text-[11px] font-semibold text-white shadow-[0_6px_20px_rgba(225,107,59,0.35)] transition"
             >
               <Plus className="h-3 w-3" />
-              New Club
+              {t('New Club')}
             </button>
           </div>
         </div>
@@ -185,7 +187,7 @@ export default function Discover() {
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search clubs..."
+              placeholder={t('Search clubs...')}
               aria-label="Search clubs"
               className="h-9 w-full rounded-xl border border-[rgba(196,135,58,0.14)] bg-white/88 pl-9 pr-3 text-sm text-[var(--color-navy)] outline-none placeholder:text-[var(--color-text-muted)] focus:border-[rgba(196,135,58,0.4)] focus:ring-2 focus:ring-[rgba(196,135,58,0.1)]"
             />
@@ -204,7 +206,7 @@ export default function Discover() {
                       : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)]'
                   }`}
                 >
-                  {catId === 'all' ? 'All' : (cat?.emoji ? `${cat.emoji} ${cat.label}` : cat?.label)}
+                  {catId === 'all' ? t('All') : (cat?.emoji ? `${cat.emoji} ${cat.label}` : cat?.label)}
                 </button>
               );
             })}
@@ -218,14 +220,14 @@ export default function Discover() {
               <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                 <div className="space-y-3">
                   <div className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[var(--color-text-muted)]">
-                    FightClub Directory
+                    {t('FightClub Directory')}
                   </div>
                   <div>
                     <h1 className="font-heading text-4xl text-[var(--color-navy)] sm:text-5xl">
                       My <span className="bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] bg-clip-text text-transparent">Clubs</span>
                     </h1>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--color-text-secondary)] sm:text-[15px]">
-                      Browse the communities you already belong to, discover new ones, and launch your own club without changing any of the existing club flows behind the scenes.
+                      {t('Browse the communities you already belong to, discover new ones, and launch your own club without changing any of the existing club flows behind the scenes.')}
                     </p>
                   </div>
                 </div>
@@ -243,14 +245,14 @@ export default function Discover() {
                     className="inline-flex items-center gap-2 rounded-2xl border border-[rgba(196,135,58,0.14)] bg-white/80 px-4 py-3 text-sm font-semibold text-[var(--color-navy)] shadow-[0_4px_16px_rgba(196,135,58,0.08)] transition hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(196,135,58,0.14)] hover:bg-white"
                   >
                     <Plus className="h-4 w-4" />
-                    Post story
+                    {t('Post story')}
                   </button>
                   <button
                     onClick={() => setIsCreateClubModalOpen(true)}
                     className="inline-flex items-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_28px_rgba(225,107,59,0.32)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_34px_rgba(225,107,59,0.4)]"
                   >
                     <Plus className="h-4 w-4" />
-                    Create club
+                    {t('Create club')}
                   </button>
                 </div>
               </div>
@@ -261,7 +263,7 @@ export default function Discover() {
                   type="text"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search clubs, topics, communities..."
+                  placeholder={t('Search clubs, topics, communities...')}
                   aria-label="Search clubs"
                   className="h-12 w-full rounded-2xl border border-[rgba(196,135,58,0.14)] bg-white/88 pl-11 pr-4 text-sm text-[var(--color-navy)] outline-none transition placeholder:text-[var(--color-text-muted)] focus:border-[rgba(196,135,58,0.4)] focus:bg-white focus:ring-4 focus:ring-[rgba(196,135,58,0.12)]"
                 />
@@ -277,7 +279,7 @@ export default function Discover() {
                       : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)] hover:bg-white hover:text-[var(--color-navy)]'
                   }`}
                 >
-                  All
+                  {t('All')}
                 </button>
                 {CATEGORIES.map((category) => (
                   <button
@@ -305,7 +307,7 @@ export default function Discover() {
                         : 'border border-[rgba(196,135,58,0.14)] bg-white/72 text-[var(--color-text-secondary)] hover:bg-white hover:text-[var(--color-navy)]'
                     }`}
                   >
-                    {value === 'all' ? 'Any privacy' : value}
+                    {value === 'all' ? t('Any privacy') : value}
                   </button>
                 ))}
               </div>
@@ -316,14 +318,14 @@ export default function Discover() {
       <div className="space-y-6 mt-6">
           {clubsError && !loading ? (
             <div className="rounded-[26px] border border-red-300/30 bg-[rgba(255,255,255,0.72)] px-6 py-10 text-center">
-              <p className="text-lg font-semibold text-[var(--color-navy)]">Could not load clubs</p>
+              <p className="text-lg font-semibold text-[var(--color-navy)]">{t('Could not load clubs')}</p>
               <p className="mt-2 text-sm text-[var(--color-text-secondary)]">{clubsError.message}</p>
               <button
                 onClick={refetch}
                 className="mt-5 inline-flex items-center gap-2 rounded-full border border-[rgba(196,135,58,0.14)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[rgba(196,135,58,0.28)]"
               >
                 <RefreshCw className="h-4 w-4" />
-                Try again
+                {t('Try again')}
               </button>
             </div>
           ) : loading ? (
@@ -385,9 +387,9 @@ export default function Discover() {
                 <section className="space-y-4">
                   <div className="flex items-end justify-between gap-4">
                     <div>
-                      <h2 className="text-xl font-semibold text-[var(--color-navy)]">Joined</h2>
+                      <h2 className="text-xl font-semibold text-[var(--color-navy)]">{t('Joined')}</h2>
                       <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                        {countLabel(joinedClubs.length, 'club')}
+                        {countLabel(joinedClubs.length, t('club'), t('clubs'))}
                       </p>
                     </div>
                   </div>
@@ -402,9 +404,9 @@ export default function Discover() {
               <section className="space-y-4">
                 <div className="flex items-end justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-semibold text-[var(--color-navy)]">Explore</h2>
+                    <h2 className="text-xl font-semibold text-[var(--color-navy)]">{t('Explore')}</h2>
                     <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
-                      {countLabel(exploreClubs.length, 'community', 'communities')} available
+                      {countLabel(exploreClubs.length, t('community'), t('communities'))} {t('available')}
                     </p>
                   </div>
                 </div>
@@ -413,12 +415,12 @@ export default function Discover() {
                   <div className="rounded-[26px] border border-[rgba(196,135,58,0.14)] bg-white/70 px-6 py-12 text-center">
                     <Search className="mx-auto h-8 w-8 text-[#f6c27f]" />
                     <h3 className="mt-4 text-lg font-semibold text-[var(--color-navy)]">
-                      {hasActiveFilters ? 'No clubs match your filters' : 'No clubs to explore yet'}
+                      {hasActiveFilters ? t('No clubs match your filters') : t('No clubs to explore yet')}
                     </h3>
                     <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
                       {hasActiveFilters
-                        ? 'Try broadening your search or clearing a filter.'
-                        : 'Create the first club and start gathering your community.'}
+                        ? t('Try broadening your search or clearing a filter.')
+                        : t('Create the first club and start gathering your community.')}
                     </p>
                     {hasActiveFilters ? (
                       <button
@@ -429,7 +431,7 @@ export default function Discover() {
                         }}
                         className="mt-5 inline-flex items-center rounded-full border border-[rgba(196,135,58,0.14)] bg-white px-4 py-2 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[rgba(196,135,58,0.28)]"
                       >
-                        Clear filters
+                        {t('Clear filters')}
                       </button>
                     ) : null}
                   </div>

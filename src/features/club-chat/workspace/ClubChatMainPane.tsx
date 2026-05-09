@@ -1,7 +1,9 @@
-import { format, isSameDay, isToday, isYesterday } from 'date-fns';
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+
 import { toast } from 'sonner';
+import { springs } from '@/lib/animation';
 import {
-  ArrowLeft,
   Megaphone,
   Hash,
   Search,
@@ -18,26 +20,32 @@ import {
   ArrowDown,
   Loader2,
   ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
-import MessageItem from '@/components/club-chat/MessageItem';
 import MessageInput from '@/components/club-chat/MessageInput';
+import VirtualizedMessageList from '@/components/club-chat/VirtualizedMessageList';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface ClubChatMainPaneProps {
   c: any;
 }
 
-export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
+const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
   return (
-    <div className={`${c.mobileView === 'channels' ? 'hidden md:flex' : 'flex'} flex-1 flex-col bg-[var(--color-parchment)] relative`}>
+    <div className={`${c.mobileView === 'channels' ? 'hidden md:flex' : 'flex'} flex-1 flex-col ${c.preferences?.wallpaper_class || 'wall-default'} ${c.preferences?.is_dark_mode ? 'bg-[#121212]' : ''} relative`}>
       {c.activeChannel ? (
         <>
           <div className="flex flex-col bg-white border-b border-[var(--color-border)] z-10 shrink-0">
             <div className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-3">
-                <button className="md:hidden p-1.5 rounded-lg hover:bg-parchment -ml-1.5" onClick={() => c.setMobileView('channels')}>
-                  <ArrowLeft className="w-5 h-5 text-navy" />
-                </button>
-                <div className="flex items-center gap-3">
+                {/* Desktop view channel header */}
+                <div className="hidden md:flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-[var(--color-navy)] text-white flex items-center justify-center flex-shrink-0 shadow-sm">
                     {c.activeChannel.is_announcement_only ? <Megaphone className="w-5 h-5" /> : <Hash className="w-5 h-5" />}
                   </div>
@@ -52,11 +60,71 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
                     </div>
                   </div>
                 </div>
+
+                {/* Mobile view dropdown selector */}
+                <div className="flex md:hidden items-center">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 hover:bg-parchment p-1.5 -ml-1.5 rounded-xl transition-colors">
+                        <div className="w-9 h-9 rounded-full bg-[var(--color-navy)] text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                          {c.activeChannel.is_announcement_only ? <Megaphone className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                        </div>
+                        <div className="flex flex-col items-start">
+                          <div className="font-heading font-bold text-navy text-[15px] leading-tight flex items-center gap-1">
+                            {c.activeChannel.name}
+                            <ChevronDown className="w-4 h-4 text-[var(--color-text-muted)] ml-1" />
+                          </div>
+                          <div className="text-[11px] text-[var(--color-text-secondary)] leading-tight flex items-center gap-1 mt-0.5 truncate max-w-[150px]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0"></span>
+                            <span className="truncate">{c.clubName || 'Club Chat'}</span>
+                          </div>
+                        </div>
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 max-h-[60vh] overflow-y-auto rounded-2xl shadow-xl p-2 border-[var(--color-border)]">
+                      <DropdownMenuLabel className="text-xs text-[var(--color-text-muted)] font-bold uppercase tracking-wider px-2">
+                        Channels
+                      </DropdownMenuLabel>
+                      <div className="space-y-1 mt-1">
+                        {c.channels.map((chan: any) => {
+                          const isActive = chan.id === c.activeChannelId;
+                          const unreads = c.channelUnreads?.[chan.id] || 0;
+                          return (
+                            <DropdownMenuItem
+                              key={chan.id}
+                              onClick={() => {
+                                c.setActiveChannelId(chan.id);
+                                if (c.setChannelUnreads) c.setChannelUnreads((prev: any) => ({ ...prev, [chan.id]: 0 }));
+                              }}
+                              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
+                                isActive ? 'bg-[var(--color-navy)] text-white focus:bg-[var(--color-navy)] focus:text-white' : 'text-navy hover:bg-parchment focus:bg-parchment'
+                              }`}
+                            >
+                              {chan.is_announcement_only ? <Megaphone className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-[var(--color-text-muted)]'}`} /> : <Hash className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-white/80' : 'text-[var(--color-text-muted)]'}`} />}
+                              <span className="flex-1 truncate font-medium text-sm">{chan.name}</span>
+                              {unreads > 0 && !isActive && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center flex-shrink-0 bg-[var(--color-amber)] text-white">
+                                  {unreads > 99 ? '99+' : unreads}
+                                </span>
+                              )}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
 
               <div className="flex items-center text-[var(--color-text-muted)] h-10 relative">
                 {c.showSearch ? (
-                  <div className="flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5 w-48 sm:w-64 animate-in slide-in-from-right-4 relative mr-2">
+                  <motion.div
+                    className="flex items-center gap-2 bg-[#F0F2F5] rounded-full px-3 py-1.5 w-48 sm:w-64 relative mr-2"
+                    initial={{ opacity: 0, x: 16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 12 }}
+                    transition={springs.menu}
+                  >
                     <Search className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
                     <input
                       autoFocus
@@ -71,27 +139,40 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
                         {c.filteredMessages.length} result{c.filteredMessages.length !== 1 ? 's' : ''}
                       </span>
                     )}
-                    <button onClick={() => { c.setShowSearch(false); c.setSearchQuery(''); }} className="hover:text-navy hover:bg-black/5 p-1 rounded-full transition-colors flex-shrink-0">
+                    <button onClick={() => { c.setShowSearch(false); c.setSearchQuery(''); }} aria-label="Clear search" className="hover:text-navy hover:bg-black/5 p-1 rounded-full transition-colors flex-shrink-0">
                       <X className="w-3.5 h-3.5" />
                     </button>
-                  </div>
+                  </motion.div>
                 ) : (
-                  <div className="flex items-center gap-1 sm:gap-2 animate-in fade-in duration-200">
-                    <button onClick={() => c.setShowSearch(true)} className="p-2 w-10 h-10 rounded-full hover:bg-parchment hover:text-navy transition-colors flex items-center justify-center">
+                  <motion.div
+                    className="flex items-center gap-1 sm:gap-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={springs.fade}
+                  >
+                    <button onClick={() => c.setShowSearch(true)} aria-label="Search messages" className="p-2 w-10 h-10 rounded-full hover:bg-parchment hover:text-navy transition-colors flex items-center justify-center">
                       <Search className="w-5 h-5" />
                     </button>
-                    <button onClick={() => c.setShowDetailsPanel((p: boolean) => !p)} className="p-2 w-10 h-10 rounded-full hover:bg-parchment transition-colors hidden lg:flex items-center justify-center" title="Channel details">
+                    <button onClick={() => c.setShowDetailsPanel((p: boolean) => !p)} className="p-2 w-10 h-10 rounded-full hover:bg-parchment transition-colors hidden lg:flex items-center justify-center" title="Channel details" aria-label="Toggle channel details">
                       {c.showDetailsPanel ? <PanelRightClose className="w-5 h-5 text-[var(--color-navy)]" /> : <PanelRightOpen className="w-5 h-5" />}
                     </button>
                     <div className="relative">
-                      <button onClick={() => c.setShowOptionsMenu(!c.showOptionsMenu)} className="p-2 w-10 h-10 rounded-full hover:bg-parchment hover:text-navy transition-colors flex items-center justify-center">
+                      <button onClick={() => c.setShowOptionsMenu(!c.showOptionsMenu)} aria-label="More options" className="p-2 w-10 h-10 rounded-full hover:bg-parchment hover:text-navy transition-colors flex items-center justify-center">
                         <MoreVertical className="w-5 h-5" />
                       </button>
 
-                      {c.showOptionsMenu && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => c.setShowOptionsMenu(false)} />
-                          <div className="absolute top-12 right-2 w-60 bg-white rounded-xl shadow-[var(--shadow-elevated)] border border-[var(--color-border)] py-1.5 z-50 animate-in fade-in zoom-in-95 origin-top-right">
+                      <AnimatePresence>
+                        {c.showOptionsMenu && (
+                          <>
+                            <div className="fixed inset-0 z-40" onClick={() => c.setShowOptionsMenu(false)} />
+                            <motion.div
+                              className="absolute top-12 right-2 w-60 bg-white rounded-xl shadow-[var(--shadow-elevated)] border border-[var(--color-border)] py-1.5 z-50 origin-top-right"
+                              initial={{ opacity: 0, scale: 0.92 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              exit={{ opacity: 0, scale: 0.96 }}
+                              transition={springs.menu}
+                            >
                             <button onClick={() => { c.setShowOptionsMenu(false); c.setShowSearch(true); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-navy font-medium hover:bg-parchment transition-colors text-left">
                               <Search className="w-4 h-4 opacity-70" /> Search Messages
                             </button>
@@ -108,11 +189,12 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
                             <button onClick={() => { c.setShowOptionsMenu(false); toast.info('History cleared locally'); }} className="w-full flex items-center gap-3 px-4 py-2.5 text-[13px] text-red-500 font-medium hover:bg-red-50 transition-colors text-left">
                               <Trash2 className="w-4 h-4 opacity-70" /> Clear History
                             </button>
-                          </div>
-                        </>
-                      )}
+                            </motion.div>
+                          </>
+                        )}
+                      </AnimatePresence>
                     </div>
-                  </div>
+                  </motion.div>
                 )}
               </div>
             </div>
@@ -135,7 +217,7 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
                   </div>
                 </div>
                 {c.isAdminOrMod && (
-                  <button onClick={(e) => { e.stopPropagation(); c.handleUnpinMessage(); }} className="p-1 rounded-lg hover:bg-black/5 text-[var(--color-text-muted)] flex-shrink-0 ml-4" title="Unpin">
+                  <button onClick={(e) => { e.stopPropagation(); c.handleUnpinMessage(); }} className="p-1 rounded-lg hover:bg-black/5 text-[var(--color-text-muted)] flex-shrink-0 ml-4" title="Unpin" aria-label="Unpin message">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -143,7 +225,7 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
             )}
           </div>
 
-          <div ref={c.messagesAreaRef} className={`flex-1 overflow-y-auto px-5 py-4 space-y-0 flex flex-col relative ${c.preferences?.wallpaper_class || 'wall-default'} ${c.preferences?.is_dark_mode ? 'bg-[#121212]' : 'bg-[#FAFAFA]'}`} onScroll={(e) => {
+          <div ref={c.messagesAreaRef} className={`flex-1 overflow-y-auto px-5 py-4 space-y-0 flex flex-col relative`} onScroll={(e) => {
             const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
             c.setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 300);
           }}>
@@ -168,118 +250,76 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
               </div>
             )}
 
-            {c.filteredMessages.map((msg: any, i: number) => {
-              const isOwn = msg.sender_id === c.user?.id;
-              const prevMsg = i > 0 ? c.filteredMessages[i - 1] : null;
-              const nextMsg = i < c.filteredMessages.length - 1 ? c.filteredMessages[i + 1] : null;
-
-              const msgDate = new Date(msg.created_at);
-              const prevDate = prevMsg ? new Date(prevMsg.created_at) : null;
-              const nextDate = nextMsg ? new Date(nextMsg.created_at) : null;
-
-              const showDateDivider = !prevDate || !isSameDay(msgDate, prevDate);
-              let dateDividerText = '';
-              if (showDateDivider) {
-                if (isToday(msgDate)) dateDividerText = 'Today';
-                else if (isYesterday(msgDate)) dateDividerText = 'Yesterday';
-                else dateDividerText = format(msgDate, 'MMMM d, yyyy');
-              }
-
-              const gapMs = 5 * 60 * 1000;
-              const isGroupFirst =
-                showDateDivider ||
-                !prevMsg ||
-                prevMsg.sender_id !== msg.sender_id ||
-                msgDate.getTime() - prevDate!.getTime() > gapMs;
-
-              const isGroupLast =
-                !nextMsg ||
-                nextMsg.sender_id !== msg.sender_id ||
-                !isSameDay(msgDate, nextDate!) ||
-                nextDate!.getTime() - msgDate.getTime() > gapMs;
-
-              let bubbleRadius: string;
-              if (isOwn) {
-                if (isGroupFirst && isGroupLast) bubbleRadius = 'rounded-[20px] rounded-br-[5px]';
-                else if (isGroupFirst) bubbleRadius = 'rounded-[20px] rounded-br-[8px]';
-                else if (isGroupLast) bubbleRadius = 'rounded-[20px] rounded-tr-[8px] rounded-br-[5px]';
-                else bubbleRadius = 'rounded-[20px] rounded-r-[8px]';
-              } else {
-                if (isGroupFirst && isGroupLast) bubbleRadius = 'rounded-[20px] rounded-bl-[5px]';
-                else if (isGroupFirst) bubbleRadius = 'rounded-[20px] rounded-bl-[8px]';
-                else if (isGroupLast) bubbleRadius = 'rounded-[20px] rounded-tl-[8px] rounded-bl-[5px]';
-                else bubbleRadius = 'rounded-[20px] rounded-l-[8px]';
-              }
-
-              const marginTopClass = isGroupFirst && i !== 0 ? 'mt-4' : 'mt-[3px]';
-
-              return (
-                <MessageItem
-                  key={msg.id}
-                  msg={msg}
-                  isOwn={isOwn}
-                  isGroupFirst={isGroupFirst}
-                  isGroupLast={isGroupLast}
-                  bubbleRadius={bubbleRadius}
-                  marginTopClass={marginTopClass}
-                  showDateDivider={showDateDivider}
-                  dateDividerText={dateDividerText}
-                  currentUserId={c.user?.id}
-                  isAdminOrMod={c.isAdminOrMod}
-                  channelReads={c.channelReads}
-                  allMessages={c.messages}
-                  searchQuery={c.searchQuery}
-                  parseMessageContent={c.parseMessageContent}
-                  onReply={c.handleReplyMessage}
-                  onEdit={c.handleEditMessage}
-                  onDelete={c.handleDeleteMessage}
-                  onPin={c.handlePinMessage}
-                  onToggleReaction={c.handleToggleReaction}
-                  onForward={(message) => {
-                    c.setForwardingMessage(message);
-                    c.setShowForwardModal(true);
-                  }}
-                  onViewImage={c.setViewingImageMsg}
-                  onApplyToProject={(project) => {
-                    if (project.creator_id === c.user?.id) {
-                      toast.info("You're the project creator");
-                      return;
-                    }
-                    const already = project.applications?.some((a: any) => a.user_id === c.user?.id);
-                    if (already) {
-                      const status = project.applications?.find((a: any) => a.user_id === c.user?.id)?.status;
-                      toast.info(`Your application is ${status}`);
-                      return;
-                    }
-                    c.setApplyingToProject(project as any);
-                  }}
-                  onViewApplicants={(project) => {
-                    if (project.creator_id === c.user?.id) {
-                      c.setViewingApplicants(project as any);
-                      return;
-                    }
-                    const already = project.applications?.some((a: any) => a.user_id === c.user?.id);
-                    if (already) {
-                      const status = project.applications?.find((a: any) => a.user_id === c.user?.id)?.status;
-                      toast.info(`Your application is ${status}`);
-                    } else {
-                      c.setApplyingToProject(project as any);
-                    }
-                  }}
-                />
-              );
-            })}
+            <VirtualizedMessageList
+              messages={c.filteredMessages}
+              user={c.user}
+              adaptToChatMessage={(msg) => msg}
+              onReply={c.handleReplyMessage}
+              onEdit={c.handleEditMessage}
+              onDelete={c.handleDeleteMessage}
+              onPin={c.handlePinMessage}
+              onToggleReaction={c.handleToggleReaction}
+              onForward={(message) => {
+                c.setForwardingMessage(message);
+                c.setShowForwardModal(true);
+              }}
+              onViewImage={c.setViewingImageMsg}
+              onApplyToProject={(project) => {
+                if (project.creator_id === c.user?.id) {
+                  toast.info("You're the project creator");
+                  return;
+                }
+                const already = project.applications?.some((a: any) => a.user_id === c.user?.id);
+                if (already) {
+                  const status = project.applications?.find((a: any) => a.user_id === c.user?.id)?.status;
+                  toast.info(`Your application is ${status}`);
+                  return;
+                }
+                c.setApplyingToProject(project as any);
+              }}
+              onViewApplicants={(project) => {
+                if (project.creator_id === c.user?.id) {
+                  c.setViewingApplicants(project as any);
+                  return;
+                }
+                const already = project.applications?.some((a: any) => a.user_id === c.user?.id);
+                if (already) {
+                  const status = project.applications?.find((a: any) => a.user_id === c.user?.id)?.status;
+                  toast.info(`Your application is ${status}`);
+                } else {
+                  c.setApplyingToProject(project as any);
+                }
+              }}
+              scrollContainerRef={c.messagesAreaRef}
+            />
             <div ref={c.messagesEndRef} className="h-4" />
           </div>
 
-          {c.showScrollBottom && (
-            <button onClick={() => c.messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })} className="absolute right-6 bottom-24 p-3 bg-white border border-[var(--color-border)] rounded-full text-navy shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all z-20 animate-in fade-in slide-in-from-bottom-5 hidden sm:flex">
-              <ArrowDown className="w-5 h-5 opacity-70" />
-            </button>
-          )}
+          <AnimatePresence>
+            {c.showScrollBottom && (
+              <motion.button
+                onClick={() => c.messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                aria-label="Scroll to bottom"
+                className="absolute right-6 bottom-24 p-3 bg-white border border-[var(--color-border)] rounded-full text-navy shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all z-20 hidden sm:flex"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 12 }}
+                transition={springs.scrollButton}
+              >
+                <ArrowDown className="w-5 h-5 opacity-70" />
+              </motion.button>
+            )}
+          </AnimatePresence>
 
-          {c.typingUsers.length > 0 && (
-            <div className="px-5 py-1.5 flex items-center gap-2.5 text-[12px] text-[var(--color-text-muted)] bg-white border-t border-[var(--color-border)]/50 animate-in fade-in duration-200">
+          <AnimatePresence>
+            {c.typingUsers.length > 0 && (
+              <motion.div
+                className="px-5 py-1.5 flex items-center gap-2.5 text-[12px] text-[var(--color-text-muted)] bg-white/60 backdrop-blur-sm border-t border-[var(--color-border)]/50"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={springs.fade}
+              >
               <div className="flex gap-0.5 items-end h-3">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="w-1.5 h-1.5 bg-[var(--color-text-muted)] rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />
@@ -292,38 +332,21 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
                     ? `${c.typingUsers[0].name} and ${c.typingUsers[1].name} are typing…`
                     : `${c.typingUsers[0].name} and ${c.typingUsers.length - 1} others are typing…`}
               </span>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <MessageInput
             canPost={Boolean(c.canPost)}
             activeChannelName={c.activeChannel.name}
-            newMessage={c.newMessage}
-            sending={c.sending}
-            isRecording={c.isRecording}
-            recordingTime={c.recordingTime}
-            chatAttachment={c.chatAttachment}
-            attachmentCaption={c.attachmentCaption}
-            uploadProgress={c.uploadProgress}
-            replyingTo={c.replyingTo}
-            editingMessage={c.editingMessage}
-            composerFocused={c.composerFocused}
-            showAttachMenu={c.showAttachMenu}
             textareaRef={c.textareaRef}
             longPressTimerRef={c.longPressTimerRef}
             longPressFiredRef={c.longPressFiredRef}
-            onNewMessageChange={c.setNewMessage}
             onSend={() => c.handleSend()}
             onStartRecording={c.startRecording}
             onStopRecordingAndSend={c.stopRecordingAndSend}
             onCancelRecording={c.cancelRecording}
             onTypingStart={c.handleTypingStart}
-            onSetComposerFocused={c.setComposerFocused}
-            onSetShowAttachMenu={c.setShowAttachMenu}
-            onSetChatAttachment={c.setChatAttachment}
-            onSetAttachmentCaption={c.setAttachmentCaption}
-            onClearReply={() => { c.setReplyingTo(null); c.setNewMessage(''); }}
-            onClearEdit={() => { c.setEditingMessage(null); c.setNewMessage(''); }}
             onShowScheduleModal={() => c.setShowScheduleModal(true)}
             onOpenVideoWizard={() => {
               c.setVideoWizardFile(null);
@@ -353,7 +376,6 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
                 : undefined
             }
             onShareLocation={c.handleShareLocation}
-            onApplyFormat={c.applyFormat}
             fileInputRef={c.fileInputRef}
             pendingAttachTypeRef={c.pendingAttachTypeRef}
           />
@@ -371,4 +393,6 @@ export default function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
       )}
     </div>
   );
-}
+});
+
+export default ClubChatMainPane;

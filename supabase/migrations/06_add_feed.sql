@@ -1,4 +1,4 @@
-CREATE TABLE feed_events (
+CREATE TABLE IF NOT EXISTS feed_events (
   id uuid primary key default gen_random_uuid(),
   type text not null,
   title text not null,

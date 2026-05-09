@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
@@ -89,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const loadedUserIdRef = useRef<string | null>(null);
+  const prevTierRef = useRef<TrustTier | null>(null);
 
   const loadProfile = async (supabaseSession: Session) => {
     // Skip reload if we already loaded this user's profile (e.g. tab focus re-triggers onAuthStateChange)
@@ -220,6 +221,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const getTrustLabel = useCallback((tier: TrustTier) => {
     return TRUST_TIER_LABELS[tier];
   }, []);
+
+  // Tier celebration toast
+  useEffect(() => {
+    if (user && prevTierRef.current !== null && user.trust_tier > prevTierRef.current) {
+      const label = getTrustLabel(user.trust_tier);
+      import('sonner').then(({ toast }) => {
+        toast.success(`🎉 You're now a ${label}!`, {
+          description: 'Your trust tier has increased. New features are now available.',
+          duration: 6000,
+        });
+      });
+    }
+    prevTierRef.current = user?.trust_tier ?? null;
+  }, [user?.trust_tier, getTrustLabel]);
 
   const value = useMemo(() => ({
     user,

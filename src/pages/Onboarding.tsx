@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { MOROCCO_REGIONS } from '@/lib/morocco';
 import { reportError } from '@/lib/errors';
+import { useT } from '@/lib/t';
 
 const LANGUAGES = [
   { id: 'Arabic', label: 'Arabic', emoji: '🇲🇦' },
@@ -55,6 +56,7 @@ function dedupeSkills(list: string[]): string[] {
 export default function Onboarding() {
   const navigate = useNavigate();
   const { user, updateUser } = useAuth();
+  const { t } = useT();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
@@ -91,10 +93,10 @@ export default function Onboarding() {
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2 MB'); return; }
+    if (file.size > 2 * 1024 * 1024) { toast.error(t('Image must be under 2 MB')); return; }
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED_AVATAR_MIME_TYPES.has(file.type) && !ALLOWED_AVATAR_EXTENSIONS.has(ext)) {
-      toast.error('Unsupported image type. Use JPG, PNG, WEBP, GIF, or AVIF.');
+      toast.error(t('Unsupported image type. Use JPG, PNG, WEBP, GIF, or AVIF.'));
       return;
     }
     setAvatarFile(file);
@@ -119,7 +121,7 @@ export default function Onboarding() {
         last_name: fields.lastName.trim(),
         bio: fields.bio.trim() || null,
       }, { onConflict: 'id' });
-      if (error) { reportError('onboarding.step_identity_save_failed', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      if (error) { reportError('onboarding.step_identity_save_failed', error); toast.error(error.message || t('Could not save. Please try again.')); return false; }
       updateUser({ firstName: fields.firstName.trim(), lastName: fields.lastName.trim(), bio: fields.bio.trim() || undefined });
     }
 
@@ -130,7 +132,7 @@ export default function Onboarding() {
         region: fields.region,
         languages: fields.languages,
       }, { onConflict: 'id' });
-      if (error) { reportError('onboarding.step_location_save_failed', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      if (error) { reportError('onboarding.step_location_save_failed', error); toast.error(error.message || t('Could not save. Please try again.')); return false; }
       updateUser({ city: fields.city.trim(), region: fields.region, location: fields.city.trim(), languages: fields.languages });
     }
 
@@ -144,7 +146,7 @@ export default function Onboarding() {
         ...fields.learnText.split(',').map(s => s.trim()).filter(Boolean),
       ]);
       const { error } = await supabase.from('profiles').upsert({ id: user.id, what_i_teach, what_i_learn }, { onConflict: 'id' });
-      if (error) { reportError('onboarding.step_skills_save_failed', error); toast.error(error.message || 'Could not save. Please try again.'); return false; }
+      if (error) { reportError('onboarding.step_skills_save_failed', error); toast.error(error.message || t('Could not save. Please try again.')); return false; }
       updateUser({ what_i_teach, what_i_learn });
     }
 
@@ -177,13 +179,13 @@ export default function Onboarding() {
 
     if (error) {
       reportError('onboarding.finish_failed', error);
-      toast.error(error.message || 'Could not complete setup. Please try again.');
+      toast.error(error.message || t('Could not complete setup. Please try again.'));
       setSaving(false);
       return;
     }
 
     updateUser({ onboarding_completed: true });
-    toast.success('Welcome to FightClub!');
+    toast.success(t('Welcome to FightClub!'));
     navigate('/app/welcome');
   };
 
@@ -216,7 +218,7 @@ export default function Onboarding() {
           onClick={() => navigate('/app/discover')}
           className="text-xs font-body text-[var(--color-text-muted)] hover:text-navy transition-colors"
         >
-          Skip for now →
+          {t('Skip for now')} →
         </button>
       </div>
 
@@ -232,7 +234,7 @@ export default function Onboarding() {
           ))}
         </div>
         <p className="text-center text-xs font-body mt-2" style={{ color: 'var(--color-text-muted)' }}>
-          Step {step + 1} of {STEPS.length}
+          {t('Step')} {step + 1} {t('of')} {STEPS.length}
         </p>
       </div>
 
@@ -240,10 +242,10 @@ export default function Onboarding() {
       <div className={`flex-1 flex flex-col items-center px-6 pt-8 pb-12 transition-opacity duration-200 ${transitioning ? 'opacity-0' : 'opacity-100'}`}>
         <div className="w-full max-w-lg text-center mb-8">
           <h1 className="font-heading text-navy mb-2" style={{ fontSize: 'clamp(1.5rem, 4vw, 2rem)' }}>
-            {STEPS[step].question}
+            {t(STEPS[step].question)}
           </h1>
           <p className="font-body text-[var(--color-text-secondary)] text-sm">
-            {STEPS[step].subtext}
+            {t(STEPS[step].subtext)}
           </p>
         </div>
 
@@ -252,21 +254,21 @@ export default function Onboarding() {
           <div className="w-full max-w-lg space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>First name *</label>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('First name')} *</label>
                 <input
                   value={fields.firstName}
                   onChange={e => update('firstName', e.target.value)}
-                  placeholder="Youssef"
+                  placeholder={t('Youssef')}
                   className="input-sc"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Last name *</label>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('Last name')} *</label>
                 <input
                   value={fields.lastName}
                   onChange={e => update('lastName', e.target.value)}
-                  placeholder="Benali"
+                  placeholder={t('Benali')}
                   className="input-sc"
                 />
               </div>
@@ -276,7 +278,7 @@ export default function Onboarding() {
               <textarea
                 value={fields.bio}
                 onChange={e => update('bio', e.target.value)}
-                placeholder="A sentence or two about who you are. What drives you?"
+                placeholder={t('A sentence or two about who you are. What drives you?')}
                 className="input-sc resize-none"
                 rows={3}
               />
@@ -289,23 +291,23 @@ export default function Onboarding() {
           <div className="w-full max-w-lg space-y-6">
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>City *</label>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('City')} *</label>
                 <input
                   value={fields.city}
                   onChange={e => update('city', e.target.value)}
-                  placeholder="e.g. Casablanca, Rabat, Fès…"
+                  placeholder={t('e.g. Casablanca, Rabat, Fès…')}
                   className="input-sc"
                   autoFocus
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>Region *</label>
+                <label className="block text-xs font-semibold font-body uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>{t('Region')} *</label>
                 <select
                   value={fields.region}
                   onChange={e => update('region', e.target.value)}
                   className="input-sc"
                 >
-                  <option value="">Select your region…</option>
+                  <option value="">{t('Select your region…')}</option>
                   {MOROCCO_REGIONS.map(r => (
                     <option key={r} value={r}>{r}</option>
                   ))}
@@ -314,7 +316,7 @@ export default function Onboarding() {
             </div>
             <div>
               <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3 text-center" style={{ color: 'var(--color-text-muted)' }}>
-                Languages you speak
+                {t('Languages you speak')}
               </div>
               <div className="flex flex-wrap justify-center gap-2.5">
                 {LANGUAGES.map(lang => {
@@ -345,7 +347,7 @@ export default function Onboarding() {
           <div className="w-full max-w-lg space-y-6">
             <div>
               <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3" style={{ color: 'var(--color-amber)' }}>
-                What I can teach
+                {t('What I can teach')}
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {SKILL_TAGS.map(tag => {
@@ -367,14 +369,14 @@ export default function Onboarding() {
               <input
                 value={fields.teachText}
                 onChange={e => update('teachText', e.target.value)}
-                placeholder="Or type your own: Arabic calligraphy, bread making…"
+                placeholder={t('Or type your own: Arabic calligraphy, bread making…')}
                 className="input-sc"
               />
             </div>
 
             <div>
               <div className="text-xs font-semibold uppercase tracking-widest font-body mb-3" style={{ color: 'var(--color-plum)' }}>
-                What I want to learn
+                {t('What I want to learn')}
               </div>
               <div className="flex flex-wrap gap-2 mb-3">
                 {SKILL_TAGS.map(tag => {
@@ -396,7 +398,7 @@ export default function Onboarding() {
               <input
                 value={fields.learnText}
                 onChange={e => update('learnText', e.target.value)}
-                placeholder="Or type your own: Darija, chess, yoga…"
+                placeholder={t('Or type your own: Darija, chess, yoga…')}
                 className="input-sc"
               />
             </div>
@@ -412,7 +414,7 @@ export default function Onboarding() {
               <div className="relative mx-auto w-36 h-36">
                 <img
                   src={avatarPreview}
-                  alt="Avatar preview"
+                  alt={t('Avatar preview')}
                   className="w-36 h-36 rounded-full object-cover ring-4 ring-white shadow-card"
                 />
                 <button
@@ -429,7 +431,7 @@ export default function Onboarding() {
                 style={{ borderColor: 'var(--color-border)' }}
               >
                 <Upload className="w-7 h-7 mb-2" style={{ color: 'var(--color-text-muted)' }} />
-                <span className="text-xs font-body" style={{ color: 'var(--color-text-muted)' }}>Upload photo</span>
+                <span className="text-xs font-body" style={{ color: 'var(--color-text-muted)' }}>{t('Upload photo')}</span>
               </button>
             )}
 
@@ -438,7 +440,7 @@ export default function Onboarding() {
                 onClick={() => avatarInputRef.current?.click()}
                 className="w-full text-center text-xs font-semibold font-body py-2 rounded-lg border border-[var(--color-border)] hover:bg-parchment transition-colors text-navy"
               >
-                Change photo
+                {t('Change photo')}
               </button>
             )}
           </div>
@@ -455,9 +457,9 @@ export default function Onboarding() {
             {saving ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
             ) : step === STEPS.length - 1 ? (
-              <>{avatarFile ? 'Upload & Enter the Ring' : 'Enter the Ring'} <ArrowRight className="w-4 h-4" /></>
+              <>{avatarFile ? t('Upload & Enter the Ring') : t('Enter the Ring')} <ArrowRight className="w-4 h-4" /></>
             ) : (
-              <>Continue <ArrowRight className="w-4 h-4" /></>
+              <>{t('Continue')} <ArrowRight className="w-4 h-4" /></>
             )}
           </button>
 
@@ -468,7 +470,7 @@ export default function Onboarding() {
               className="text-xs font-body hover:underline disabled:opacity-40"
               style={{ color: 'var(--color-text-muted)' }}
             >
-              Skip for now, I'll add a photo later
+              {t("Skip for now, I'll add a photo later")}
             </button>
           )}
         </div>

@@ -5,11 +5,18 @@
 -- Also adds a trigger to prevent posting stories with past expires_at.
 -- ============================================================================
 
--- Enable pg_cron extension (if not already enabled)
+-- Enable pg_cron extension (if not already enabled and available)
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- Grant usage on pg_cron to authenticated role
-GRANT USAGE ON SCHEMA pg_cron TO authenticated;
+-- Grant usage on pg_cron to authenticated role (only if pg_cron is available)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron')
+     AND EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'pg_cron')
+  THEN
+    EXECUTE 'GRANT USAGE ON SCHEMA pg_cron TO authenticated';
+  END IF;
+END $$;
 
 -- Scheduled function: delete expired stories
 CREATE OR REPLACE FUNCTION public.delete_expired_stories()
@@ -23,12 +30,17 @@ BEGIN
 END;
 $$;
 
--- Schedule: run every 5 minutes
-SELECT cron.schedule(
-  'delete-expired-stories',
-  '*/5 * * * *',
-  'SELECT public.delete_expired_stories()'
-);
+-- Schedule: run every 5 minutes (only if pg_cron is available)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_cron') THEN
+    PERFORM cron.schedule(
+      'delete-expired-stories',
+      '*/5 * * * *',
+      'SELECT public.delete_expired_stories()'
+    );
+  END IF;
+END $$;
 
 -- Optional: unschedule helper (useful for future rollback)
 -- SELECT cron.unschedule('delete-expired-stories');

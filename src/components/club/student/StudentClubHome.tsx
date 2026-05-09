@@ -58,6 +58,13 @@ export default function StudentClubHome({ club, user, isMember, canModerate }: S
     setIsSidebarOpen(false); // Close mobile sidebar on navigation
   };
 
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      document.body.classList.add('hide-app-navs');
+      return () => document.body.classList.remove('hide-app-navs');
+    }
+  }, [activeTab]);
+
   const handleSettingsSelect = (action: 'wallpapers' | 'share' | 'invite') => {
     if (action === 'wallpapers') {
       window.dispatchEvent(new CustomEvent('open-chat-settings'));
@@ -69,20 +76,24 @@ export default function StudentClubHome({ club, user, isMember, canModerate }: S
   };
 
   return (
-    <div className="flex h-[calc(100vh-56px)] overflow-hidden bg-gray-50/50 -m-4 lg:-m-6 relative rounded-tl-xl">
+    <div className={`flex overflow-hidden bg-gray-50/50 relative rounded-tl-xl ${
+      activeTab === 'chat' 
+        ? 'h-[100dvh] md:h-[calc(100vh-56px)] m-0 md:-m-4 lg:-m-6' 
+        : 'h-[calc(100vh-56px)] -m-4 lg:-m-6'
+    }`}>
       
       {/* Mobile Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
-          className="lg:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 bg-black/40 z-40 backdrop-blur-sm"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar Wrapper */}
       <div className={`
-        absolute lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 h-full
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        absolute md:static inset-y-0 left-0 z-50 transform transition-transform duration-300 h-full
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
       `}>
         <StudentSidebar 
           activeTab={activeTab} 
@@ -93,8 +104,8 @@ export default function StudentClubHome({ club, user, isMember, canModerate }: S
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 bg-parchment relative h-full">
-        {/* Glow effect matching Lumina but adapted from the HTML design's orange blur */}
+      <div className={`flex-1 flex flex-col min-w-0 relative h-full ${activeTab === 'chat' ? 'bg-white' : 'bg-parchment'}`}>
+        {/* Glow effect matching FightClub but adapted from the HTML design's orange blur */}
         <div className="absolute -top-[100px] -right-[100px] w-[400px] h-[400px] rounded-full bg-gradient-to-br from-amber-400/10 to-orange-500/5 blur-[80px] pointer-events-none" />
 
         <StudentTopBar 

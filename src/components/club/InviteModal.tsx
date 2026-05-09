@@ -116,8 +116,8 @@ export default function InviteModal({ club, onClose }: InviteModalProps) {
   const [phoneSent, setPhoneSent] = useState(false);
 
   const clubUrl = window.location.href;
-  const inviteText = `Hey! Join "${club?.name || 'our club'}" on Lumina — ${club?.description ? club.description.slice(0, 80) + '…' : 'a great learning community!'}`;
-  const subject = `Join ${club?.name || 'our club'} on Lumina`;
+  const inviteText = `Hey! Join "${club?.name || 'our club'}" on FightClub — ${club?.description ? club.description.slice(0, 80) + '…' : 'a great learning community!'}`;
+  const subject = `Join ${club?.name || 'our club'} on FightClub`;
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(clubUrl);

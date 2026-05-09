@@ -1,11 +1,16 @@
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Paperclip, Send, Mic, StopCircle, Loader2, X, FileText, Reply, Edit2,
   ImageIcon, PlayCircle, Code2, Calendar, MapPin, BarChart2, AlertCircle, Mic2,
-  File,
+  File, Trash2, Pause
 } from 'lucide-react';
+import { springs } from '@/lib/animation';
+import { useChatStore } from '@/features/club-chat/store/chatStore';
+
+import type { ChatAttachment } from '@/features/club-chat/workspace/types';
 
 type ChatAttachType = 'image' | 'video' | 'pdf' | 'voice' | 'document';
-interface ChatAttachment { file: File; type: ChatAttachType; previewUrl: string; }
 
 interface Message {
   id: string;
@@ -17,32 +22,31 @@ interface Message {
 interface MessageInputProps {
   canPost: boolean;
   activeChannelName: string;
-  newMessage: string;
-  sending: boolean;
-  isRecording: boolean;
-  recordingTime: number;
-  chatAttachment: ChatAttachment | null;
-  attachmentCaption: string;
-  uploadProgress: number;
-  replyingTo: Message | null;
-  editingMessage: Message | null;
-  composerFocused: boolean;
-  showAttachMenu: boolean;
+  newMessage?: string;
+  sending?: boolean;
+  isRecording?: boolean;
+  recordingTime?: number;
+  chatAttachment?: ChatAttachment | null;
+  attachmentCaption?: string;
+  uploadProgress?: number;
+  replyingTo?: Message | null;
+  editingMessage?: Message | null;
+  showAttachMenu?: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   longPressTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
   longPressFiredRef: React.RefObject<boolean>;
-  onNewMessageChange: (value: string) => void;
+  onNewMessageChange?: (value: string) => void;
   onSend: () => void;
   onStartRecording: () => void;
   onStopRecordingAndSend: () => void;
   onCancelRecording: () => void;
   onTypingStart: () => void;
-  onSetComposerFocused: (focused: boolean) => void;
-  onSetShowAttachMenu: (show: boolean) => void;
-  onSetChatAttachment: (attachment: ChatAttachment | null) => void;
-  onSetAttachmentCaption: (caption: string) => void;
-  onClearReply: () => void;
-  onClearEdit: () => void;
+  onSetComposerFocused?: (focused: boolean) => void;
+  onSetShowAttachMenu?: (show: boolean) => void;
+  onSetChatAttachment?: (attachment: ChatAttachment | null) => void;
+  onSetAttachmentCaption?: (caption: string) => void;
+  onClearReply?: () => void;
+  onClearEdit?: () => void;
   onShowScheduleModal?: () => void;
   onOpenVideoWizard?: () => void;
   onOpenProjectWizard?: () => void;
@@ -50,40 +54,38 @@ interface MessageInputProps {
   onOpenPollWizard?: () => void;
   onOpenStartRoomModal?: () => void;
   onShareLocation: () => void;
-  onApplyFormat: (syntax: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   pendingAttachTypeRef: React.RefObject<ChatAttachType>;
 }
 
-export default function MessageInput({
+const MessageInput = React.memo(function MessageInputInternal({
   canPost,
   activeChannelName,
-  newMessage,
-  sending,
-  isRecording,
-  recordingTime,
-  chatAttachment,
-  attachmentCaption,
-  uploadProgress,
-  replyingTo,
-  editingMessage,
-  composerFocused,
-  showAttachMenu,
+  newMessage: propNewMessage,
+  sending: propSending,
+  isRecording: propIsRecording,
+  recordingTime: propRecordingTime,
+  chatAttachment: propChatAttachment,
+  attachmentCaption: propAttachmentCaption,
+  uploadProgress: propUploadProgress,
+  replyingTo: propReplyingTo,
+  editingMessage: propEditingMessage,
+  showAttachMenu: propShowAttachMenu,
   textareaRef,
   longPressTimerRef,
   longPressFiredRef,
-  onNewMessageChange,
+  onNewMessageChange: propOnNewMessageChange,
   onSend,
   onStartRecording,
   onStopRecordingAndSend,
   onCancelRecording,
   onTypingStart,
-  onSetComposerFocused,
-  onSetShowAttachMenu,
-  onSetChatAttachment,
-  onSetAttachmentCaption,
-  onClearReply,
-  onClearEdit,
+  onSetComposerFocused: propOnSetComposerFocused,
+  onSetShowAttachMenu: propOnSetShowAttachMenu,
+  onSetChatAttachment: propOnSetChatAttachment,
+  onSetAttachmentCaption: propOnSetAttachmentCaption,
+  onClearReply: propOnClearReply,
+  onClearEdit: propOnClearEdit,
   onShowScheduleModal,
   onOpenVideoWizard,
   onOpenProjectWizard,
@@ -91,19 +93,59 @@ export default function MessageInput({
   onOpenPollWizard,
   onOpenStartRoomModal,
   onShareLocation,
-  onApplyFormat,
   fileInputRef,
   pendingAttachTypeRef,
 }: MessageInputProps) {
+  // ── Store fallbacks for composer state (club-chat path) ──
+  const storeComposerText = useChatStore((s) => s.composer.text);
+  const storeComposerSending = useChatStore((s) => s.composer.sending);
+  const storeComposerIsRecording = useChatStore((s) => s.composer.isRecording);
+  const storeComposerRecordingTime = useChatStore((s) => s.composer.recordingTime);
+  const storeComposerAttachment = useChatStore((s) => s.composer.attachment);
+  const storeComposerCaption = useChatStore((s) => s.composer.caption);
+  const storeComposerUploadProgress = useChatStore((s) => s.composer.uploadProgress);
+  const storeComposerReplyingTo = useChatStore((s) => s.composer.replyingTo);
+  const storeComposerEditing = useChatStore((s) => s.composer.editing);
+  const storeComposerShowAttachMenu = useChatStore((s) => s.composer.showAttachMenu);
+
+  // ── Store fallbacks for composer actions ──
+  const storeSetComposerText = useChatStore((s) => s.setComposerText);
+  const storeSetComposerFocused = useChatStore((s) => s.setComposerFocused);
+  const storeSetComposerShowAttachMenu = useChatStore((s) => s.setComposerShowAttachMenu);
+  const storeSetComposerAttachment = useChatStore((s) => s.setComposerAttachment);
+  const storeSetComposerCaption = useChatStore((s) => s.setComposerCaption);
+  const storeSetComposerReplyingTo = useChatStore((s) => s.setComposerReplyingTo);
+  const storeSetComposerEditing = useChatStore((s) => s.setComposerEditing);
+
+  // ── Resolved values (prop overrides store for DM-chat compatibility) ──
+  const newMessage = propNewMessage ?? storeComposerText;
+  const sending = propSending ?? storeComposerSending;
+  const isRecording = propIsRecording ?? storeComposerIsRecording;
+  const recordingTime = propRecordingTime ?? storeComposerRecordingTime;
+  const chatAttachment = propChatAttachment ?? storeComposerAttachment;
+  const attachmentCaption = propAttachmentCaption ?? storeComposerCaption;
+  const uploadProgress = propUploadProgress ?? storeComposerUploadProgress;
+  const replyingTo = propReplyingTo ?? storeComposerReplyingTo;
+  const editingMessage = propEditingMessage ?? storeComposerEditing;
+  const showAttachMenu = propShowAttachMenu ?? storeComposerShowAttachMenu;
+
+  const onNewMessageChange = propOnNewMessageChange ?? storeSetComposerText;
+  const onSetComposerFocused = propOnSetComposerFocused ?? storeSetComposerFocused;
+  const onSetShowAttachMenu = propOnSetShowAttachMenu ?? storeSetComposerShowAttachMenu;
+  const onSetChatAttachment = propOnSetChatAttachment ?? storeSetComposerAttachment;
+  const onSetAttachmentCaption = propOnSetAttachmentCaption ?? storeSetComposerCaption;
+  const onClearReply = propOnClearReply ?? (() => { storeSetComposerReplyingTo(null); storeSetComposerText(''); });
+  const onClearEdit = propOnClearEdit ?? (() => { storeSetComposerEditing(null); storeSetComposerText(''); });
+
   return (
-    <div className="px-4 py-3 bg-white border-t border-[var(--color-border)]">
+    <div className="px-4 pb-4 pt-2 bg-transparent">
       {canPost ? (
         <div className="flex flex-col gap-2">
 
           {/* Attachment preview */}
           {chatAttachment && (
             <>
-              {chatAttachment.type === 'voice' ? (
+              {(chatAttachment as any).type === 'voice' ? (
                 /* ── Voice message preview ── */
                 <div className="relative rounded-2xl border border-purple-200/70 bg-gradient-to-br from-purple-50 to-indigo-50 px-4 py-3">
                   <div className="flex items-center gap-3 mb-2.5">
@@ -135,7 +177,7 @@ export default function MessageInput({
                 /* ── Image / video / PDF preview ── */
                 <div className="relative rounded-xl overflow-hidden border border-[var(--color-border)] bg-white">
                   {chatAttachment.type === 'image' && (
-                    <img src={chatAttachment.previewUrl} alt="" className="max-h-40 w-full object-cover" />
+                    <img src={chatAttachment.previewUrl} alt="" loading="lazy" decoding="async" className="max-h-40 w-full object-cover" />
                   )}
                   {chatAttachment.type === 'video' && (
                     <video src={chatAttachment.previewUrl} controls className="max-h-40 w-full bg-black" />
@@ -189,7 +231,13 @@ export default function MessageInput({
 
           {/* Reply / Edit Banner */}
           {(replyingTo || editingMessage) && (
-            <div className="flex items-center justify-between bg-[var(--color-parchment)] px-3 py-2 rounded-2xl mb-2 hover:bg-[#F2F2F2] transition-colors border border-[var(--color-amber)]/20 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+            <motion.div
+              className="flex items-center justify-between bg-[var(--color-parchment)] px-3 py-2 rounded-2xl mb-2 hover:bg-[#F2F2F2] transition-colors border border-[var(--color-amber)]/20 shadow-sm"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={springs.composer}
+            >
               <div className="flex items-center gap-3 overflow-hidden border-l-2 border-[var(--color-amber)] pl-2.5 py-0.5 w-full">
                 {replyingTo ? <Reply className="w-4 h-4 text-[var(--color-amber)] flex-shrink-0" /> : <Edit2 className="w-4 h-4 text-[var(--color-amber)] flex-shrink-0" />}
                 <div className="flex flex-col truncate flex-1 pr-2">
@@ -207,34 +255,68 @@ export default function MessageInput({
               >
                 <X className="w-4 h-4" />
               </button>
-            </div>
+            </motion.div>
           )}
 
-          {/* Formatting Toolbar — shown when composer is focused */}
-          {(composerFocused || newMessage.length > 0) && !isRecording && (
-            <div className="flex items-center gap-0.5 px-1 pb-1 animate-in fade-in duration-150">
-              {([
-                { label: 'B', title: 'Bold (wrap with **)', syntax: '**', cls: 'font-bold' },
-                { label: 'I', title: 'Italic (wrap with *)', syntax: '*', cls: 'italic' },
-                { label: 'U', title: 'Underline (wrap with __)', syntax: '__', cls: 'underline' },
-                { label: 'S', title: 'Strikethrough (wrap with ~~)', syntax: '~~', cls: 'line-through' },
-                { label: 'M', title: 'Monospace (wrap with `)', syntax: '`', cls: 'font-mono text-[11px]' },
-                { label: '||', title: 'Spoiler (wrap with ||)', syntax: '||', cls: 'text-[10px]' },
-              ] as const).map(({ label, title, syntax, cls }) => (
-                <button
-                  key={label}
-                  type="button"
-                  title={title}
-                  onMouseDown={e => { e.preventDefault(); onApplyFormat(syntax); }}
-                  className="w-7 h-7 rounded text-[var(--color-text-muted)] hover:bg-black/8 hover:text-navy transition-colors flex items-center justify-center"
-                >
-                  <span className={`text-[13px] ${cls}`}>{label}</span>
+          {isRecording ? (
+            <motion.div
+              className="flex items-center gap-2 w-full"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 16 }}
+              transition={springs.composer}
+            >
+              <button onClick={onCancelRecording} className="p-2.5 text-gray-400 hover:text-red-500 transition-colors shrink-0" title="Delete recording">
+                <Trash2 className="w-6 h-6" />
+              </button>
+              
+              <div className="flex-1 flex items-center gap-3 bg-[#419FD9] text-white rounded-full px-4 py-2.5 shadow-md h-[44px]">
+                <button className="shrink-0 text-white hover:opacity-80 transition-opacity flex items-center justify-center">
+                  <Pause className="w-5 h-5 fill-current" />
                 </button>
-              ))}
-            </div>
-          )}
+                
+                <span className="font-mono text-sm font-semibold shrink-0">
+                  {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                </span>
+                
+                <div className="flex-1 flex items-center justify-between gap-[2px] h-5 overflow-hidden">
+                  {Array.from({ length: 30 }).map((_, i) => (
+                    <div 
+                      key={i} 
+                      className="w-1 bg-white/80 rounded-full animate-pulse" 
+                      style={{ 
+                        height: `${Math.max(20, Math.random() * 100)}%`,
+                        animationDelay: `${i * 50}ms`,
+                        animationDuration: '600ms'
+                      }} 
+                    />
+                  ))}
+                </div>
+              </div>
 
-          <div className="flex items-end gap-2 rounded-3xl bg-[#F0F2F5] focus-within:bg-white focus-within:shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all duration-200 p-1.5 pl-2 relative">
+              {/* Send Button and floating View Once bubble */}
+              <div className="relative shrink-0 flex items-center justify-center h-11 w-11">
+                <motion.button
+                  className="absolute bottom-[56px] w-[34px] h-[34px] rounded-full bg-slate-800/80 text-white flex items-center justify-center hover:bg-slate-700 transition-colors shadow-lg"
+                  title="Send to be seen only one time"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={springs.composer}
+                >
+                  <div className="absolute inset-0 m-[4px] rounded-full border-[1.5px] border-white/70 border-dashed" />
+                  <span className="text-[11px] font-bold mt-[1px]">1</span>
+                </motion.button>
+
+                <button 
+                  onClick={onStopRecordingAndSend}
+                  className="w-11 h-11 rounded-full bg-[#419FD9] text-white flex items-center justify-center hover:bg-blue-500 transition-colors shadow-md"
+                >
+                  <Send className="w-5 h-5 ml-[2px]" />
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+          <div className="flex items-end gap-2 rounded-3xl focus-within:shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all duration-200 p-1.5 pl-2 relative">
 
             {/* Attachment Button & Menu */}
             <div className="relative mb-0.5">
@@ -254,7 +336,7 @@ export default function MessageInput({
                 onChange={e => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  onSetChatAttachment({ file, type: pendingAttachTypeRef.current!, previewUrl: URL.createObjectURL(file) });
+                  onSetChatAttachment({ file, type: pendingAttachTypeRef.current as any, previewUrl: URL.createObjectURL(file) });
                   e.target.value = '';
                 }}
               />
@@ -263,7 +345,13 @@ export default function MessageInput({
               {showAttachMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => onSetShowAttachMenu(false)} />
-                  <div className="absolute bottom-12 left-0 w-48 bg-white rounded-xl shadow-[var(--shadow-elevated)] border border-[var(--color-border)] py-1.5 z-50 animate-in fade-in slide-in-from-bottom-2">
+                  <motion.div
+                    className="absolute bottom-12 left-0 w-48 bg-white rounded-xl shadow-[var(--shadow-elevated)] border border-[var(--color-border)] py-1.5 z-50"
+                    initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 6, scale: 0.98 }}
+                    transition={springs.menu}
+                  >
                     <button
                       onClick={() => { pendingAttachTypeRef.current = 'image'; onSetShowAttachMenu(false); fileInputRef.current!.accept = 'image/*'; fileInputRef.current?.click(); }}
                       className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
@@ -339,25 +427,11 @@ export default function MessageInput({
                         <BarChart2 className="w-4 h-4 text-orange-500" /> Create Poll
                       </button>
                     )}
-                  </div>
+                  </motion.div>
                 </>
               )}
             </div>
 
-            {isRecording ? (
-              <div className="flex-1 flex items-center justify-between px-2 text-sm text-navy animate-in slide-in-from-right-4 duration-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-                  <span className="font-mono text-red-500 font-bold">
-                    {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
-                  </span>
-                  <span className="text-[var(--color-text-muted)] animate-pulse">Recording Voice...</span>
-                </div>
-                <button onClick={onCancelRecording} className="p-2 w-10 h-10 flex items-center justify-center rounded-full hover:bg-red-50 text-red-500 transition-colors" title="Cancel">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            ) : (
               <textarea
                 ref={textareaRef}
                 value={newMessage}
@@ -370,7 +444,6 @@ export default function MessageInput({
                 className="flex-1 resize-none bg-transparent outline-none py-2.5 px-2 text-sm leading-relaxed text-navy placeholder-[var(--color-text-muted)]"
                 style={{ minHeight: '40px', height: '40px', overflowY: 'hidden' }}
               />
-            )}
 
             <button
               onPointerDown={(e) => {
@@ -403,17 +476,28 @@ export default function MessageInput({
               className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-40
                 ${isRecording ? 'bg-red-500 shadow-md scale-110' : 'bg-[var(--color-amber)]'}`}
             >
-              {sending ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-              ) : isRecording ? (
-                <StopCircle className="w-4 h-4 text-white animate-in zoom-in" />
-              ) : (newMessage.trim() || chatAttachment || editingMessage) ? (
-                <Send className="w-4 h-4 text-white animate-in zoom-in spin-in-12 duration-200" />
-              ) : (
-                <Mic className="w-4 h-4 text-white animate-in zoom-in" />
-              )}
+              <AnimatePresence mode="wait">
+                {sending ? (
+                  <motion.div key="sending" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={springs.fade}>
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  </motion.div>
+                ) : isRecording ? (
+                  <motion.div key="stop" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={springs.fade}>
+                    <StopCircle className="w-4 h-4 text-white" />
+                  </motion.div>
+                ) : (newMessage.trim() || chatAttachment || editingMessage) ? (
+                  <motion.div key="send" initial={{ opacity: 0, scale: 0.8, rotate: -12 }} animate={{ opacity: 1, scale: 1, rotate: 0 }} exit={{ opacity: 0, scale: 0.8 }} transition={springs.fade}>
+                    <Send className="w-4 h-4 text-white" />
+                  </motion.div>
+                ) : (
+                  <motion.div key="mic" initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} transition={springs.fade}>
+                    <Mic className="w-4 h-4 text-white" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </button>
           </div>
+          )}
         </div>
       ) : (
         <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[var(--color-parchment)] border border-[var(--color-border)] text-sm text-[var(--color-text-secondary)]">
@@ -423,4 +507,24 @@ export default function MessageInput({
       )}
     </div>
   );
-}
+}, (prev, next) => {
+  return (
+    prev.canPost === next.canPost &&
+    prev.activeChannelName === next.activeChannelName &&
+    prev.textareaRef === next.textareaRef &&
+    prev.fileInputRef === next.fileInputRef &&
+    prev.pendingAttachTypeRef === next.pendingAttachTypeRef &&
+    prev.longPressTimerRef === next.longPressTimerRef &&
+    prev.longPressFiredRef === next.longPressFiredRef &&
+    prev.onTypingStart === next.onTypingStart &&
+    prev.onShareLocation === next.onShareLocation &&
+    prev.onShowScheduleModal === next.onShowScheduleModal &&
+    prev.onOpenVideoWizard === next.onOpenVideoWizard &&
+    prev.onOpenProjectWizard === next.onOpenProjectWizard &&
+    prev.onOpenEventWizard === next.onOpenEventWizard &&
+    prev.onOpenPollWizard === next.onOpenPollWizard &&
+    prev.onOpenStartRoomModal === next.onOpenStartRoomModal
+  );
+});
+
+export default MessageInput;

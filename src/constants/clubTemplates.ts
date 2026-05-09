@@ -18,7 +18,8 @@
 /** All valid tab identifiers for the club page. */
 export type Tab =
   | 'feed' | 'members' | 'projects' | 'quests' | 'rooms'
-  | 'resources' | 'playlists' | 'events' | 'leaderboard' | 'requests';
+  | 'resources' | 'playlists' | 'events' | 'leaderboard' | 'requests'
+  | 'battles' | 'tournaments';
 
 export interface ClubCategoryTemplate {
   defaultTab: Tab;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { DmMessage, DmReaction, TypingUser } from '@/features/dm-chat/types';
 import type { Conversation } from '@/types/messaging';
@@ -14,6 +14,8 @@ const FALLBACK_SELECT = `
   location_lat, location_lng, caption, reply_to_id, is_edited, deleted_at, created_at,
   sender:profiles!messages_sender_id_fkey(first_name, last_name, avatar_url)
 `;
+const MAX_MESSAGES = 200;
+
 const MINIMAL_SELECT = `
   id, conversation_id, sender_id, content, created_at,
   sender:profiles!messages_sender_id_fkey(first_name, last_name, avatar_url)
@@ -128,6 +130,7 @@ export function useDMRealtime(ctx: any) {
           const msg = payload.new as DmMessage;
           setMessages((prev: DmMessage[]) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
+            if (prev.length >= MAX_MESSAGES) return [...prev.slice(1), msg];
             return [...prev, msg];
           });
           // Enrich with sender profile (eliminates the brief "unknown sender" flicker)
@@ -225,11 +228,20 @@ export function useDMRealtime(ctx: any) {
       presenceChannelRef.current = null;
       setTypingUsers([]);
     };
-  }, [selectedConvId, user, setConversations, setHasMore, setLoading, setMessages, setTypingUsers]);
+  }, [selectedConvId, user?.id, setConversations, setHasMore, setLoading, setMessages, setTypingUsers]);
+  // NOTE: Passing the full `user` object caused subscription churn when the auth
+  // context re-rendered, silently dropping realtime INSERT events.
+  // user?.id is a stable string — sufficient to detect account changes.
+
 
   // ── Auto-scroll to newest message ───────────────────────────────────────────
+  const lastMessageIdRef = useRef<string | null>(null);
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const lastId = messages[messages.length - 1]?.id ?? null;
+    if (lastId && lastId !== lastMessageIdRef.current) {
+      lastMessageIdRef.current = lastId;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, messagesEndRef]);
 
   // ── Auto-resize composer ─────────────────────────────────────────────────────
@@ -256,7 +268,9 @@ export function useDMRealtime(ctx: any) {
       setMessages((prev: DmMessage[]) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const deduped = older.filter((m) => !existingIds.has(m.id));
-        return [...deduped, ...prev];
+        const combined = [...deduped, ...prev];
+        if (combined.length <= MAX_MESSAGES) return combined;
+        return combined.slice(0, MAX_MESSAGES);
       });
       setHasMore(older.length === 60);
       requestAnimationFrame(() => {

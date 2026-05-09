@@ -34,9 +34,9 @@ export interface TrustTierConfig {
 
 export const TRUST_TIERS: Record<TrustTierLevel, TrustTierConfig> = {
   0: { label: 'Explorer',   bg: '#EDF2FF', text: '#4C6EF5', minScore: 0,   description: 'New to the community' },
-  1: { label: 'Member',     bg: '#E3F2FD', text: '#1976D2', minScore: 10,  description: 'Active community member' },
-  2: { label: 'Verified',   bg: '#E8F5EE', text: '#2D7A4F', minScore: 25,  description: 'ID-verified member' },
-  3: { label: 'Teacher',    bg: '#FFF3E0', text: '#C4873A', minScore: 50,  description: 'Established skill teacher' },
+  1: { label: 'Member',     bg: '#E3F2FD', text: '#1976D2', minScore: 20,  description: 'Active community member' },
+  2: { label: 'Verified',   bg: '#E8F5EE', text: '#2D7A4F', minScore: 50,  description: 'ID-verified member' },
+  3: { label: 'Teacher',    bg: '#FFF3E0', text: '#C4873A', minScore: 75,  description: 'Established skill teacher' },
   4: { label: 'Connector',  bg: '#EDE8F7', text: '#5C3D8F', minScore: 100, description: 'Top community connector' },
 };
 

@@ -2,6 +2,8 @@ import { lazy, Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
+import { AppErrorBoundary } from './components/errors';
+import { UpdateBanner } from './components/layout/UpdateBanner';
 
 // Landing Page Sections (always needed on first load — keep eager)
 import Login from './pages/auth/Login';
@@ -13,6 +15,7 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 
 // Heavy app pages — lazy loaded, only downloaded when visited
+const Home        = lazy(() => import('./pages/Home'));
 const Feed        = lazy(() => import('./pages/Feed'));
 const Discover    = lazy(() => import('./pages/Discover'));
 const ClubHome    = lazy(() => import('./pages/ClubHome'));
@@ -56,8 +59,9 @@ function AppRouter() {
   return (
     <Router>
       <ScrollToTop />
-      <Suspense fallback={<PageLoader />}>
-        <Routes>
+      <AppErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
           {/* Landing Page */}
           <Route path="/" element={<LandingPage />} />
 
@@ -87,9 +91,10 @@ function AppRouter() {
 
           {/* App Routes with Layout */}
           <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route index element={<Navigate to="/app/discover" replace />} />
+            <Route index element={<Home />} />
             <Route path="discover"        element={<Feed />} />
             <Route path="feed"            element={<Navigate to="/app/discover" replace />} />
+            <Route path="home"            element={<Home />} />
             <Route path="clubs"           element={<Discover />} />
             <Route path="skill/:slug"     element={<SkillDetail />} />
             <Route path="messages"        element={<Messages />} />
@@ -113,7 +118,9 @@ function AppRouter() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      </AppErrorBoundary>
       <Toaster position="top-right" richColors />
+      <UpdateBanner />
     </Router>
   );
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { reportError } from '@/lib/errors';
 import type { VoiceRoom } from '@/types/clubs';
 
 interface UseClubRoomsOptions {
@@ -30,13 +31,13 @@ export function useClubRooms({ clubId, enabled = true }: UseClubRoomsOptions) {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading voice rooms:', error);
+        reportError('useClubRooms:load', error);
         setRooms([]);
       } else {
         setRooms((data ?? []) as VoiceRoom[]);
       }
     } catch (err) {
-      console.error('Exception loading voice rooms:', err);
+        reportError('useClubRooms:load', err);
       setRooms([]);
     } finally {
       setLoading(false);
@@ -83,13 +84,13 @@ export function useClubRooms({ clubId, enabled = true }: UseClubRoomsOptions) {
         )
         .subscribe((status) => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            console.warn('Realtime subscription status:', status);
+            reportError('useClubRooms:realtime', new Error(`Realtime ${status}`), { status });
           }
         });
 
       channelRef.current = ch;
     } catch (err) {
-      console.error('Error setting up realtime:', err);
+      reportError('useClubRooms:realtime', err);
     }
 
     return () => {

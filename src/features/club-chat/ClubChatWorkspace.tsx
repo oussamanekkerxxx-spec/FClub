@@ -1,26 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useChatStore } from '@/features/club-chat/store/chatStore';
+import { useChatStoreInit } from '@/features/club-chat/hooks/useChatStoreInit';
 import ChannelList from '@/components/club-chat/ChannelList';
 import ClubChatMainPane from '@/features/club-chat/workspace/ClubChatMainPane';
 import ClubChatDetailsSidebar from '@/features/club-chat/workspace/ClubChatDetailsSidebar';
 import ClubChatModalStack from '@/features/club-chat/workspace/ClubChatModalStack';
-import { useClubChatRealtime } from '@/features/club-chat/workspace/useClubChatRealtime';
-import { useClubChatProjectActions } from '@/features/club-chat/workspace/useClubChatProjectActions';
-import { useClubChatComposerActions } from '@/features/club-chat/workspace/useClubChatComposerActions';
-import { useClubChatUiActions } from '@/features/club-chat/workspace/useClubChatUiActions';
-import { normalizeHttpUrl } from '@/lib/safeUrl';
+import { useChatRealtime } from '@/features/club-chat/hooks/useChatRealtime';
+import { useChatWizards } from '@/features/club-chat/hooks/useChatWizards';
+import { useChatUi } from '@/features/club-chat/hooks/useChatUi';
+import { parseMessageContent as cachedParseMessageContent } from '@/features/club-chat/lib/parseMessageContent';
 import StartRoomModal from '@/components/club/StartRoomModal';
 import LearningFileMetadataModal from '@/components/club/student/LearningFileMetadataModal';
 import type {
-  Channel,
-  ChannelRead,
   ChatAttachType,
-  ChatAttachment,
   Message,
-  TypingUser,
-  UserPreferences,
 } from '@/features/club-chat/workspace/types';
 
 export interface ClubChatWorkspaceProps {
@@ -48,224 +44,326 @@ export default function ClubChatWorkspace({
   const focusChannelId = locationState.focusChannelId as string | undefined;
   const focusMessageId = locationState.focusMessageId as string | undefined;
 
-  const [loading, setLoading] = useState(true);
-  const [isAdminOrMod, setIsAdminOrMod] = useState(false);
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  // ── Store init ──
+  useChatStoreInit({ clubId, clubCategory });
 
-  const [newMessage, setNewMessage] = useState('');
-  const [sending, setSending] = useState(false);
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
-  const [chatAttachment, setChatAttachment] = useState<ChatAttachment | null>(null);
-  const [attachmentCaption, setAttachmentCaption] = useState('');
-  const [uploadProgress, setUploadProgress] = useState(0);
+  // ── Store selectors (UI + Channels domains for Step 1) ──
+  const storeLoading = useChatStore((s) => s.ui.loading);
+  const storeSetUi = useChatStore((s) => s.setUi);
+  const storeChannels = useChatStore((s) => s.channels);
+  const storeSetChannels = useChatStore((s) => s.setChannels);
+  const storeActiveChannelId = useChatStore((s) => s.activeChannelId);
+  const storeSetActiveChannelId = useChatStore((s) => s.setActiveChannelId);
+  const storeChannelUnreads = useChatStore((s) => s.channelUnreads);
+  const storeSetChannelUnreads = useChatStore((s) => s.setChannelUnreads);
+  const storeUserChannelPrefs = useChatStore((s) => s.userChannelPrefs);
+  const storeSetUserChannelPrefs = useChatStore((s) => s.setUserChannelPrefs);
+  const storeIsAdminOrMod = useChatStore((s) => s.ui.isAdminOrMod);
+  const storePreferences = useChatStore((s) => s.preferences);
+  const storeSetPreferences = useChatStore((s) => s.setPreferences);
+  const storePlaylists = useChatStore((s) => s.playlists);
+  const storeSetPlaylists = useChatStore((s) => s.setPlaylists);
+  const storeShowScrollBottom = useChatStore((s) => s.ui.showScrollBottom);
+
+  // ── Step 2: Message domain (store-backed) ──
+  const storeMessages = useChatStore((s) => s.messages);
+  const storeSetMessages = useChatStore((s) => s.setMessages);
+  const storeHasMore = useChatStore((s) => s.hasMore);
+  const storeSetHasMore = useChatStore((s) => s.setHasMore);
+  const storeLoadingMore = useChatStore((s) => s.loadingMore);
+  const storeSetLoadingMore = useChatStore((s) => s.setLoadingMore);
+  const storePinnedMessage = useChatStore((s) => s.pinnedMessage);
+  const storeSetPinnedMessage = useChatStore((s) => s.setPinnedMessage);
+  const storeTypingUsers = useChatStore((s) => s.typingUsers);
+  const storeSetTypingUsers = useChatStore((s) => s.setTypingUsers);
+  const storeChannelReads = useChatStore((s) => s.channelReads);
+  const storeSetChannelReads = useChatStore((s) => s.setChannelReads);
+  const storeLoadMore = useChatStore((s) => s.loadMore);
+
+  // ── Sync user to store dynamically ──
+  useEffect(() => {
+    if (user) {
+      useChatStore.setState({ user });
+    }
+  }, [user]);
+
+  // Store composer actions (stable references)
+  const storeHandleSend = useChatStore((s) => s.handleSend);
+  const storeSubmitScheduledMessage = useChatStore((s) => s.submitScheduledMessage);
+  const storeHandleLearningFileSubmit = useChatStore((s) => s.handleLearningFileSubmit);
+
+  // ── Steps 4-5: Wizard + UI domain (store-backed) ──
+  const storeUi = useChatStore((s) => s.ui);
+  const storeVideoWizard = useChatStore((s) => s.videoWizard);
+  const storeSetVideoWizard = useChatStore((s) => s.setVideoWizard);
+  const storePollWizard = useChatStore((s) => s.pollWizard);
+  const storeSetPollWizard = useChatStore((s) => s.setPollWizard);
+  const storeEventWizard = useChatStore((s) => s.eventWizard);
+  const storeSetEventWizard = useChatStore((s) => s.setEventWizard);
+  const storeProjectWizard = useChatStore((s) => s.projectWizard);
+  const storeSetProjectWizard = useChatStore((s) => s.setProjectWizard);
+  const storeScheduleModal = useChatStore((s) => s.scheduleModal);
+  const storeSetScheduleModal = useChatStore((s) => s.setScheduleModal);
+  const storeLearningFileModal = useChatStore((s) => s.learningFileModal);
+  const storeSetLearningFileModal = useChatStore((s) => s.setLearningFileModal);
+
+  // ── DOM refs (stay in component) ──
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const pendingAttachTypeRef = useRef<ChatAttachType>('image');
-  const [viewingImageMsg, setViewingImageMsg] = useState<any | null>(null);
-
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
-
-  const [showSharedMedia, setShowSharedMedia] = useState(false);
-  const [sharedMediaTab, setSharedMediaTab] = useState<'images' | 'videos' | 'files'>('images');
-
-  const [showVideoWizard, setShowVideoWizard] = useState(false);
-  const [videoWizardFile, setVideoWizardFile] = useState<File | null>(null);
-  const [videoWizardPreview, setVideoWizardPreview] = useState('');
-  const [videoTitle, setVideoTitle] = useState('');
-  const [videoPlaylistId, setVideoPlaylistId] = useState('');
-  const [videoNewPlaylistName, setVideoNewPlaylistName] = useState('');
-  const [videoDuration, setVideoDuration] = useState('');
-  const [playlists, setPlaylists] = useState<{ id: string; title: string }[]>([]);
-  const [savingVideo, setSavingVideo] = useState(false);
-
-  const [showPollWizard, setShowPollWizard] = useState(false);
-  const [pollQuestion, setPollQuestion] = useState('');
-  const [pollOptions, setPollOptions] = useState<string[]>(['', '']);
-  const [pollIsAnonymous, setPollIsAnonymous] = useState(false);
-  const [pollMultipleAnswers, setPollMultipleAnswers] = useState(false);
-  const [savingPoll, setSavingPoll] = useState(false);
-
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const [channelUnreads, setChannelUnreads] = useState<Record<string, number>>({});
-  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [pinnedMessage, setPinnedMessage] = useState<Message | null>(null);
-  const [channelReads, setChannelReads] = useState<ChannelRead[]>([]);
-
-  const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
-  const [showForwardModal, setShowForwardModal] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const messagesAreaRef = useRef<HTMLDivElement>(null);
-
-  const [composerFocused, setComposerFocused] = useState(false);
-  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
-  const [showChatSettings, setShowChatSettings] = useState(false);
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
-  const [isSilentSend, setIsSilentSend] = useState(false);
-  const [userChannelPrefs, setUserChannelPrefs] = useState<any[]>([]);
-
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
-  const lastSentAtRef = useRef<number>(0);
-
-  const [showProjectWizard, setShowProjectWizard] = useState(false);
-  const [savingProject, setSavingProject] = useState(false);
-  const [applyingToProject, setApplyingToProject] = useState<any | null>(null);
-  const [submittingApplication, setSubmittingApplication] = useState(false);
-  const [viewingApplicants, setViewingApplicants] = useState<any | null>(null);
-
-  const [showEventWizard, setShowEventWizard] = useState(false);
-  const [evtTitle, setEvtTitle] = useState('');
-  const [evtDesc, setEvtDesc] = useState('');
-  const [evtDate, setEvtDate] = useState('');
-  const [evtOnline, setEvtOnline] = useState(true);
-  const [evtStyle, setEvtStyle] = useState<'workshop' | 'sprint' | 'showcase'>('workshop');
-  const [evtLink, setEvtLink] = useState('');
-  const [evtDuration, setEvtDuration] = useState('');
-  const [savingEvent, setSavingEvent] = useState(false);
-
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
-  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
-  const [showScrollBottom, setShowScrollBottom] = useState(false);
   const didFocusMessageRef = useRef(false);
-
-  const [mobileView, setMobileView] = useState<'channels' | 'chat'>('channels');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [showAddChannel, setShowAddChannel] = useState(false);
-  const [newChannelName, setNewChannelName] = useState('');
-  const [newChannelDesc, setNewChannelDesc] = useState('');
-  const [isAnnouncements, setIsAnnouncements] = useState(false);
-  const [addingChannel, setAddingChannel] = useState(false);
-  const [showStartRoomModal, setShowStartRoomModal] = useState(false);
-
-  const [showLearningFileModal, setShowLearningFileModal] = useState(false);
-  const [learningFileData, setLearningFileData] = useState<{
-    file: File;
-    fileKind: string;
-  } | null>(null);
-
+  // ── Window events ──
   useEffect(() => {
-    const handleOpenSettings = () => setShowChatSettings(true);
+    const handleOpenSettings = () => storeSetUi({ showChatSettings: true });
     const handleFocusMessage = (e: Event) => {
       const customEvent = e as CustomEvent;
       const { channelId } = customEvent.detail;
-      if (channelId) setActiveChannelId(channelId);
-      // Let the realtime hook or component handle the message focusing/scrolling
-      // This is a placeholder since the actual scrolling depends on pagination.
+      if (channelId) storeSetActiveChannelId(channelId);
     };
 
     window.addEventListener('open-chat-settings', handleOpenSettings);
     window.addEventListener('focus-chat-message', handleFocusMessage);
-    
+
     return () => {
       window.removeEventListener('open-chat-settings', handleOpenSettings);
       window.removeEventListener('focus-chat-message', handleFocusMessage);
     };
-  }, []);
+  }, [storeSetActiveChannelId, storeSetUi]);
+
+  // ── Auto-select first channel ──
+  useEffect(() => {
+    if (storeChannels.length > 0 && !storeActiveChannelId) {
+      storeSetActiveChannelId(storeChannels[0].id);
+    }
+  }, [storeChannels, storeActiveChannelId, storeSetActiveChannelId]);
 
   const filteredMessages = useMemo(() => {
-    if (!searchQuery.trim()) return messages;
-    const q = searchQuery.toLowerCase();
-    return messages.filter(m => m.content?.toLowerCase().includes(q));
-  }, [messages, searchQuery]);
+    if (!storeUi.searchQuery.trim()) return storeMessages;
+    const q = storeUi.searchQuery.toLowerCase();
+    return storeMessages.filter((m) => m.content?.toLowerCase().includes(q));
+  }, [storeMessages, storeUi.searchQuery]);
 
-  const activeChannel = channels.find((c) => c.id === activeChannelId);
-  const canPost = activeChannel && (!activeChannel.is_announcement_only || isAdminOrMod);
+  const activeChannel = useMemo(() => storeChannels.find((c) => c.id === storeActiveChannelId), [storeChannels, storeActiveChannelId]);
+  const canPost = useMemo(() => activeChannel && (!activeChannel.is_announcement_only || storeIsAdminOrMod), [activeChannel, storeIsAdminOrMod]);
 
-  function parseMessageContent(text: string, query: string) {
-    if (!text) return null;
-    let escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
+  // ── Parse message content (LRU-cached pure utility) ──
+  const parseMessageContent = useCallback(
+    (text: string, query: string) => cachedParseMessageContent(text, query),
+    []
+  );
 
-    if (query.trim()) {
-      const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      escaped = escaped.replace(new RegExp(`(${q})`, 'gi'), '<mark class="bg-amber-200 text-navy rounded px-0.5">$1</mark>');
-    }
-
-    escaped = escaped.replace(/(?:\r\n|\r|\n)/g, '<br/>');
-    escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    escaped = escaped.replace(/\*(.*?)\*/g, '<i>$1</i>');
-    escaped = escaped.replace(/__(.*?)__/g, '<u>$1</u>');
-    escaped = escaped.replace(/~~(.*?)~~/g, '<del>$1</del>');
-    escaped = escaped.replace(/`(.*?)`/g, '<code class="font-mono text-[13px] bg-black/10 px-1 rounded">$1</code>');
-    escaped = escaped.replace(/\|\|(.*?)\|\|/g, '<span class="spoiler blur-sm hover:blur-none transition-all cursor-pointer select-none" title="Click to reveal">$1</span>');
-    escaped = escaped.replace(/^&gt;\s(.+)$/gm, '<blockquote class="border-l-2 border-current opacity-70 pl-2 my-0.5 italic">$1</blockquote>');
-    escaped = escaped.replace(/((?:https?:\/\/)[^\s<]+)/g, (rawUrl) => {
-      const urlValue = rawUrl.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-      const safeUrl = normalizeHttpUrl(urlValue);
-      if (!safeUrl) return rawUrl;
-      const escapedHref = safeUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer nofollow" class="text-blue-500 hover:underline break-all">${rawUrl}</a>`;
-    });
-
-    return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
-  }
-
-  const controller: any = {
+  // ── Controller ref (bridges store + local state for legacy hooks) ──
+  const baseControllerRef = useRef<any>({});
+  baseControllerRef.current = {
     clubId, clubCategory, user, clubName, focusChannelId, focusMessageId,
-    loading, setLoading,
-    isAdminOrMod, setIsAdminOrMod,
-    channels, setChannels,
-    activeChannelId, setActiveChannelId,
-    activeChannel,
-    messages, setMessages, filteredMessages,
-    newMessage, setNewMessage, sending, setSending,
-    showAttachMenu, setShowAttachMenu,
-    chatAttachment, setChatAttachment,
-    attachmentCaption, setAttachmentCaption,
-    uploadProgress, setUploadProgress,
+
+    // UI domain (store-backed)
+    loading: storeLoading,
+    setLoading: (val: boolean) => storeSetUi({ loading: val }),
+    isAdminOrMod: storeIsAdminOrMod,
+    setIsAdminOrMod: (val: boolean) => storeSetUi({ isAdminOrMod: val }),
+
+    // Channels domain (store-backed)
+    channels: storeChannels,
+    setChannels: storeSetChannels,
+    activeChannelId: storeActiveChannelId,
+    setActiveChannelId: storeSetActiveChannelId,
+    channelUnreads: storeChannelUnreads,
+    setChannelUnreads: storeSetChannelUnreads,
+    userChannelPrefs: storeUserChannelPrefs,
+    setUserChannelPrefs: storeSetUserChannelPrefs,
+
+    // Playlists (store-backed)
+    playlists: storePlaylists,
+    setPlaylists: storeSetPlaylists,
+
+    // Preferences (store-backed)
+    preferences: storePreferences,
+    setPreferences: storeSetPreferences,
+
+    // Scroll bottom (store-backed via UI)
+    setShowScrollBottom: (val: boolean) => storeSetUi({ showScrollBottom: val }),
+
+    // Message domain (store-backed)
+    messages: storeMessages,
+    setMessages: storeSetMessages,
+    hasMore: storeHasMore,
+    setHasMore: storeSetHasMore,
+    loadingMore: storeLoadingMore,
+    setLoadingMore: storeSetLoadingMore,
+    pinnedMessage: storePinnedMessage,
+    setPinnedMessage: storeSetPinnedMessage,
+    typingUsers: storeTypingUsers,
+    setTypingUsers: storeSetTypingUsers,
+    channelReads: storeChannelReads,
+    setChannelReads: storeSetChannelReads,
+    loadMore: () => storeLoadMore(messagesAreaRef),
+
+    // Composer actions that need DOM refs (still bridged for legacy hooks)
+    handleSend: (overrides?: any) => storeHandleSend(overrides, typingTimerRef),
+    submitScheduledMessage: storeSubmitScheduledMessage,
+    handleLearningFileSubmit: storeHandleLearningFileSubmit,
+
+    // UI domain (store-backed)
+    viewingImageMsg: storeUi.viewingImageMsg,
+    setViewingImageMsg: (msg: any | null) => storeSetUi({ viewingImageMsg: msg }),
+    showSearch: storeUi.showSearch,
+    setShowSearch: (val: boolean) => storeSetUi({ showSearch: val }),
+    searchQuery: storeUi.searchQuery,
+    setSearchQuery: (q: string) => storeSetUi({ searchQuery: q }),
+    showOptionsMenu: storeUi.showOptionsMenu,
+    setShowOptionsMenu: (val: boolean) => storeSetUi({ showOptionsMenu: val }),
+    showSharedMedia: storeUi.showSharedMedia,
+    setShowSharedMedia: (val: boolean) => storeSetUi({ showSharedMedia: val }),
+    sharedMediaTab: storeUi.sharedMediaTab,
+    setSharedMediaTab: (tab: 'images' | 'videos' | 'files') => storeSetUi({ sharedMediaTab: tab }),
+    forwardingMessage: storeUi.forwardingMessage,
+    setForwardingMessage: (msg: Message | null) => storeSetUi({ forwardingMessage: msg }),
+    showForwardModal: storeUi.showForwardModal,
+    setShowForwardModal: (val: boolean) => storeSetUi({ showForwardModal: val }),
+    showDetailsPanel: storeUi.showDetailsPanel,
+    setShowDetailsPanel: (val: boolean) => storeSetUi({ showDetailsPanel: val }),
+    showChatSettings: storeUi.showChatSettings,
+    setShowChatSettings: (val: boolean) => storeSetUi({ showChatSettings: val }),
+    mobileView: storeUi.mobileView,
+    setMobileView: (view: 'channels' | 'chat') => storeSetUi({ mobileView: view }),
+    showStartRoomModal: storeUi.showStartRoomModal,
+    setShowStartRoomModal: (val: boolean) => storeSetUi({ showStartRoomModal: val }),
+    showScrollBottom: storeShowScrollBottom,
+
+    // Wizard domain (store-backed)
+    showVideoWizard: storeVideoWizard.open,
+    setShowVideoWizard: (val: boolean) => storeSetVideoWizard({ open: val }),
+    videoWizardFile: storeVideoWizard.file,
+    setVideoWizardFile: (file: File | null) => storeSetVideoWizard({ file }),
+    videoWizardPreview: storeVideoWizard.preview,
+    setVideoWizardPreview: (preview: string) => storeSetVideoWizard({ preview }),
+    videoTitle: storeVideoWizard.title,
+    setVideoTitle: (title: string) => storeSetVideoWizard({ title }),
+    videoPlaylistId: storeVideoWizard.playlistId,
+    setVideoPlaylistId: (id: string) => storeSetVideoWizard({ playlistId: id }),
+    videoNewPlaylistName: storeVideoWizard.newPlaylistName,
+    setVideoNewPlaylistName: (name: string) => storeSetVideoWizard({ newPlaylistName: name }),
+    videoDuration: storeVideoWizard.duration,
+    setVideoDuration: (duration: string) => storeSetVideoWizard({ duration }),
+    savingVideo: storeVideoWizard.saving,
+    setSavingVideo: (saving: boolean) => storeSetVideoWizard({ saving }),
+
+    showPollWizard: storePollWizard.open,
+    setShowPollWizard: (val: boolean) => storeSetPollWizard({ open: val }),
+    pollQuestion: storePollWizard.question,
+    setPollQuestion: (q: string) => storeSetPollWizard({ question: q }),
+    pollOptions: storePollWizard.options,
+    setPollOptions: (options: string[]) => storeSetPollWizard({ options }),
+    pollIsAnonymous: storePollWizard.isAnonymous,
+    setPollIsAnonymous: (val: boolean) => storeSetPollWizard({ isAnonymous: val }),
+    pollMultipleAnswers: storePollWizard.multipleAnswers,
+    setPollMultipleAnswers: (val: boolean) => storeSetPollWizard({ multipleAnswers: val }),
+    savingPoll: storePollWizard.saving,
+    setSavingPoll: (saving: boolean) => storeSetPollWizard({ saving }),
+
+    showEventWizard: storeEventWizard.open,
+    setShowEventWizard: (val: boolean) => storeSetEventWizard({ open: val }),
+    evtTitle: storeEventWizard.title,
+    setEvtTitle: (title: string) => storeSetEventWizard({ title }),
+    evtDesc: storeEventWizard.description,
+    setEvtDesc: (desc: string) => storeSetEventWizard({ description: desc }),
+    evtDate: storeEventWizard.date,
+    setEvtDate: (date: string) => storeSetEventWizard({ date }),
+    evtOnline: storeEventWizard.online,
+    setEvtOnline: (online: boolean) => storeSetEventWizard({ online }),
+    evtStyle: storeEventWizard.style,
+    setEvtStyle: (style: 'workshop' | 'sprint' | 'showcase') => storeSetEventWizard({ style }),
+    evtLink: storeEventWizard.link,
+    setEvtLink: (link: string) => storeSetEventWizard({ link }),
+    evtDuration: storeEventWizard.duration,
+    setEvtDuration: (duration: string) => storeSetEventWizard({ duration }),
+    savingEvent: storeEventWizard.saving,
+    setSavingEvent: (saving: boolean) => storeSetEventWizard({ saving }),
+
+    showProjectWizard: storeProjectWizard.open,
+    setShowProjectWizard: (val: boolean) => storeSetProjectWizard({ open: val }),
+    savingProject: storeProjectWizard.saving,
+    setSavingProject: (saving: boolean) => storeSetProjectWizard({ saving }),
+    applyingToProject: storeProjectWizard.applyingTo,
+    setApplyingToProject: (project: any | null) => storeSetProjectWizard({ applyingTo: project }),
+    submittingApplication: storeProjectWizard.submittingApplication,
+    setSubmittingApplication: (submitting: boolean) => storeSetProjectWizard({ submittingApplication: submitting }),
+    viewingApplicants: storeProjectWizard.viewingApplicants,
+    setViewingApplicants: (applicants: any | null) => storeSetProjectWizard({ viewingApplicants: applicants }),
+
+    // Schedule modal (store-backed)
+    showScheduleModal: storeScheduleModal.open,
+    setShowScheduleModal: (val: boolean) => storeSetScheduleModal({ open: val }),
+    scheduledDate: storeScheduleModal.date,
+    setScheduledDate: (date: string) => storeSetScheduleModal({ date }),
+    scheduledTime: storeScheduleModal.time,
+    setScheduledTime: (time: string) => storeSetScheduleModal({ time }),
+    isSilentSend: storeScheduleModal.isSilent,
+    setIsSilentSend: (val: boolean) => storeSetScheduleModal({ isSilent: val }),
+
+    // Learning file modal (store-backed)
+    showLearningFileModal: storeLearningFileModal.open,
+    setShowLearningFileModal: (val: boolean) => storeSetLearningFileModal({ open: val }),
+    learningFileData: storeLearningFileModal.data,
+    setLearningFileData: (data: { file: File; fileKind: string } | null) => storeSetLearningFileModal({ data }),
+
+    // DOM refs
     fileInputRef, textareaRef, pendingAttachTypeRef,
-    viewingImageMsg, setViewingImageMsg,
-    showSearch, setShowSearch, searchQuery, setSearchQuery, showOptionsMenu, setShowOptionsMenu,
-    showSharedMedia, setShowSharedMedia, sharedMediaTab, setSharedMediaTab,
-    showVideoWizard, setShowVideoWizard, videoWizardFile, setVideoWizardFile, videoWizardPreview, setVideoWizardPreview, videoTitle, setVideoTitle, videoPlaylistId, setVideoPlaylistId, videoNewPlaylistName, setVideoNewPlaylistName, videoDuration, setVideoDuration, playlists, setPlaylists, savingVideo, setSavingVideo,
-    showPollWizard, setShowPollWizard, pollQuestion, setPollQuestion, pollOptions, setPollOptions, pollIsAnonymous, setPollIsAnonymous, pollMultipleAnswers, setPollMultipleAnswers, savingPoll, setSavingPoll,
-    isRecording, setIsRecording, recordingTime, setRecordingTime, mediaRecorderRef, audioChunksRef, recordingTimerRef,
-    channelUnreads, setChannelUnreads, typingUsers, setTypingUsers, typingTimerRef, pinnedMessage, setPinnedMessage, channelReads, setChannelReads,
-    forwardingMessage, setForwardingMessage, showForwardModal, setShowForwardModal,
-    hasMore, setHasMore, loadingMore, setLoadingMore, messagesAreaRef,
-    composerFocused, setComposerFocused, showDetailsPanel, setShowDetailsPanel,
-    showChatSettings, setShowChatSettings, preferences, setPreferences,
-    showScheduleModal, setShowScheduleModal, scheduledDate, setScheduledDate, scheduledTime, setScheduledTime, isSilentSend, setIsSilentSend,
-    userChannelPrefs, setUserChannelPrefs,
-    longPressTimerRef, longPressFiredRef, lastSentAtRef,
-    showProjectWizard, setShowProjectWizard, savingProject, setSavingProject, applyingToProject, setApplyingToProject, submittingApplication, setSubmittingApplication, viewingApplicants, setViewingApplicants,
-    showEventWizard, setShowEventWizard, evtTitle, setEvtTitle, evtDesc, setEvtDesc, evtDate, setEvtDate, evtOnline, setEvtOnline, evtStyle, setEvtStyle, evtLink, setEvtLink, evtDuration, setEvtDuration, savingEvent, setSavingEvent,
-    replyingTo, setReplyingTo, editingMessage, setEditingMessage, showScrollBottom, setShowScrollBottom, didFocusMessageRef,
-    mobileView, setMobileView, messagesEndRef,
-    showAddChannel, setShowAddChannel, newChannelName, setNewChannelName, newChannelDesc, setNewChannelDesc, isAnnouncements, setIsAnnouncements, addingChannel, setAddingChannel,
-    showStartRoomModal, setShowStartRoomModal, allowStartRoomFromComposer, composerRoomHostId,
+    mediaRecorderRef, audioChunksRef, recordingTimerRef,
+    messagesAreaRef,
+    longPressTimerRef, longPressFiredRef,
+    didFocusMessageRef,
+    messagesEndRef,
+    allowStartRoomFromComposer, composerRoomHostId,
     canPost,
     parseMessageContent,
-    showLearningFileModal, setShowLearningFileModal, learningFileData, setLearningFileData,
+    activeChannel,
+    filteredMessages,
   };
 
-  const realtimeActions = useClubChatRealtime(controller);
-  const projectActions = useClubChatProjectActions(controller);
-  const composerActions = useClubChatComposerActions(controller);
-  const uiActions = useClubChatUiActions(controller);
+  const realtimeActions = useChatRealtime({
+    focusChannelId,
+    focusMessageId,
+    messagesEndRef,
+    textareaRef,
+    typingTimerRef,
+    didFocusMessageRef,
+  });
+  const projectActions = useChatWizards();
+  const uiActions = useChatUi();
 
-  Object.assign(controller, realtimeActions, projectActions, composerActions, uiActions);
+  // Build controller for children (still needed during migration)
+  const controller = useMemo(() => ({
+    ...baseControllerRef.current,
+    ...realtimeActions,
+    ...projectActions,
+    ...uiActions,
+  }), [
+    clubId, clubCategory, user, clubName, focusChannelId, focusMessageId,
+    storeLoading, storeIsAdminOrMod, storeChannels, storeActiveChannelId,
+    storeChannelUnreads, storeUserChannelPrefs, storePreferences, storePlaylists, storeShowScrollBottom,
+    storeMessages, storeHasMore, storeLoadingMore, storePinnedMessage, storeTypingUsers, storeChannelReads,
+    storeUi,
+    storeVideoWizard, storePollWizard, storeEventWizard, storeProjectWizard,
+    storeScheduleModal, storeLearningFileModal,
+    allowStartRoomFromComposer, composerRoomHostId,
+    parseMessageContent,
+    activeChannel,
+    filteredMessages,
+    realtimeActions, projectActions, uiActions,
+  ]);
 
-  if (loading) {
+  if (storeLoading) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-6rem)]">
         <Loader2 className="w-6 h-6 animate-spin text-[var(--color-amber)]" />
@@ -274,62 +372,31 @@ export default function ClubChatWorkspace({
   }
 
   return (
-    <div className={`flex bg-white overflow-hidden ${isEmbedded ? 'h-full w-full' : 'h-[calc(100vh-80px)] max-w-6xl mx-auto shadow-sm border border-[var(--color-border)] rounded-2xl'}`}>
+    <div className={`flex overflow-hidden ${isEmbedded ? 'h-full w-full' : 'h-[calc(100vh-80px)] max-w-6xl mx-auto bg-white shadow-sm border border-[var(--color-border)] rounded-2xl'}`}>
       <ChannelList
         isEmbedded={isEmbedded}
         clubName={clubName}
-        channels={channels}
-        activeChannelId={activeChannelId}
-        channelUnreads={channelUnreads}
-        isAdminOrMod={isAdminOrMod}
-        mobileView={mobileView}
-        showAddChannel={showAddChannel}
-        newChannelName={newChannelName}
-        newChannelDesc={newChannelDesc}
-        isAnnouncements={isAnnouncements}
-        addingChannel={addingChannel}
-        userChannelPrefs={userChannelPrefs}
         onNavigateBack={() => navigate(-1)}
-        onSelectChannel={(channelId) => {
-          setActiveChannelId(channelId);
-          setMobileView('chat');
-          setChannelUnreads((prev) => ({ ...prev, [channelId]: 0 }));
-        }}
-        onToggleAddChannel={() => setShowAddChannel((prev) => !prev)}
-        onNewChannelNameChange={setNewChannelName}
-        onNewChannelDescChange={setNewChannelDesc}
-        onIsAnnouncementsChange={setIsAnnouncements}
-        onAddChannel={uiActions.handleAddChannel}
-        onRenameChannel={uiActions.handleRenameChannel}
-        onDeleteChannel={uiActions.handleDeleteChannel}
-        onTogglePinChannel={uiActions.handleTogglePinChannel}
-        onToggleArchiveChannel={uiActions.handleToggleArchiveChannel}
-        onCancelAddChannel={() => {
-          setShowAddChannel(false);
-          setNewChannelName('');
-          setNewChannelDesc('');
-          setIsAnnouncements(false);
-        }}
       />
 
       <ClubChatMainPane c={controller} />
       <ClubChatDetailsSidebar c={controller} />
       <ClubChatModalStack c={controller} />
-      {showStartRoomModal && clubId && composerRoomHostId ? (
+      {controller.showStartRoomModal && clubId && composerRoomHostId ? (
         <StartRoomModal
           clubId={clubId}
           hostId={composerRoomHostId}
-          onClose={() => setShowStartRoomModal(false)}
+          onClose={() => controller.setShowStartRoomModal(false)}
           onCreated={(room) => {
-            setShowStartRoomModal(false);
+            controller.setShowStartRoomModal(false);
             navigate(`/app/voice-room/${room.id}`);
           }}
         />
       ) : null}
-      {showLearningFileModal && learningFileData && clubId && activeChannelId ? (
+      {controller.showLearningFileModal && controller.learningFileData && clubId && storeActiveChannelId ? (
         <LearningFileMetadataModal
-          file={learningFileData.file}
-          fileKind={learningFileData.fileKind}
+          file={controller.learningFileData.file}
+          fileKind={controller.learningFileData.fileKind}
           clubId={clubId}
           user={user ?? undefined}
           onSubmit={async (data) => {
@@ -338,8 +405,8 @@ export default function ClubChatWorkspace({
             }
           }}
           onClose={() => {
-            setShowLearningFileModal(false);
-            setLearningFileData(null);
+            controller.setShowLearningFileModal(false);
+            controller.setLearningFileData(null);
           }}
         />
       ) : null}

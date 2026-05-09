@@ -1,0 +1,279 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-05-03 17:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: ar\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+msgid "Home"
+msgstr "الرئيسية"
+
+msgid "Your clubs & activity"
+msgstr "نواديك ونشاطاتك"
+
+msgid "Discover"
+msgstr "استكشف"
+
+msgid "Community feed"
+msgstr "الأخبار"
+
+msgid "Clubs"
+msgstr "النوادي"
+
+msgid "All clubs in Morocco"
+msgstr "جميع النوادي في المغرب"
+
+msgid "Board"
+msgstr "اللوحة"
+
+msgid "Flares & skills"
+msgstr "المهارات"
+
+msgid "Messages"
+msgstr "الرسائل"
+
+msgid "Your conversations"
+msgstr "محادثاتك"
+
+msgid "Path"
+msgstr "المسار"
+
+msgid "Share what you know"
+msgstr "شارك ما تعرف"
+
+msgid "My Profile"
+msgstr "ملفي"
+
+msgid "Your member card"
+msgstr "بطاقة عضويتك"
+
+msgid "FightClub"
+msgstr "FightClub"
+
+msgid "Morocco"
+msgstr "المغرب"
+
+msgid "Settings"
+msgstr "الإعدادات"
+
+msgid "Profile"
+msgstr "الملف"
+
+msgid "Good morning"
+msgstr "صباح الخير"
+
+msgid "Good afternoon"
+msgstr "مساء الخير"
+
+msgid "Good evening"
+msgstr "مساء الخير"
+
+msgid "What do you want to put into the community today?"
+msgstr "ماذا تريد أن تضعه في المجتمع اليوم؟"
+
+msgid "Teach a skill"
+msgstr "علّم مهارة"
+
+msgid "Browse sessions"
+msgstr "تصفح الجلسات"
+
+msgid "Start a club"
+msgstr "أنشئ نادٍ"
+
+msgid "What's on your mind?"
+msgstr "ما الذي يدور في ذهنك؟"
+
+msgid "For You"
+msgstr "لك"
+
+msgid "Activity"
+msgstr "النشاط"
+
+msgid "Skills"
+msgstr "المهارات"
+
+msgid "Recent sparks"
+msgstr "الشرارات الأخيرة"
+
+msgid "Fresh activity from people publishing and learning nearby."
+msgstr "نشاط جديد من أشخاص ينشرون ويتعلمون بالقرب."
+
+msgid "No activity yet"
+msgstr "لا يوجد نشاط بعد"
+
+msgid "As people publish skills and sessions, this area will light up."
+msgstr "مع نشر المهارات والجلسات، سيتم إضاءة هذا المساحة."
+
+msgid "Skill spotlights"
+msgstr "أبرز المهارات"
+
+msgid "The strongest matches for what you might want to learn next."
+msgstr "أفضل التطابقات لما قد ترغب في تعلمه بعد ذلك."
+
+msgid "Browse all"
+msgstr "تصفح الكل"
+
+msgid "Community activity"
+msgstr "نشاط المجتمع"
+
+msgid "Updates, new sessions, and publishing moments from the network."
+msgstr "التحديثات والجلسات الجديدة ولحظات النشر من الشبكة."
+
+msgid "The feed is quiet right now"
+msgstr "الأخبار هادئة الآن"
+
+msgid "Check back soon or browse skills to kick off your next conversation."
+msgstr "عد قريباً أو تصفح المهارات لبدء محادثتك التالية."
+
+msgid "Skills worth discovering"
+msgstr "مهارات تستحق الاكتشاف"
+
+msgid "A warmer, card-based browse of the live skill inventory."
+msgstr "تصفح أكثر دفئاً قائم على البطاقات لجرد المهارات الحية."
+
+msgid "Open browse"
+msgstr "فتح التصفح"
+
+msgid "No skills published yet"
+msgstr "لم تُنشر مهارات بعد"
+
+msgid "Be the first to teach something and light up the feed."
+msgstr "كن أول من يعلّم شيئاً وأضئ الأخبار."
+
+msgid "Start teaching"
+msgstr "ابدأ التعليم"
+
+msgid "Notifications"
+msgstr "الإشعارات"
+
+msgid "Security"
+msgstr "الأمان"
+
+msgid "Preferences"
+msgstr "التفضيلات"
+
+msgid "Manage your account settings and preferences."
+msgstr "إدارة إعدادات حسابك وتفضيلاتك."
+
+msgid "Notification Preferences"
+msgstr "تفضيلات الإشعارات"
+
+msgid "These preferences will be applied when the notification system is enabled."
+msgstr "سيتم تطبيق هذه التفضيلات عند تفعيل نظام الإشعارات."
+
+msgid "Email Notifications"
+msgstr "إشعارات البريد"
+
+msgid "Receive updates via email"
+msgstr "استلام التحديثات عبر البريد"
+
+msgid "Push Notifications"
+msgstr "الإشعارات الفورية"
+
+msgid "Receive push notifications in browser"
+msgstr "استلام الإشعارات الفورية في المتصفح"
+
+msgid "Session Reminders"
+msgstr "تذكيرات الجلسات"
+
+msgid "Get notified before sessions start"
+msgstr "الإشعار قبل بدء الجلسات"
+
+msgid "New Messages"
+msgstr "رسائل جديدة"
+
+msgid "Get notified when you receive a message"
+msgstr "الإشعار عند استلام رسالة"
+
+msgid "Community Updates"
+msgstr "تحديثات المجتمع"
+
+msgid "Get notified about community news"
+msgstr "الإشعار بأخبار المجتمع"
+
+msgid "Review Notifications"
+msgstr "إشعارات المراجعة"
+
+msgid "Get notified when you receive reviews"
+msgstr "الإشعار عند استلام مراجعات"
+
+msgid "Save Preferences"
+msgstr "حفظ التفضيلات"
+
+msgid "Change Password"
+msgstr "تغيير كلمة المرور"
+
+msgid "New Password"
+msgstr "كلمة المرور الجديدة"
+
+msgid "Enter new password"
+msgstr "أدخل كلمة المرور الجديدة"
+
+msgid "Confirm New Password"
+msgstr "تأكيد كلمة المرور الجديدة"
+
+msgid "Confirm new password"
+msgstr "تأكيد كلمة المرور الجديدة"
+
+msgid "Changing..."
+msgstr "جارٍ التغيير..."
+
+msgid "Two-Factor Authentication"
+msgstr "المصادقة الثنائية"
+
+msgid "Enable 2FA"
+msgstr "تفعيل المصادقة الثنائية"
+
+msgid "Add an extra layer of security to your account"
+msgstr "أضف طبقة أمان إضافية لحسابك"
+
+msgid "Enable"
+msgstr "تفعيل"
+
+msgid "Display Preferences"
+msgstr "تفضيلات العرض"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Time Zone"
+msgstr "المنطقة الزمنية"
+
+msgid "Danger Zone"
+msgstr "منطقة الخطر"
+
+msgid "Sign Out"
+msgstr "تسجيل الخروج"
+
+msgid "Sign out from your account"
+msgstr "تسجيل الخروج من حسابك"
+
+msgid "Delete Account"
+msgstr "حذف الحساب"
+
+msgid "Permanently delete your account and all data"
+msgstr "حذف حسابك وبياناتك نهائياً"
+
+msgid "Delete"
+msgstr "حذف"
+
+msgid "Delete Account?"
+msgstr "حذف الحساب؟"
+
+msgid "This action cannot be undone. Please contact support to delete your account."
+msgstr "لا يمكن التراجع عن هذا الإجراء. يرجى التواصل مع الدعم لحذف حسابك."
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "Understood"
+msgstr "فهمت"
+

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { addDays } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { reportError } from '@/lib/errors';
 import { unwrapRelation } from '@/lib/utils';
 import type { ProfileMini } from '@/types/clubs';
 
@@ -238,7 +239,7 @@ export function useStudentClubNotifications({
 
       setItems(nextItems);
     } catch (error) {
-      console.error('Failed to load student club notifications:', error);
+      reportError('useStudentClubNotifications:load', error);
       setItems([]);
     } finally {
       setLoading(false);
@@ -278,7 +279,7 @@ export function useStudentClubNotifications({
       )
       .subscribe((status) => {
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.warn('Student notifications realtime status:', status);
+          reportError('useStudentClubNotifications:realtime', new Error(`Realtime ${status}`), { status });
         }
       });
 

@@ -9,7 +9,7 @@ import {
   Lock, Globe, MapPin, Clock,
   ArrowLeft, Settings,
   FolderKanban, Trophy, UserCheck, PlaySquare, Pin, Loader2,
-  ShieldOff,
+  ShieldOff, Swords,
 } from 'lucide-react';
 import { useClubActions } from '@/hooks/useClubActions';
 import { useClubData } from '@/hooks/useClubData';
@@ -31,8 +31,11 @@ import RoomsTab from '@/components/club/RoomsTab';
 import ResourcesTab from '@/components/club/ResourcesTab';
 import RequestsTab from '@/components/club/RequestsTab';
 import MemberGate from '@/components/club/MemberGate';
+import BattlesTab from '@/components/battles/BattlesTab';
+import TournamentsTab from '@/components/tournaments/TournamentsTab';
 import { TabErrorBoundary } from '@/components/errors/TabErrorBoundary';
 import ClubStoriesStrip from '@/components/club/ClubStoriesStrip';
+import { useT } from '@/lib/t';
 import { format } from 'date-fns';
 
 const CATEGORY_COLORS = CATEGORY_COLORS_WITH_GRADIENT;
@@ -51,7 +54,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   ...Object.fromEntries(CATEGORIES.map(c => [c.id, c.emoji])),
 };
 
-const VALID_TABS: Tab[] = ['feed', 'members', 'quests', 'rooms', 'resources', 'playlists', 'events', 'projects', 'leaderboard', 'requests'];
+const VALID_TABS: Tab[] = ['feed', 'members', 'quests', 'rooms', 'resources', 'playlists', 'events', 'projects', 'leaderboard', 'requests', 'battles', 'tournaments'];
 
 
 export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
@@ -113,6 +116,8 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
   const isModOrAdmin = canModerate;
   const isAdmin     = joinState === 'admin';
 
+  const { t } = useT();
+
   // ── realtime presence ──
   useEffect(() => {
     if (!club || !user) return;
@@ -136,7 +141,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
         () => {
           setPendingRequestCount(prev => prev + 1);
           toast.info('New join request received!', {
-            action: { label: 'View', onClick: () => setActiveTab('requests') },
+            action: { label: 'View', onClick: () => navigate('/club/' + club.id + '/requests') },
           });
         }
       )
@@ -146,7 +151,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
         () => {
           setPendingRequestCount(prev => prev + 1);
           toast.info('New request in inbox.', {
-            action: { label: 'View', onClick: () => setActiveTab('requests') },
+            action: { label: 'View', onClick: () => navigate('/club/' + club.id + '/requests') },
           });
         }
       )
@@ -165,7 +170,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
 
           setPendingRequestCount(prev => prev + 1);
           toast.info('New project application.', {
-            action: { label: 'View', onClick: () => setActiveTab('requests') },
+            action: { label: 'View', onClick: () => navigate('/club/' + club.id + '/requests') },
           });
         }
       )
@@ -207,16 +212,18 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
 
   // ── Build tab list based on category template ──────────────────────────────
   const ALL_TAB_DEFS: { id: Tab; label: string; icon: React.FC<{ className?: string }>; modOnly?: boolean }[] = [
-    { id: 'feed',        label: 'Activity',    icon: MessageSquare },
-    { id: 'members',     label: 'Members',     icon: Users },
-    { id: 'projects',    label: 'Projects',    icon: FolderKanban },
-    { id: 'quests',      label: 'Quests',      icon: Sword },
-    { id: 'rooms',       label: 'Voice Rooms', icon: Mic2 },
-    { id: 'resources',   label: 'Resources',   icon: BookOpen },
-    { id: 'playlists',   label: 'Playlists',   icon: PlaySquare },
-    { id: 'events',      label: 'Events',      icon: CalendarDays },
-    { id: 'leaderboard', label: 'Leaderboard', icon: Trophy },
-    ...(isModOrAdmin ? [{ id: 'requests' as Tab, label: 'Requests', icon: UserCheck, modOnly: true }] : []),
+    { id: 'feed',        label: t('Activity'),    icon: MessageSquare },
+    { id: 'members',     label: t('Members'),     icon: Users },
+    { id: 'projects',    label: t('Projects'),    icon: FolderKanban },
+    { id: 'quests',      label: t('Quests'),      icon: Sword },
+    { id: 'rooms',       label: t('Voice Rooms'), icon: Mic2 },
+    { id: 'resources',   label: t('Resources'),   icon: BookOpen },
+    { id: 'playlists',   label: t('Playlists'),   icon: PlaySquare },
+    { id: 'events',      label: t('Events'),      icon: CalendarDays },
+    { id: 'leaderboard', label: t('Leaderboard'), icon: Trophy },
+    { id: 'battles', label: t('Battles'), icon: Swords },
+    { id: 'tournaments', label: t('Tournaments'), icon: Trophy },
+    ...(isModOrAdmin ? [{ id: 'requests' as Tab, label: t('Requests'), icon: UserCheck, modOnly: true }] : []),
   ];
 
   const hiddenSet = new Set<Tab>(template.hiddenTabs ?? []);
@@ -239,7 +246,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
       {/* ── Back ── */}
       <button onClick={() => navigate(-1)}
         className="flex items-center gap-1.5 text-sm text-[var(--color-text-muted)] hover:text-navy mb-4 transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Back
+        <ArrowLeft className="w-4 h-4" /> {t('Back')}
       </button>
 
       {/* ── Header / Banner ── */}
@@ -270,16 +277,16 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
                 {club.category}
               </span>
               {club.is_private
-                ? <span className="text-xs font-semibold text-[var(--color-text-secondary)] flex items-center gap-1"><Lock className="w-3 h-3" /> Private</span>
-                : <span className="text-xs font-semibold text-[var(--color-text-secondary)] flex items-center gap-1"><Globe className="w-3 h-3" /> Public</span>}
+                ? <span className="text-xs font-semibold text-[var(--color-text-secondary)] flex items-center gap-1"><Lock className="w-3 h-3" /> {t('Private')}</span>
+                : <span className="text-xs font-semibold text-[var(--color-text-secondary)] flex items-center gap-1"><Globe className="w-3 h-3" /> {t('Public')}</span>}
             </div>
             <h1 className="font-heading text-2xl text-[var(--color-navy)] font-bold">{club.name}</h1>
             <div className="flex items-center gap-4 mt-1 text-sm text-[var(--color-text-secondary)] flex-wrap">
-              <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {club.member_count} members</span>
+              <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" /> {club.member_count} {t('members')}</span>
               {onlineCount > 0 && (
                 <span className="flex items-center gap-1.5 font-semibold" style={{ color: '#4ade80' }}>
                   <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                  {onlineCount} online now
+                  {onlineCount} {t('online now')}
                 </span>
               )}
               {club.city && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {club.city}</span>}
@@ -305,7 +312,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
             {isAdmin && (
               <button onClick={() => setShowSettings(true)}
                 className="p-2 rounded-xl bg-white/78 text-[var(--color-text-secondary)] hover:text-[var(--color-navy)] hover:bg-white transition-colors shadow-sm"
-                title="Club Settings">
+                title={t('Club Settings')}>
                 <Settings className="w-4 h-4" />
               </button>
             )}
@@ -313,7 +320,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
               <button
                 onClick={() => navigate(`/app/club/${club.id}/chat`, { state: { clubName: club.name, clubCategory: club.category } })}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold bg-[linear-gradient(135deg,#C4873A_0%,#E16B3B_100%)] text-white hover:opacity-95 transition-colors shadow-[0_8px_22px_rgba(225,107,59,0.2)]">
-                <MessageSquare className="w-4 h-4" /> Live Chat
+                <MessageSquare className="w-4 h-4" /> {t('Live Chat')}
               </button>
             )}
             <ClubJoinButton
@@ -343,7 +350,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
           {events.slice(0, 2).length > 0 && (
             <div className="sc-card p-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3 flex items-center gap-1.5">
-                <CalendarDays className="w-3 h-3 text-[var(--color-amber)]" /> Upcoming
+                <CalendarDays className="w-3 h-3 text-[var(--color-amber)]" /> {t('Upcoming')}
               </h3>
               <div className="space-y-3">
 {events.slice(0, 2).map(ev => (
@@ -362,9 +369,9 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
             <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">Stats</h3>
             <div className="space-y-2">
               {[
-                { label: 'Members', value: club.member_count, icon: Users },
-                { label: 'Posts',   value: club.post_count,   icon: MessageSquare },
-                ...(onlineCount > 0 ? [{ label: 'Online', value: onlineCount, icon: Users, highlight: true }] : []),
+                { label: t('Members'), value: club.member_count, icon: Users },
+                { label: t('Posts'),   value: club.post_count,   icon: MessageSquare },
+                ...(onlineCount > 0 ? [{ label: t('Online'), value: onlineCount, icon: Users, highlight: true }] : []),
               ].map(({ label, value, icon: Icon, highlight }) => (
                 <div key={label} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
@@ -378,7 +385,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
 
           {club.tags.length > 0 && (
             <div className="sc-card p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">Tags</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">{t('Tags')}</h3>
               <div className="flex flex-wrap gap-1.5">
                 {club.tags.map(tag => (
                   <span key={tag} className="text-xs px-2.5 py-1 rounded-full font-medium"
@@ -392,7 +399,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
 
           {club.rules.length > 0 && (
             <div className="sc-card p-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">Club Rules</h3>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-3">{t('Club Rules')}</h3>
               <ol className="space-y-2">
                 {club.rules.map((rule, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-[var(--color-text-secondary)]">
@@ -507,7 +514,7 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
                 isModOrAdmin={isModOrAdmin}
                 canCreateQuestsEvents={canCreateQuestsEvents}
                 isMuted={isMuted}
-                focusEventId={focusedEventId}
+                focusEventId={undefined}
               />
             </TabErrorBoundary>
           )}
@@ -520,6 +527,14 @@ export default function ClubHome({ tab: initialTab }: { tab?: Tab }) {
 
           {activeTab === 'leaderboard' && (
             <LeaderboardTab clubId={club.id} currentUserId={user?.id} />
+          )}
+
+          {activeTab === 'battles' && (
+            <BattlesTab clubId={club.id} isMember={isMember} />
+          )}
+
+          {activeTab === 'tournaments' && (
+            <TournamentsTab clubId={club.id} isMember={isMember} />
           )}
 
           {activeTab === 'requests' && isModOrAdmin && (

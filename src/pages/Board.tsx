@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useT } from '@/lib/t';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -21,15 +22,15 @@ import { CardSkeletonGrid } from '@/components/ui/card-skeleton';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function timeAgo(dateStr: string): string {
+function timeAgo(dateStr: string, t: (key: string) => string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return t('just now');
+  if (mins < 60) return `${mins}${t('m ago')}`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
+  if (hrs < 24) return `${hrs}${t('h ago')}`;
   const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
+  if (days < 7) return `${days}${t('d ago')}`;
   return new Date(dateStr).toLocaleDateString();
 }
 
@@ -38,11 +39,13 @@ function isExpiringSoon(expiresAt: string | null): boolean {
   return new Date(expiresAt).getTime() - Date.now() < 86400000;
 }
 
-const FORMAT_LABELS: Record<Format, string> = {
-  online: 'Online',
-  'in-person': 'In-person',
-  both: 'Online & In-person',
-};
+function useFormatLabels(t: (key: string) => string): Record<Format, string> {
+  return {
+    online: t('Online'),
+    'in-person': t('In-person'),
+    both: t('Online & In-person'),
+  };
+}
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +53,8 @@ type PageTab = 'board' | 'skills';
 
 export default function Board() {
   const { user } = useAuth();
+  const { t } = useT();
+  const FORMAT_LABELS = useFormatLabels(t);
 
   // ── Tab ───────────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<PageTab>('board');
@@ -151,31 +156,31 @@ export default function Board() {
 
   // ── Board actions ─────────────────────────────────────────────────────────
   const requestViewerLocation = () => {
-    if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
+    if (!navigator.geolocation) { toast.error(t('Geolocation not supported')); return; }
     setLocationLoading(true);
     navigator.geolocation.getCurrentPosition(
-      (pos) => { setViewerLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocationLoading(false); toast.success('Distance ranking enabled'); },
-      () => { setLocationLoading(false); toast.error('Location permission denied.'); },
+      (pos) => { setViewerLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setLocationLoading(false); toast.success(t('Distance ranking enabled')); },
+      () => { setLocationLoading(false); toast.error(t('Location permission denied.')); },
       { enableHighAccuracy: true, timeout: 8000 },
     );
   };
 
   const attachPostLocation = () => {
-    if (!navigator.geolocation) { toast.error('Geolocation not supported'); return; }
+    if (!navigator.geolocation) { toast.error(t('Geolocation not supported')); return; }
     setLocationLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setNewPost((p) => ({ ...p, location_lat: pos.coords.latitude, location_lng: pos.coords.longitude, location_precision: 'exact' }));
-        setLocationLoading(false); toast.success('Location attached');
+        setLocationLoading(false); toast.success(t('Location attached'));
       },
-      () => { setLocationLoading(false); toast.error('Could not read location'); },
+      () => { setLocationLoading(false); toast.error(t('Could not read location')); },
       { enableHighAccuracy: true, timeout: 8000 },
     );
   };
 
   const handleSubmit = async () => {
-    if (!user || user.isDemo) { toast.error('Sign in to post on the board'); return; }
-    if (!newPost.title.trim() || !newPost.content.trim()) { toast.error('Title and content are required'); return; }
+    if (!user || user.isDemo) { toast.error(t('Sign in to post on the board')); return; }
+    if (!newPost.title.trim() || !newPost.content.trim()) { toast.error(t('Title and content are required')); return; }
     setSubmitting(true);
     const payload = {
       author_id: user.id, type: newPost.type,
@@ -188,10 +193,10 @@ export default function Board() {
     const { error: e1 } = await supabase.from('board_posts').insert(payload);
     if (e1) {
       const { error: e2 } = await supabase.from('board_posts').insert({ author_id: payload.author_id, type: payload.type, title: payload.title, content: payload.content, neighborhood: payload.neighborhood, expires_at: payload.expires_at });
-      if (e2) { toast.error('Could not create post'); setSubmitting(false); return; }
+      if (e2) { toast.error(t('Could not create post')); setSubmitting(false); return; }
     }
     setSubmitting(false);
-    toast.success('Flare published!');
+    toast.success(t('Flare published!'));
     setShowNewPost(false);
     setNewPost({ type: 'looking_for', title: '', content: '', neighborhood: '', location_lat: null, location_lng: null, location_precision: 'unknown' });
     refetchBoard();
@@ -229,14 +234,14 @@ export default function Board() {
         <div className="sm:hidden flex items-center gap-3 px-4 py-3">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span className="w-2 h-2 rounded-full bg-[var(--color-amber)] animate-pulse flex-shrink-0" />
-            <h1 className="font-heading text-[17px] text-white leading-tight truncate">Community Board</h1>
+            <h1 className="font-heading text-[17px] text-white leading-tight truncate">{t('Community Board')}</h1>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={requestViewerLocation}
               disabled={locationLoading}
               className="flex items-center justify-center w-8 h-8 rounded-lg text-white/80 border border-white/15 bg-white/10 transition active:scale-95"
-              title="Use My Location"
+              title={t('Use My Location')}
             >
               <Crosshair className="w-3.5 h-3.5" />
             </button>
@@ -245,7 +250,7 @@ export default function Board() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-white transition"
               style={{ background: 'var(--color-amber)', boxShadow: '0 3px 12px rgba(196,135,58,0.4)' }}
             >
-              <Plus className="w-3 h-3" /> Flare
+              <Plus className="w-3 h-3" /> {t('Flare')}
             </button>
           </div>
         </div>
@@ -253,10 +258,10 @@ export default function Board() {
         {/* Stats strip — ultra-compact on mobile */}
         <div className="sm:hidden flex gap-2 px-4 pb-3">
           {[
-            { label: 'Flares', value: posts.length },
-            { label: 'Trusted', value: `${trustedPercent}%` },
-            { label: 'Dist', value: avgDistance ? `${avgDistance}km` : '—' },
-            { label: 'Skills', value: skills.length },
+            { label: t('Flares'), value: posts.length },
+            { label: t('Trusted'), value: `${trustedPercent}%` },
+            { label: t('Dist'), value: avgDistance ? `${avgDistance}km` : '—' },
+            { label: t('Skills'), value: skills.length },
           ].map(({ label, value }) => (
             <div
               key={label}
@@ -275,11 +280,11 @@ export default function Board() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold mb-4" style={{ background: 'rgba(196,135,58,0.2)', color: 'var(--color-amber)', border: '1px solid rgba(196,135,58,0.3)' }}>
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-amber)] animate-pulse" />
-                Live Community
+                {t('Live Community')}
               </div>
-              <h1 className="font-heading text-4xl text-white leading-tight mb-2">Community Board</h1>
+              <h1 className="font-heading text-4xl text-white leading-tight mb-2">{t('Community Board')}</h1>
               <p className="font-body text-white/60 text-[15px] leading-relaxed max-w-lg">
-                Discover local flares and skill listings — all in one place. Ranked by trust and proximity.
+                {t('Discover local flares and skill listings — all in one place. Ranked by trust and proximity.')}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-3 md:flex-shrink-0">
@@ -290,24 +295,24 @@ export default function Board() {
                 style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)' }}
               >
                 <Crosshair className="w-4 h-4" />
-                {locationLoading ? 'Locating...' : viewerLocation ? 'Location Active' : 'Use My Location'}
+                {locationLoading ? t('Locating...') : viewerLocation ? t('Location Active') : t('Use My Location')}
               </button>
               <button
                 onClick={() => setShowNewPost(true)}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-2xl text-sm font-semibold font-body text-white transition-all hover:opacity-90"
                 style={{ background: 'var(--color-amber)', boxShadow: '0 4px 16px rgba(196,135,58,0.4)' }}
               >
-                <Plus className="w-4 h-4" /> Drop a Flare
+                <Plus className="w-4 h-4" /> {t('Drop a Flare')}
               </button>
             </div>
           </div>
           {/* Stats strip */}
           <div className="relative mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Active Flares', value: posts.length },
-              { label: 'Trusted Authors', value: `${trustedPercent}%` },
-              { label: 'Avg Distance', value: avgDistance ? `${avgDistance} km` : '—' },
-              { label: 'Skills Listed', value: skills.length },
+              { label: t('Active Flares'), value: posts.length },
+              { label: t('Trusted Authors'), value: `${trustedPercent}%` },
+              { label: t('Avg Distance'), value: avgDistance ? `${avgDistance} km` : '—' },
+              { label: t('Skills Listed'), value: skills.length },
             ].map(({ label, value }) => (
               <div
                 key={label}
@@ -329,7 +334,7 @@ export default function Board() {
           className={`flex flex-1 sm:flex-none justify-center items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold font-body transition-all ${activeTab === 'board' ? 'bg-white text-navy shadow-sm' : 'text-[var(--color-text-muted)] hover:text-navy'}`}
         >
           <Flame className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          City Flares
+          {t('City Flares')}
           {posts.length > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-white" style={{ background: 'var(--color-amber)' }}>
               {posts.length}
@@ -341,7 +346,7 @@ export default function Board() {
           className={`flex flex-1 sm:flex-none justify-center items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-5 sm:py-2.5 rounded-xl text-xs sm:text-sm font-semibold font-body transition-all ${activeTab === 'skills' ? 'bg-white text-navy shadow-sm' : 'text-[var(--color-text-muted)] hover:text-navy'}`}
         >
           <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-          Browse Skills
+          {t('Browse Skills')}
           {skills.length > 0 && (
             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full text-[var(--color-text-muted)]" style={{ background: 'var(--color-parchment)' }}>
               {filteredSkills.length}
@@ -361,7 +366,7 @@ export default function Board() {
             <div className="lg:hidden space-y-2">
               <div className="flex gap-2">
                 <button onClick={() => setShowMapModal(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-[var(--color-border)] text-navy font-semibold text-xs shadow-sm flex-shrink-0">
-                  <MapPin className="w-3.5 h-3.5" /> Signal Map
+                  <MapPin className="w-3.5 h-3.5" /> {t('Signal Map')}
                 </button>
                 <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
                   {[{ label: 'All', value: 'all' }, ...BOARD_POST_TYPES.map(t => ({ label: t.label, value: t.value }))].map((f) => (
@@ -384,9 +389,9 @@ export default function Board() {
             <section className="sc-card overflow-hidden hidden lg:flex flex-col">
               <div className="p-5 border-b border-[var(--color-border)] flex flex-wrap justify-between items-center gap-4" style={{ background: 'rgba(255,255,255,0.5)' }}>
                 <div>
-                  <h2 className="font-heading text-lg text-navy">Local Signal Map</h2>
+                  <h2 className="font-heading text-lg text-navy">{t('Local Signal Map')}</h2>
                   <p className="font-body text-[13px] text-[var(--color-text-secondary)]">
-                    Ranked by live relationship signals & distance.
+                    {t('Ranked by live relationship signals & distance.')}
                   </p>
                 </div>
                 <div className="flex bg-parchment p-1 rounded-xl border border-[var(--color-border)]">
@@ -396,7 +401,7 @@ export default function Board() {
                       onClick={() => setViewMode(m)}
                       className={`px-4 py-1.5 rounded-lg text-xs font-semibold font-body transition-all capitalize ${viewMode === m ? 'bg-white text-navy shadow-sm' : 'text-[var(--color-text-muted)] hover:text-navy'}`}
                     >
-                      {m === 'map' ? 'Map View' : 'Feed Only'}
+                      {m === 'map' ? t('Map View') : t('Feed Only')}
                     </button>
                   ))}
                 </div>
@@ -431,7 +436,7 @@ export default function Board() {
                           <div className="min-w-0">
                             <div className="font-semibold text-sm text-navy truncate">{activePoint.title}</div>
                             <div className="text-[11px] text-[var(--color-text-secondary)] mt-0.5">
-                              Score {Math.round(activePoint.score.total)}/100{activePoint.distance_km !== null ? ` · ${activePoint.distance_km.toFixed(1)} km` : ''}
+                              {t('Score')} {Math.round(activePoint.score.total)}/100{activePoint.distance_km !== null ? ` · ${activePoint.distance_km.toFixed(1)} km` : ''}
                             </div>
                           </div>
                           <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-[var(--color-amber)] text-white">
@@ -449,8 +454,8 @@ export default function Board() {
                 ) : (
                   <div className="w-full h-[360px] rounded-2xl border border-dashed border-[var(--color-border)] bg-gray-50 flex items-center justify-center flex-col shrink-0">
                     <MapPin className="w-8 h-8 text-[var(--color-text-muted)] mb-3" />
-                    <span className="text-sm font-semibold text-navy font-body">Feed mode active</span>
-                    <span className="text-xs text-[var(--color-text-secondary)] font-body mt-1">Switch to Map View to inspect geo-ranked flares.</span>
+                    <span className="text-sm font-semibold text-navy font-body">{t('Feed mode active')}</span>
+                    <span className="text-xs text-[var(--color-text-secondary)] font-body mt-1">{t('Switch to Map View to inspect geo-ranked flares.')}</span>
                   </div>
                 )}
               </div>
@@ -460,15 +465,15 @@ export default function Board() {
             <div className="flex flex-col gap-6">
               <section className="sc-card">
                 <div className="p-4 border-b border-[var(--color-border)]" style={{ background: 'rgba(255,255,255,0.5)' }}>
-                  <h2 className="font-heading text-base text-navy">Board Signals</h2>
-                  <p className="font-body text-xs text-[var(--color-text-secondary)]">Live metrics & trust.</p>
+                  <h2 className="font-heading text-base text-navy">{t('Board Signals')}</h2>
+                  <p className="font-body text-xs text-[var(--color-text-secondary)]">{t('Live metrics & trust.')}</p>
                 </div>
                 <div className="p-3 sm:p-4 grid grid-cols-4 sm:grid-cols-2 gap-2 sm:gap-3">
                   {[
-                    { label: 'Active Flares', value: posts.length },
-                    { label: 'Trusted Authors', value: `${trustedPercent}%` },
-                    { label: 'Avg Distance', value: avgDistance ? `${avgDistance}km` : '—' },
-                    { label: 'Open Bounties', value: posts.filter((p) => p.type === 'bounty').length },
+                    { label: t('Active Flares'), value: posts.length },
+                    { label: t('Trusted Authors'), value: `${trustedPercent}%` },
+                    { label: t('Avg Distance'), value: avgDistance ? `${avgDistance}km` : '—' },
+                    { label: t('Open Bounties'), value: posts.filter((p) => p.type === 'bounty').length },
                   ].map(({ label, value }) => (
                     <div key={label} className="bg-parchment p-2 sm:p-3 rounded-lg sm:rounded-xl border border-[var(--color-border)] text-center sm:text-left">
                       <strong className="block font-heading text-lg sm:text-xl text-navy">{value}</strong>
@@ -480,18 +485,18 @@ export default function Board() {
 
               <section className="sc-card flex-1">
                 <div className="p-4 border-b border-[var(--color-border)]" style={{ background: 'rgba(255,255,255,0.5)' }}>
-                  <h2 className="font-heading text-base text-navy">Smart Matches</h2>
-                  <p className="font-body text-xs text-[var(--color-text-secondary)]">Relationship-ranked opportunities.</p>
+                  <h2 className="font-heading text-base text-navy">{t('Smart Matches')}</h2>
+                  <p className="font-body text-xs text-[var(--color-text-secondary)]">{t('Relationship-ranked opportunities.')}</p>
                 </div>
                 <div className="p-4 space-y-3">
                   {smartMatches.length === 0 ? (
-                    <p className="text-xs text-[var(--color-text-secondary)] font-body py-4">No matches yet. Add location & skills to unlock ranking.</p>
+                    <p className="text-xs text-[var(--color-text-secondary)] font-body py-4">{t('No matches yet. Add location & skills to unlock ranking.')}</p>
                   ) : (
                     smartMatches.map((post) => (
                       <div key={post.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-[var(--color-border)] shadow-sm">
                         <div className="min-w-0">
                           <strong className="block text-sm font-semibold text-navy font-body mb-0.5 truncate">{post.title}</strong>
-                          <span className="text-[11px] text-[var(--color-text-secondary)] font-body">{post.reasons[0] ?? 'Relationship signal detected'}</span>
+                          <span className="text-[11px] text-[var(--color-text-secondary)] font-body">{post.reasons[0] ?? t('Relationship signal detected')}</span>
                         </div>
                         <span className="text-[10px] font-bold px-2 py-1 rounded-lg bg-green-50 text-green-700 flex-shrink-0 ml-2">{Math.round(post.score.total)}</span>
                       </div>
@@ -506,11 +511,11 @@ export default function Board() {
           <section className="sc-card overflow-hidden">
             <div className="p-5 border-b border-[var(--color-border)] flex items-center justify-between flex-wrap gap-4" style={{ background: 'rgba(244,240,232,0.5)' }}>
               <div>
-                <h2 className="font-heading text-lg text-navy">Community Feed</h2>
-                <p className="font-body text-[13px] text-[var(--color-text-secondary)]">Sorted by relationship score & distance.</p>
+                <h2 className="font-heading text-lg text-navy">{t('Community Feed')}</h2>
+                <p className="font-body text-[13px] text-[var(--color-text-secondary)]">{t('Sorted by relationship score & distance.')}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {['Relationship First', 'Distance Aware'].map((label) => (
+                {[t('Relationship First'), t('Distance Aware')].map((label) => (
                   <span key={label} className="px-3 py-1 rounded-full border border-[var(--color-border)] bg-white text-xs font-semibold text-navy font-body shadow-sm">{label}</span>
                 ))}
               </div>
@@ -519,13 +524,13 @@ export default function Board() {
               {boardLoading ? (
                 <div className="py-12 text-center text-[var(--color-text-muted)] font-body text-sm flex flex-col items-center">
                   <span className="w-6 h-6 border-2 border-[var(--color-amber)] border-t-transparent rounded-full animate-spin mb-3" />
-                  Loading flares...
+                  {t('Loading flares...')}
                 </div>
               ) : rankedPosts.length === 0 ? (
                 <div className="py-16 text-center border border-dashed border-[var(--color-border)] rounded-2xl bg-gray-50">
                   <Search className="w-8 h-8 text-[var(--color-text-muted)] mx-auto mb-3" />
-                  <div className="font-heading text-lg text-navy mb-1">No active flares yet</div>
-                  <p className="font-body text-sm text-[var(--color-text-secondary)]">Be the first to drop a flare and start the local network.</p>
+                  <div className="font-heading text-lg text-navy mb-1">{t('No active flares yet')}</div>
+                  <p className="font-body text-sm text-[var(--color-text-secondary)]">{t('Be the first to drop a flare and start the local network.')}</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -553,7 +558,7 @@ export default function Board() {
                               <strong className="block text-sm font-bold text-navy font-body truncate">{post.author?.first_name} {post.author?.last_name}</strong>
                               <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-body text-[var(--color-text-secondary)] mt-0.5">
                                 {post.neighborhood && <span className="flex items-center gap-0.5"><MapPin className="w-3 h-3" />{post.neighborhood}</span>}
-                                <span>{timeAgo(post.created_at)}</span>
+                                <span>{timeAgo(post.created_at, t)}</span>
                               </div>
                             </div>
                           </div>
@@ -583,13 +588,13 @@ export default function Board() {
                                 className={`flex-1 py-2 shadow-sm !text-xs ${post.type === 'bounty' ? 'btn-navy' : 'btn-amber'}`}
                                 onClick={() => { void trackSignal(post.author_id, 'board_connect_click'); toast.info('Connection request logged'); }}
                               >
-                                {post.type === 'offering' ? 'Book Session' : post.type === 'bounty' ? 'Claim Bounty' : 'Connect'}
+                                {post.type === 'offering' ? t('Book Session') : post.type === 'bounty' ? t('Claim Bounty') : t('Connect')}
                               </button>
                               <button
                                 className="flex-1 py-2 btn-outline-navy !text-xs font-semibold"
                                 onClick={() => { void trackSignal(post.author_id, 'board_profile_view'); toast.info('Profile signal logged'); }}
                               >
-                                View Profile
+                                {t('View Profile')}
                               </button>
                             </>
                           )}
@@ -613,7 +618,7 @@ export default function Board() {
           <SearchBar
             value={search}
             onChange={setSearch}
-            placeholder="What do you want to learn? Try 'piano', 'Python', 'cooking'…"
+            placeholder={t("What do you want to learn? Try 'piano', 'Python', 'cooking'…")}
           />
 
           {/* Category chips */}
@@ -623,14 +628,14 @@ export default function Board() {
               className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${showFreeOnly ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
               style={showFreeOnly ? { background: 'var(--color-forest)' } : {}}
             >
-              <Gift className="w-3.5 h-3.5" /> Free
+              <Gift className="w-3.5 h-3.5" /> {t('Free')}
             </button>
             <button
               onClick={() => setShowGroupsOnly(!showGroupsOnly)}
               className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${showGroupsOnly ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
               style={showGroupsOnly ? { background: 'var(--color-plum)' } : {}}
             >
-              <Users className="w-3.5 h-3.5" /> Groups
+              <Users className="w-3.5 h-3.5" /> {t('Groups')}
             </button>
             <div className="w-px h-5 bg-[var(--color-border)] flex-shrink-0" />
             <button
@@ -638,7 +643,7 @@ export default function Board() {
               className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-semibold font-body transition-all ${selectedCategory === 'all' ? 'text-white' : 'bg-white border border-[var(--color-border)] text-[var(--color-text-secondary)]'}`}
               style={selectedCategory === 'all' ? { background: 'var(--color-navy)' } : {}}
             >
-              All Skills
+              {t('All Skills')}
             </button>
             {categoriesWithCounts.map((cat) => (
               <button
@@ -661,7 +666,7 @@ export default function Board() {
               <div className="sc-card p-4 space-y-5">
                 {/* Region */}
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">Region</div>
+                  <div className="text-xs font-semibold uppercase tracking-wider font-body text-[var(--color-text-muted)] mb-2.5">{t('Region')}</div>
                   <div className="space-y-1.5">
                     {[['all', 'All Morocco'] as const, ...MOROCCO_REGIONS.map((r) => [r, r] as const)].map(([val, label]) => (
                       <button
@@ -671,7 +676,7 @@ export default function Board() {
                         style={selectedNeighborhood === val ? { color: 'var(--color-amber)', background: '#FFF3E0' } : {}}
                       >
                         {val === 'all' && <MapPin className="w-3.5 h-3.5" />}
-                        {label}
+                        {val === 'all' ? t('All Morocco') : label}
                       </button>
                     ))}
                   </div>

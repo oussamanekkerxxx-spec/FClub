@@ -1,5 +1,8 @@
+import React from 'react';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { motion } from 'framer-motion';
+import { springs } from '@/lib/animation';
 import {
   Trash2, Reply, Edit2, CornerUpLeft, Pin, Smile, Check, CheckCheck,
   FileText, ExternalLink, MapPin, BarChart2, CornerDownRight,
@@ -8,6 +11,8 @@ import AudioPlayerBubble from '@/components/AudioPlayerBubble';
 import { ProjectBubble, type ClubProject } from '@/components/chat/ProjectBubble';
 import { supabase } from '@/lib/supabase';
 import { extractFileNameFromUrl, normalizeHttpUrl } from '@/lib/safeUrl';
+import { useChatStore } from '@/features/club-chat/store/chatStore';
+import { parseMessageContent } from '@/features/club-chat/lib/parseMessageContent';
 import type { ChannelRead } from '@/types/clubs';
 import type { ClubMessage } from '@/types/clubs';
 
@@ -25,12 +30,12 @@ interface MessageItemProps {
   marginTopClass: string;
   showDateDivider: boolean;
   dateDividerText: string;
-  currentUserId: string | undefined;
-  isAdminOrMod: boolean;
-  channelReads: ChannelRead[];
-  allMessages: ChatMessage[];
-  searchQuery: string;
-  parseMessageContent: (text: string, query: string) => React.ReactNode;
+  currentUserId?: string | undefined;
+  isAdminOrMod?: boolean;
+  channelReads?: ChannelRead[];
+  allMessages?: ChatMessage[];
+  searchQuery?: string;
+  parseMessageContent?: (text: string, query: string) => React.ReactNode;
   onReply: (msg: ChatMessage) => void;
   onEdit: (msg: ChatMessage) => void;
   onDelete: (msgId: string) => void;
@@ -42,7 +47,7 @@ interface MessageItemProps {
   onViewApplicants: (project: ClubProject) => void;
 }
 
-export default function MessageItem({
+const MessageItem = React.memo(function MessageItemInternal({
   msg,
   isOwn,
   isGroupFirst,
@@ -51,12 +56,12 @@ export default function MessageItem({
   marginTopClass,
   showDateDivider,
   dateDividerText,
-  currentUserId,
-  isAdminOrMod,
-  channelReads,
-  allMessages,
-  searchQuery,
-  parseMessageContent,
+  currentUserId: propCurrentUserId,
+  isAdminOrMod: propIsAdminOrMod,
+  channelReads: propChannelReads,
+  allMessages: propAllMessages,
+  searchQuery: propSearchQuery,
+  parseMessageContent: propParseMessageContent,
   onReply,
   onEdit,
   onDelete,
@@ -68,6 +73,18 @@ export default function MessageItem({
   onViewApplicants,
 }: MessageItemProps) {
   const msgDate = new Date(msg.created_at);
+  const storeCurrentUserId = useChatStore((s) => s.user?.id);
+  const storeIsAdminOrMod = useChatStore((s) => s.ui.isAdminOrMod);
+  const storeChannelReads = useChatStore((s) => s.channelReads);
+  const storeAllMessages = useChatStore((s) => s.messages);
+  const storeSearchQuery = useChatStore((s) => s.ui.searchQuery);
+
+  const currentUserId = propCurrentUserId ?? storeCurrentUserId;
+  const isAdminOrMod = propIsAdminOrMod ?? storeIsAdminOrMod;
+  const channelReads = propChannelReads ?? storeChannelReads;
+  const allMessages = propAllMessages ?? storeAllMessages;
+  const searchQuery = propSearchQuery ?? storeSearchQuery ?? '';
+  const parseMessageContentFn = propParseMessageContent ?? parseMessageContent;
 
   return (
     <div key={msg.id} data-message-id={msg.id} className="flex flex-col">
@@ -117,25 +134,30 @@ export default function MessageItem({
                 ${isOwn ? '-left-[150px]' : '-right-[150px]'}
               `}>
                 <div className="relative group/react inline-block">
-                  <button title="React" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-amber-500"><Smile className="w-4 h-4" /></button>
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/react:flex items-center gap-1 bg-white border border-[var(--color-border)] shadow-lg rounded-full p-1 opacity-0 group-hover/react:opacity-100 transition-opacity animate-in fade-in zoom-in-95">
+                  <button title="React" aria-label="Add reaction" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-amber-500"><Smile className="w-4 h-4" /></button>
+                  <motion.div
+                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/react:flex items-center gap-1 bg-white border border-[var(--color-border)] shadow-lg rounded-full p-1 opacity-0 group-hover/react:opacity-100 transition-opacity"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={springs.menu}
+                  >
                     {['👍', '❤️', '😂', '😮', '😢', '😡'].map(e => (
                       <button key={e} onClick={() => onToggleReaction(msg.id, e)} className="hover:bg-black/5 hover:scale-110 transition-transform rounded-full w-7 h-7 flex items-center justify-center text-sm">{e}</button>
                     ))}
-                  </div>
+                  </motion.div>
                 </div>
 
-                <button onClick={() => onReply(msg)} title="Reply" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-navy"><Reply className="w-4 h-4" /></button>
-                {isOwn && <button onClick={() => onEdit(msg)} title="Edit" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-blue-500"><Edit2 className="w-4 h-4" /></button>}
-                <button onClick={() => onForward(msg)} title="Forward" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-emerald-500"><CornerUpLeft className="w-4 h-4" style={{ transform: 'scaleX(-1)' }} /></button>
-                {isAdminOrMod && <button onClick={() => onPin(msg)} title="Pin" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-amber-500"><Pin className="w-4 h-4" /></button>}
-                {(isOwn || isAdminOrMod) && <button onClick={() => onDelete(msg.id)} title="Delete" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
+                <button onClick={() => onReply(msg)} title="Reply" aria-label="Reply to message" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-navy"><Reply className="w-4 h-4" /></button>
+                {isOwn && <button onClick={() => onEdit(msg)} title="Edit" aria-label="Edit message" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-blue-500"><Edit2 className="w-4 h-4" /></button>}
+                <button onClick={() => onForward(msg)} title="Forward" aria-label="Forward message" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-emerald-500"><CornerUpLeft className="w-4 h-4" style={{ transform: 'scaleX(-1)' }} /></button>
+                {isAdminOrMod && <button onClick={() => onPin(msg)} title="Pin" aria-label="Pin message" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-amber-500"><Pin className="w-4 h-4" /></button>}
+                {(isOwn || isAdminOrMod) && <button onClick={() => onDelete(msg.id)} title="Delete" aria-label="Delete message" className="p-1.5 hover:bg-black/5 rounded-full text-[var(--color-text-secondary)] hover:text-red-500"><Trash2 className="w-4 h-4" /></button>}
               </div>
             )}
 
             {/* Deleted State Guard */}
             {msg.deleted_at ? (
-              <div className={`px-3.5 py-2.5 text-[13px] font-body text-[var(--color-text-muted)] italic bg-white shadow-sm border border-[var(--color-border)] ${bubbleRadius} flex items-center gap-2`}>
+              <div className={`px-3.5 py-2.5 text-[13px] font-body text-[var(--color-text-muted)] italic bg-white/60 backdrop-blur-md shadow-sm border border-white/40 ${bubbleRadius} flex items-center gap-2`}>
                 <Trash2 className="w-3.5 h-3.5 opacity-50" /> This message was deleted.
               </div>
             ) : (
@@ -152,7 +174,7 @@ export default function MessageItem({
                           <button
                             key={emoji}
                             onClick={() => onToggleReaction(msg.id, emoji)}
-                            className={`flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.05)] border transition-colors ${iReacted ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-black/5'}`}
+                            className={`flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded-full shadow-[0_1px_2px_rgba(0,0,0,0.05)] border transition-colors ${iReacted ? 'bg-blue-500/20 border-blue-300/40 backdrop-blur-sm text-blue-600' : 'bg-white/50 border-white/40 backdrop-blur-sm text-[var(--color-text-secondary)] hover:bg-white/70'}`}
                           >
                             <span>{emoji}</span><span>{count}</span>
                           </button>
@@ -172,7 +194,7 @@ export default function MessageItem({
 
                 {/* Reply Quote Block */}
                 {msg.reply_to_id && (() => {
-                  const quoted = allMessages.find(m => m.id === msg.reply_to_id);
+                  const quoted = allMessages.find((m: any) => m.id === msg.reply_to_id);
                   if (!quoted) return null;
                   return (
                     <div className={`text-[12px] pl-2.5 py-1 mb-0.5 border-l-2 cursor-pointer max-w-[200px] sm:max-w-[260px] text-left
@@ -182,7 +204,7 @@ export default function MessageItem({
                       el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }}>
                       <div className="font-bold truncate opacity-90">{quoted.sender?.first_name || 'Member'}</div>
-                      <div className="truncate opacity-75">{quoted.content || 'Attachment'}</div>
+                      <div className="truncate opacity-75">{(quoted as any).content || 'Attachment'}</div>
                     </div>
                   );
                 })()}
@@ -192,11 +214,17 @@ export default function MessageItem({
                   <div
                     className={`relative overflow-hidden shadow-sm cursor-pointer border border-black/5 outline-none select-none ${bubbleRadius} shrink-0`}
                     onClick={(e) => { e.preventDefault(); onViewImage(msg); }}
-                    style={{ WebkitTapHighlightColor: 'transparent', transform: 'translateZ(0)' }}
+                    style={{
+                      WebkitTapHighlightColor: 'transparent',
+                      transform: 'translateZ(0)',
+                      ...(msg.image_width && msg.image_height ? { aspectRatio: `${msg.image_width} / ${msg.image_height}` } : {}),
+                    }}
                   >
                     <img
                       src={msg.image_url}
                       alt=""
+                      loading="lazy"
+                      decoding="async"
                       draggable={false}
                       className="w-full h-auto max-h-60 max-w-[280px] sm:max-w-xs object-cover block"
                     />
@@ -204,7 +232,7 @@ export default function MessageItem({
                 )}
                 {msg.image_url && msg.caption && (
                   <div className={`px-3.5 py-2 text-[14px] font-body leading-relaxed shadow-sm break-words max-w-[280px] sm:max-w-xs ${bubbleRadius}
-                    ${isOwn ? 'bg-gradient-to-br from-[var(--color-navy)] to-slate-800 text-white' : 'bg-white text-[#1E293B] border border-gray-100/50'}`}>
+                    ${isOwn ? 'bg-[var(--color-navy)]/70 backdrop-blur-md text-white shadow-sm' : 'bg-white/60 backdrop-blur-md text-[#1E293B] border border-white/40 shadow-sm'}`}>
                     {msg.caption}
                   </div>
                 )}
@@ -213,18 +241,22 @@ export default function MessageItem({
                 {msg.video_url && (
                   <div
                     className={`relative overflow-hidden shadow-sm bg-black border border-black/5 ${bubbleRadius} shrink-0`}
-                    style={{ transform: 'translateZ(0)' }}
+                    style={{
+                      transform: 'translateZ(0)',
+                      ...(msg.video_width && msg.video_height ? { aspectRatio: `${msg.video_width} / ${msg.video_height}` } : {}),
+                    }}
                   >
                     <video
                       src={msg.video_url}
                       controls
+                      preload="none"
                       className="w-full h-auto max-h-52 max-w-[280px] sm:max-w-xs object-cover block"
                     />
                   </div>
                 )}
                 {msg.video_url && msg.caption && (
                   <div className={`px-3.5 py-2 text-[14px] font-body leading-relaxed shadow-sm break-words max-w-[280px] sm:max-w-xs ${bubbleRadius}
-                    ${isOwn ? 'bg-gradient-to-br from-[var(--color-navy)] to-slate-800 text-white' : 'bg-white text-[#1E293B] border border-gray-100/50'}`}>
+                    ${isOwn ? 'bg-[var(--color-navy)]/70 backdrop-blur-md text-white shadow-sm' : 'bg-white/60 backdrop-blur-md text-[#1E293B] border border-white/40 shadow-sm'}`}>
                     {msg.caption}
                   </div>
                 )}
@@ -240,8 +272,8 @@ export default function MessageItem({
                       rel="noopener noreferrer"
                       className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium shadow-sm max-w-xs ${bubbleRadius}
                         ${isOwn
-                          ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-indigo-500/10'
-                          : 'bg-white text-navy border border-[var(--color-border)]'
+                          ? 'bg-blue-600/70 backdrop-blur-md text-white shadow-sm'
+                          : 'bg-white/60 backdrop-blur-md text-navy border border-white/40 shadow-sm'
                         }`}
                     >
                       <FileText className={`w-4 h-4 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-red-400'}`} />
@@ -258,9 +290,9 @@ export default function MessageItem({
 
                 {/* Location */}
                 {msg.location_lat && msg.location_lng && (
-                  <div className={`flex flex-col overflow-hidden shadow-sm w-[240px] ${bubbleRadius} ${isOwn ? 'bg-gradient-to-br from-cyan-500 to-blue-600 text-white' : 'bg-white text-navy border border-[var(--color-border)]'}`}>
+                  <div className={`flex flex-col overflow-hidden shadow-sm w-[240px] ${bubbleRadius} ${isOwn ? 'bg-cyan-500/70 backdrop-blur-md text-white shadow-sm' : 'bg-white/60 backdrop-blur-md text-navy border border-white/40 shadow-sm'}`}>
                     <div className="h-28 w-full bg-slate-200 relative">
-                      <img src={`https://static-maps.yandex.ru/1.x/?lang=en-US&ll=${msg.location_lng},${msg.location_lat}&z=14&l=map&size=240,112&pt=${msg.location_lng},${msg.location_lat},pm2ntl`} alt="Map" className="w-full h-full object-cover" />
+                      <img src={`https://static-maps.yandex.ru/1.x/?lang=en-US&ll=${msg.location_lng},${msg.location_lat}&z=14&l=map&size=240,112&pt=${msg.location_lng},${msg.location_lat},pm2ntl`} alt="Map" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </div>
                     <div className="px-3 py-2.5 text-[13px] font-medium flex items-center justify-between">
                       <span className="flex items-center gap-2"><MapPin className={`w-4 h-4 ${isOwn ? 'text-white/80' : 'text-cyan-600'}`} /> Shared Location</span>
@@ -301,7 +333,7 @@ export default function MessageItem({
 
                 {/* Poll */}
                 {msg.poll && (
-                  <div className={`flex flex-col shadow-sm w-[260px] p-3 ${bubbleRadius} ${isOwn ? 'bg-gradient-to-br from-orange-500 to-amber-600 text-white' : 'bg-white text-navy border border-[var(--color-border)]'}`}>
+                  <div className={`flex flex-col shadow-sm w-[260px] p-3 ${bubbleRadius} ${isOwn ? 'bg-orange-500/70 backdrop-blur-md text-white shadow-sm' : 'bg-white/60 backdrop-blur-md text-navy border border-white/40 shadow-sm'}`}>
                     <div className="flex items-start gap-2.5 mb-3">
                       <BarChart2 className={`w-5 h-5 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-orange-500'}`} />
                       <div>
@@ -354,13 +386,13 @@ export default function MessageItem({
                   <div
                     className={`px-3.5 py-2 text-[15px] font-body leading-[1.45] shadow-sm break-words ${bubbleRadius}
                       ${isOwn
-                        ? 'bg-gradient-to-br from-[var(--color-navy)] to-slate-800 text-white shadow-slate-800/10'
-                        : 'bg-white text-[#1E293B] border border-gray-100/50'
+                        ? 'bg-[var(--color-navy)]/70 backdrop-blur-md text-white shadow-sm'
+                        : 'bg-white/60 backdrop-blur-md text-[#1E293B] border border-white/40 shadow-sm'
                       }
                     `}
                     style={{ minWidth: '80px' }}
                   >
-                    <span className="whitespace-pre-wrap leading-relaxed">{parseMessageContent(msg.content, searchQuery)}</span>
+                    <span className="whitespace-pre-wrap leading-relaxed">{parseMessageContentFn(msg.content, searchQuery)}</span>
                     <span className={`float-right flex items-center gap-1 text-[10px] select-none ml-3 mt-2 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>
                       {msg.is_edited && <span className="opacity-70 italic mr-0.5">edited</span>}
                       {format(msgDate, 'h:mm a')}
@@ -376,7 +408,7 @@ export default function MessageItem({
 
                 {/* Media-only / project timestamp — shown when there is no text bubble */}
                 {(!msg.content || msg.poll || msg.project || msg.voice_url || msg.content === 'Shared Location' || msg.image_url || msg.video_url || msg.pdf_url) && (!msg.content || msg.poll || msg.project || msg.voice_url || msg.content === 'Shared Location') && (
-                  <div className={`flex items-center gap-1 text-[10px] select-none px-1 mt-0.5 justify-end w-full ${isOwn ? 'text-[var(--color-text-muted)]' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 text-[10px] select-none px-1 mt-0.5 justify-end w-full ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
                     {msg.is_edited && <span className="opacity-70 italic mr-0.5">edited</span>}
                     {format(msgDate, 'h:mm a')}
                     {isOwn && (
@@ -393,4 +425,33 @@ export default function MessageItem({
       </div>
     </div>
   );
-}
+}, (prev, next) => {
+  return (
+    prev.msg.id === next.msg.id &&
+    prev.msg.content === next.msg.content &&
+    prev.msg.deleted_at === next.msg.deleted_at &&
+    prev.msg.reactions === next.msg.reactions &&
+    prev.msg.poll === next.msg.poll &&
+    prev.msg.is_edited === next.msg.is_edited &&
+    prev.msg.image_url === next.msg.image_url &&
+    prev.msg.video_url === next.msg.video_url &&
+    prev.msg.pdf_url === next.msg.pdf_url &&
+    prev.msg.voice_url === next.msg.voice_url &&
+    prev.msg.forwarded_from_name === next.msg.forwarded_from_name &&
+    prev.msg.project?.id === next.msg.project?.id &&
+    // Sender fields — must be checked so the bubble re-renders when profile
+    // data arrives after a realtime INSERT (raw row has no sender relation)
+    prev.msg.sender?.first_name === next.msg.sender?.first_name &&
+    prev.msg.sender?.last_name === next.msg.sender?.last_name &&
+    prev.msg.sender?.avatar_url === next.msg.sender?.avatar_url &&
+    prev.isOwn === next.isOwn &&
+    prev.isGroupFirst === next.isGroupFirst &&
+    prev.isGroupLast === next.isGroupLast &&
+    prev.bubbleRadius === next.bubbleRadius &&
+    prev.marginTopClass === next.marginTopClass &&
+    prev.showDateDivider === next.showDateDivider &&
+    prev.dateDividerText === next.dateDividerText
+  );
+});
+
+export default MessageItem;

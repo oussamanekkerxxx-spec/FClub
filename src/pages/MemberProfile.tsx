@@ -4,6 +4,7 @@ import { useAuth, type TrustTier } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import VerifiedProfileCard from '@/components/profile/VerifiedProfileCard';
+import PublicTrustCard from '@/components/profile/PublicTrustCard';
 import { toast } from 'sonner';
 import { ArrowLeft, MapPin, Star, Shield, Loader2, MessageCircle, BookOpen } from 'lucide-react';
 import type { User } from '@/contexts/AuthContext';
@@ -234,6 +235,16 @@ export default function MemberProfile() {
           </div>
         </div>
       )}
+
+      {/* Trust Summary */}
+      <PublicTrustCard
+        userId={member.id}
+        sessionsCompleted={member.sessions_completed}
+        reviewsCount={member.reviews_count}
+        trustScore={member.trust_score}
+        trustTier={member.trust_tier}
+        idVerified={member.id_verified}
+      />
 
       {/* Message button */}
       {user && user.id !== member.id && (

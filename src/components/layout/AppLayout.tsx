@@ -1,5 +1,10 @@
-import { useState } from 'react';
+import type React from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { AnimatePresence } from 'framer-motion';
+import { useT } from '@/lib/t';
+import { AmbientBackground } from './AmbientBackground';
+import { PageTransition } from './PageTransition';
+import MobileBottomNav from './MobileBottomNav';
 import { useAuth, type TrustTier } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
@@ -15,8 +20,6 @@ import {
   MessageCircle,
   User,
   Settings,
-  Menu,
-  X,
   LogOut,
   ChevronUp,
   GraduationCap,
@@ -27,6 +30,7 @@ import {
   Map,
   Flame,
   Users,
+  Home,
 } from 'lucide-react';
 
 const TIER_COLORS: Record<TrustTier, string> = {
@@ -55,20 +59,27 @@ interface NavItem {
   badge?: string | number;
 }
 
-const navItems: NavItem[] = [
-  { id: 'discover', icon: Flame,         label: 'Discover',     path: '/app/discover',  description: 'Community feed' },
-  { id: 'clubs',    icon: Users,         label: 'Clubs',        path: '/app/clubs',     description: 'All clubs in Morocco' },
-  { id: 'board',    icon: Map,           label: 'Board',         path: '/app/board',     description: 'Flares & skills' },
-  { id: 'messages', icon: MessageCircle, label: 'Messages',      path: '/app/messages',       description: 'Your conversations' },
-  { id: 'path',    icon: BookOpen,      label: 'Path',         path: '/app/path',          description: 'Share what you know' },
-  { id: 'profile',  icon: User,          label: 'My Profile',    path: '/app/profile',        description: 'Your member card' },
-];
+function useNavItems(): NavItem[] {
+  const { t } = useT();
+  return [
+    { id: 'home',     icon: Home,          label: t('Home'),         path: '/app/home',      description: t('Your clubs & activity') },
+    { id: 'discover', icon: Flame,         label: t('Discover'),     path: '/app/discover',  description: t('Community feed') },
+    { id: 'clubs',    icon: Users,         label: t('Clubs'),        path: '/app/clubs',     description: t('All clubs in Morocco') },
+    { id: 'board',    icon: Map,           label: t('Board'),        path: '/app/board',     description: t('Flares & skills') },
+    { id: 'messages', icon: MessageCircle, label: t('Messages'),     path: '/app/messages',  description: t('Your conversations') },
+    { id: 'path',     icon: BookOpen,      label: t('Path'),         path: '/app/path',      description: t('Share what you know') },
+    { id: 'profile',  icon: User,          label: t('My Profile'),   path: '/app/profile',   description: t('Your member card') },
+  ];
+}
 
 export default function AppLayout() {
   const { user, logout, getTrustLabel } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navItems = useNavItems();
+  const { t } = useT();
+
+  const isClubChatMobile = !!location.pathname.match(/\/club\/[^\/]+\/chat/);
 
   const handleLogout = () => {
     logout();
@@ -81,19 +92,10 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen flex" style={{ background: 'var(--color-bg)' }}>
-      {/* Mobile Overlay */}
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/40 z-40 lg:hidden backdrop-blur-sm"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar */}
+      <AmbientBackground />
+      {/* Sidebar — desktop only */}
       <aside
-        className={`fixed lg:sticky top-0 left-0 h-screen w-64 z-50 flex flex-col transition-transform duration-300 lg:translate-x-0 ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className="hidden md:flex sticky top-0 left-0 h-screen w-64 z-50 flex-col"
         style={{
           background: 'var(--color-navy)',
           borderRight: '1px solid rgba(255,255,255,0.06)',
@@ -101,31 +103,26 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div className="h-16 flex items-center justify-between px-5 border-b border-white/8">
-          <Link to="/app/discover" className="flex items-center gap-2.5" onClick={() => setIsSidebarOpen(false)}>
+          <Link to="/app/discover" className="flex items-center gap-2.5">
             <img 
               src="/logo.png" 
-              alt="Lumina Logo" 
+              alt="FightClub Logo" 
               className="w-8 h-8 object-contain rounded-xl overflow-hidden" 
             />
             <div>
               <span className="font-heading font-semibold text-base text-white tracking-wide">
-                Lumina
+                {t('FightClub')}
               </span>
             </div>
           </Link>
-          <button
-            className="lg:hidden p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
-            onClick={() => setIsSidebarOpen(false)}
-          >
-            <X className="w-4 h-4" />
-          </button>
+
         </div>
 
         {/* City Badge */}
         <div className="px-5 py-3 border-b border-white/8 flex-shrink-0">
           <div className="flex items-center gap-2 text-white/50 text-xs font-medium truncate">
             <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
-            <span className="truncate">{user?.location || 'Morocco'} · Lumina</span>
+            <span className="truncate">{user?.location || t('Morocco')} · {t('FightClub')}</span>
           </div>
         </div>
 
@@ -137,7 +134,9 @@ export default function AppLayout() {
               const onClubsRoute = location.pathname.startsWith('/app/clubs') || location.pathname.startsWith('/club/');
 
               const isActive =
-                item.id === 'discover'
+                item.id === 'home'
+                  ? location.pathname === '/app' || location.pathname.startsWith('/app/home')
+                  : item.id === 'discover'
                   ? onDiscover
                   : item.id === 'clubs'
                   ? onClubsRoute
@@ -147,7 +146,6 @@ export default function AppLayout() {
                 <Link
                   key={item.id}
                   to={item.path}
-                  onClick={() => setIsSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                     isActive
                       ? 'text-white'
@@ -185,12 +183,11 @@ export default function AppLayout() {
             <Link
               to="/app/settings"
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-white/45 hover:text-white hover:bg-white/8`}
-              onClick={() => setIsSidebarOpen(false)}
             >
               <div className="w-8 h-8 rounded-lg flex items-center justify-center">
                 <Settings className="w-4 h-4" />
               </div>
-              <span className="font-medium text-sm">Settings</span>
+              <span className="font-medium text-sm">{t('Settings')}</span>
             </Link>
           </div>
         </nav>
@@ -258,29 +255,21 @@ export default function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
-          className="h-14 flex items-center justify-between px-4 lg:px-6 sticky top-0 z-30"
+          className={`app-layout-header h-14 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 ${isClubChatMobile ? 'hidden md:flex' : ''}`}
           style={{
             background: 'rgba(244, 240, 232, 0.92)',
             backdropFilter: 'blur(12px)',
             borderBottom: '1px solid var(--color-border)',
           }}
         >
-          <div className="flex items-center gap-3">
-            <button
-              className="lg:hidden p-2 rounded-lg hover:bg-parchment-dark transition-colors -ml-2"
-              onClick={() => setIsSidebarOpen(true)}
-            >
-              <Menu className="w-5 h-5 text-navy" />
-            </button>
-            <Link to="/app/discover" className="lg:hidden flex items-center gap-2">
-              <img src="/logo.png" alt="Lumina Logo" className="w-7 h-7 object-contain rounded-lg" />
-              <span className="font-heading font-bold text-[var(--color-navy)]">Lumina</span>
-            </Link>
-          </div>
+          <Link to="/app/discover" className="md:hidden flex items-center gap-2">
+            <img src="/logo.png" alt="FightClub Logo" className="w-7 h-7 object-contain rounded-lg" />
+            <span className="font-heading font-bold text-[var(--color-navy)]">FightClub</span>
+          </Link>
 
           {/* Right */}
           <div className="flex items-center gap-2 ml-auto">
-            <Link to="/app/profile" className="lg:hidden">
+            <Link to="/app/profile" className="md:hidden">
               <Avatar className="w-8 h-8">
                 <AvatarImage src={user?.avatar} />
                 <AvatarFallback style={{ background: 'var(--color-amber)' }} className="text-white text-xs font-semibold">
@@ -289,7 +278,7 @@ export default function AppLayout() {
               </Avatar>
             </Link>
 
-            <div className="hidden lg:flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2">
               <div
                 className={`trust-badge ${tierClass}`}
               >
@@ -307,9 +296,15 @@ export default function AppLayout() {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
-          <Outlet />
+        <main className={`app-layout-main flex-1 overflow-y-auto ${isClubChatMobile ? 'p-0 pb-16 md:p-6' : 'p-4 pb-20 md:p-6'}`}>
+          <AnimatePresence mode="wait">
+            <PageTransition key={location.pathname}>
+              <Outlet />
+            </PageTransition>
+          </AnimatePresence>
         </main>
+
+        <MobileBottomNav />
       </div>
     </div>
   );

@@ -245,7 +245,11 @@ export interface ClubMessage {
   sender_id: string;
   content: string;
   image_url: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
   video_url: string | null;
+  video_width?: number | null;
+  video_height?: number | null;
   pdf_url: string | null;
   voice_url: string | null;
   location_lat: number | null;

@@ -1,14 +1,16 @@
+import { useState } from 'react';
 import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import {
   ArrowLeft, Search, X, MoreVertical, Layers, BellOff,
-  Trash2, UserRound, ArrowDown, Loader2, ChevronUp,
+  Trash2, UserRound, ArrowDown, Loader2, ChevronUp, Zap
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Link } from 'react-router-dom';
 import MessageItem from '@/components/club-chat/MessageItem';
 import MessageInput from '@/components/club-chat/MessageInput';
-import { normalizeHttpUrl } from '@/lib/safeUrl';
+import VirtualizedMessageList from '@/components/club-chat/VirtualizedMessageList';
+import { parseMessageContent as cachedParseMessageContent } from '@/features/club-chat/lib/parseMessageContent';
 
 function initials(first?: string, last?: string) {
   return `${first?.[0] ?? ''}${last?.[0] ?? ''}`.trim().toUpperCase() || '?';
@@ -30,42 +32,9 @@ interface DmChatMainPaneProps {
 
 export default function DmChatMainPane({ c }: DmChatMainPaneProps) {
   const selected = c.selectedConversation;
+  const [isPerformanceMode, setIsPerformanceMode] = useState(false);
 
-  function parseMessageContent(text: string, query: string) {
-    if (!text) return null;
-    let escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-    if (query.trim()) {
-      const q = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      escaped = escaped.replace(
-        new RegExp(`(${q})`, 'gi'),
-        '<mark class="bg-amber-200 text-navy rounded px-0.5">$1</mark>'
-      );
-    }
-
-    escaped = escaped.replace(/(?:\r\n|\r|\n)/g, '<br/>');
-    escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
-    escaped = escaped.replace(/\*(.*?)\*/g, '<i>$1</i>');
-    escaped = escaped.replace(/__(.*?)__/g, '<u>$1</u>');
-    escaped = escaped.replace(/~~(.*?)~~/g, '<del>$1</del>');
-    escaped = escaped.replace(/`(.*?)`/g, '<code class="font-mono text-[13px] bg-black/10 px-1 rounded">$1</code>');
-    escaped = escaped.replace(/\|\|(.*?)\|\|/g, '<span class="spoiler blur-sm hover:blur-none transition-all cursor-pointer select-none" title="Click to reveal">$1</span>');
-    escaped = escaped.replace(/^&gt;\s(.+)$/gm, '<blockquote class="border-l-2 border-current opacity-70 pl-2 my-0.5 italic">$1</blockquote>');
-    escaped = escaped.replace(/((?:https?:\/\/)[^\s<]+)/g, (rawUrl) => {
-      const urlValue = rawUrl.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-      const safeUrl = normalizeHttpUrl(urlValue);
-      if (!safeUrl) return rawUrl;
-      const escapedHref = safeUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      return `<a href="${escapedHref}" target="_blank" rel="noopener noreferrer nofollow" class="text-blue-500 hover:underline break-all">${rawUrl}</a>`;
-    });
-
-    return <span dangerouslySetInnerHTML={{ __html: escaped }} />;
-  }
+  const parseMessageContent = (text: string, query: string) => cachedParseMessageContent(text, query);
 
   const filteredMessages = c.searchQuery.trim()
     ? c.messages.filter((m: any) => m.content?.toLowerCase().includes(c.searchQuery.toLowerCase()))
@@ -147,6 +116,13 @@ export default function DmChatMainPane({ c }: DmChatMainPaneProps) {
                       <UserRound className="w-5 h-5" />
                     </Link>
                     <button
+                      onClick={() => setIsPerformanceMode(!isPerformanceMode)}
+                      className={`p-2 w-10 h-10 rounded-full transition-colors hidden sm:flex items-center justify-center ${isPerformanceMode ? 'bg-[var(--color-amber)]/20 text-[var(--color-amber)]' : 'hover:bg-parchment hover:text-navy text-[var(--color-text-muted)]'}`}
+                      title="Toggle Performance Mode (Virtualization)"
+                    >
+                      <Zap className="w-5 h-5" />
+                    </button>
+                    <button
                       onClick={() => c.setShowSearch(true)}
                       className="p-2 w-10 h-10 rounded-full hover:bg-parchment hover:text-navy transition-colors flex items-center justify-center"
                     >
@@ -202,7 +178,7 @@ export default function DmChatMainPane({ c }: DmChatMainPaneProps) {
           {/* ── Message list ────────────────────────────────────────────────── */}
           <div
             ref={c.messagesAreaRef}
-            className="flex-1 overflow-y-auto px-4 py-4 space-y-0 flex flex-col relative bg-[#FAFAFA]"
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-0 flex flex-col relative"
             onScroll={(e) => {
               const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
               c.setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 300);
@@ -231,81 +207,99 @@ export default function DmChatMainPane({ c }: DmChatMainPaneProps) {
               </div>
             )}
 
-            {filteredMessages.map((msg: any, i: number) => {
-              const adapted = adaptToChatMessage(msg);
-              const isOwn = msg.sender_id === c.user?.id;
-              const prevMsg = i > 0 ? filteredMessages[i - 1] : null;
-              const nextMsg = i < filteredMessages.length - 1 ? filteredMessages[i + 1] : null;
+            {isPerformanceMode ? (
+              <VirtualizedMessageList
+                messages={filteredMessages}
+                user={c.user}
+                adaptToChatMessage={adaptToChatMessage}
+                onReply={c.handleReplyMessage}
+                onEdit={c.handleEditMessage}
+                onDelete={c.handleDeleteMessage}
+                onPin={() => { toast.info('Pinning is available in club channels'); }}
+                onToggleReaction={c.handleToggleReaction}
+                onForward={() => {}}
+                onViewImage={c.setViewingImageMsg}
+                onApplyToProject={() => {}}
+                onViewApplicants={() => {}}
+                scrollContainerRef={c.messagesAreaRef}
+              />
+            ) : (
+              filteredMessages.map((msg: any, i: number) => {
+                const adapted = adaptToChatMessage(msg);
+                const isOwn = msg.sender_id === c.user?.id;
+                const prevMsg = i > 0 ? filteredMessages[i - 1] : null;
+                const nextMsg = i < filteredMessages.length - 1 ? filteredMessages[i + 1] : null;
 
-              const msgDate = new Date(msg.created_at);
-              const prevDate = prevMsg ? new Date(prevMsg.created_at) : null;
-              const nextDate = nextMsg ? new Date(nextMsg.created_at) : null;
+                const msgDate = new Date(msg.created_at);
+                const prevDate = prevMsg ? new Date(prevMsg.created_at) : null;
+                const nextDate = nextMsg ? new Date(nextMsg.created_at) : null;
 
-              const showDateDivider = !prevDate || !isSameDay(msgDate, prevDate);
-              let dateDividerText = '';
-              if (showDateDivider) {
-                if (isToday(msgDate)) dateDividerText = 'Today';
-                else if (isYesterday(msgDate)) dateDividerText = 'Yesterday';
-                else dateDividerText = format(msgDate, 'MMMM d, yyyy');
-              }
+                const showDateDivider = !prevDate || !isSameDay(msgDate, prevDate);
+                let dateDividerText = '';
+                if (showDateDivider) {
+                  if (isToday(msgDate)) dateDividerText = 'Today';
+                  else if (isYesterday(msgDate)) dateDividerText = 'Yesterday';
+                  else dateDividerText = format(msgDate, 'MMMM d, yyyy');
+                }
 
-              const gapMs = 5 * 60 * 1000;
-              const isGroupFirst =
-                showDateDivider ||
-                !prevMsg ||
-                prevMsg.sender_id !== msg.sender_id ||
-                msgDate.getTime() - prevDate!.getTime() > gapMs;
+                const gapMs = 5 * 60 * 1000;
+                const isGroupFirst =
+                  showDateDivider ||
+                  !prevMsg ||
+                  prevMsg.sender_id !== msg.sender_id ||
+                  msgDate.getTime() - prevDate!.getTime() > gapMs;
 
-              const isGroupLast =
-                !nextMsg ||
-                nextMsg.sender_id !== msg.sender_id ||
-                !isSameDay(msgDate, nextDate!) ||
-                nextDate!.getTime() - msgDate.getTime() > gapMs;
+                const isGroupLast =
+                  !nextMsg ||
+                  nextMsg.sender_id !== msg.sender_id ||
+                  !isSameDay(msgDate, nextDate!) ||
+                  nextDate!.getTime() - msgDate.getTime() > gapMs;
 
-              let bubbleRadius: string;
-              if (isOwn) {
-                if (isGroupFirst && isGroupLast) bubbleRadius = 'rounded-[20px] rounded-br-[5px]';
-                else if (isGroupFirst) bubbleRadius = 'rounded-[20px] rounded-br-[8px]';
-                else if (isGroupLast) bubbleRadius = 'rounded-[20px] rounded-tr-[8px] rounded-br-[5px]';
-                else bubbleRadius = 'rounded-[20px] rounded-r-[8px]';
-              } else {
-                if (isGroupFirst && isGroupLast) bubbleRadius = 'rounded-[20px] rounded-bl-[5px]';
-                else if (isGroupFirst) bubbleRadius = 'rounded-[20px] rounded-bl-[8px]';
-                else if (isGroupLast) bubbleRadius = 'rounded-[20px] rounded-tl-[8px] rounded-bl-[5px]';
-                else bubbleRadius = 'rounded-[20px] rounded-l-[8px]';
-              }
+                let bubbleRadius: string;
+                if (isOwn) {
+                  if (isGroupFirst && isGroupLast) bubbleRadius = 'rounded-[20px] rounded-br-[5px]';
+                  else if (isGroupFirst) bubbleRadius = 'rounded-[20px] rounded-br-[8px]';
+                  else if (isGroupLast) bubbleRadius = 'rounded-[20px] rounded-tr-[8px] rounded-br-[5px]';
+                  else bubbleRadius = 'rounded-[20px] rounded-r-[8px]';
+                } else {
+                  if (isGroupFirst && isGroupLast) bubbleRadius = 'rounded-[20px] rounded-bl-[5px]';
+                  else if (isGroupFirst) bubbleRadius = 'rounded-[20px] rounded-bl-[8px]';
+                  else if (isGroupLast) bubbleRadius = 'rounded-[20px] rounded-tl-[8px] rounded-bl-[5px]';
+                  else bubbleRadius = 'rounded-[20px] rounded-l-[8px]';
+                }
 
-              const marginTopClass = isGroupFirst && i !== 0 ? 'mt-4' : 'mt-[3px]';
+                const marginTopClass = isGroupFirst && i !== 0 ? 'mt-4' : 'mt-[3px]';
 
-              return (
-                <MessageItem
-                  key={msg.id}
-                  msg={adapted}
-                  isOwn={isOwn}
-                  isGroupFirst={isGroupFirst}
-                  isGroupLast={isGroupLast}
-                  bubbleRadius={bubbleRadius}
-                  marginTopClass={marginTopClass}
-                  showDateDivider={showDateDivider}
-                  dateDividerText={dateDividerText}
-                  currentUserId={c.user?.id}
-                  isAdminOrMod={false}
-                  channelReads={[]}
-                  allMessages={c.messages.map(adaptToChatMessage)}
-                  searchQuery={c.searchQuery}
-                  parseMessageContent={parseMessageContent}
-                  onReply={c.handleReplyMessage}
-                  onEdit={c.handleEditMessage}
-                  onDelete={c.handleDeleteMessage}
-                  onPin={() => { toast.info('Pinning is available in club channels'); }}
-                  onToggleReaction={c.handleToggleReaction}
-                  onForward={() => {}}
-                  onViewImage={c.setViewingImageMsg}
-                  onApplyToProject={() => {}}
-                  onViewApplicants={() => {}}
-                />
-              );
-            })}
+                return (
+                  <MessageItem
+                    key={msg.id}
+                    msg={adapted}
+                    isOwn={isOwn}
+                    isGroupFirst={isGroupFirst}
+                    isGroupLast={isGroupLast}
+                    bubbleRadius={bubbleRadius}
+                    marginTopClass={marginTopClass}
+                    showDateDivider={showDateDivider}
+                    dateDividerText={dateDividerText}
+                    currentUserId={c.user?.id}
+                    isAdminOrMod={false}
+                    channelReads={[]}
+                    allMessages={c.messages.map(adaptToChatMessage)}
+                    searchQuery={c.searchQuery}
+                    parseMessageContent={parseMessageContent}
+                    onReply={c.handleReplyMessage}
+                    onEdit={c.handleEditMessage}
+                    onDelete={c.handleDeleteMessage}
+                    onPin={() => { toast.info('Pinning is available in club channels'); }}
+                    onToggleReaction={c.handleToggleReaction}
+                    onForward={() => {}}
+                    onViewImage={c.setViewingImageMsg}
+                    onApplyToProject={() => {}}
+                    onViewApplicants={() => {}}
+                  />
+                );
+              })
+            )}
             <div ref={c.messagesEndRef} className="h-4" />
           </div>
 
@@ -332,7 +326,6 @@ export default function DmChatMainPane({ c }: DmChatMainPaneProps) {
             uploadProgress={c.uploadProgress}
             replyingTo={c.replyingTo}
             editingMessage={c.editingMessage}
-            composerFocused={c.composerFocused}
             showAttachMenu={c.showAttachMenu}
             textareaRef={c.textareaRef}
             longPressTimerRef={c.longPressTimerRef}
@@ -350,14 +343,13 @@ export default function DmChatMainPane({ c }: DmChatMainPaneProps) {
             onClearReply={() => { c.setReplyingTo(null); c.setNewMessage(''); }}
             onClearEdit={() => { c.setEditingMessage(null); c.setNewMessage(''); }}
                   onShareLocation={c.handleShareLocation}
-            onApplyFormat={c.applyFormat}
             fileInputRef={c.fileInputRef}
             pendingAttachTypeRef={c.pendingAttachTypeRef}
           />
 
           {/* Typing indicator (future presence) */}
           {c.typingUsers.length > 0 && (
-            <div className="px-5 py-1.5 flex items-center gap-2.5 text-[12px] text-[var(--color-text-muted)] bg-white border-t border-[var(--color-border)]/50 animate-in fade-in duration-200">
+            <div className="px-5 py-1.5 flex items-center gap-2.5 text-[12px] text-[var(--color-text-muted)] bg-white/60 backdrop-blur-sm border-t border-[var(--color-border)]/50 animate-in fade-in duration-200">
               <div className="flex gap-0.5 items-end h-3">
                 {[0, 1, 2].map((i) => (
                   <div key={i} className="w-1.5 h-1.5 bg-[var(--color-text-muted)] rounded-full animate-bounce" style={{ animationDelay: `${i * 150}ms` }} />

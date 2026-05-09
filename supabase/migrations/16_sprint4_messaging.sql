@@ -9,14 +9,9 @@ CREATE TABLE IF NOT EXISTS conversations (
 
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Participants can view their conversations" ON conversations
-  FOR SELECT USING (auth.uid() = ANY(participant_ids));
-
-CREATE POLICY "Authenticated users can create conversations" ON conversations
-  FOR INSERT WITH CHECK (auth.uid() = ANY(participant_ids));
-
-CREATE POLICY "Participants can update conversations" ON conversations
-  FOR UPDATE USING (auth.uid() = ANY(participant_ids));
+DO $$ BEGIN CREATE POLICY "Participants can view their conversations" ON conversations FOR SELECT USING (auth.uid() = ANY(participant_ids)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Authenticated users can create conversations" ON conversations FOR INSERT WITH CHECK (auth.uid() = ANY(participant_ids)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Participants can update conversations" ON conversations FOR UPDATE USING (auth.uid() = ANY(participant_ids)); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_conversations_participants ON conversations USING GIN(participant_ids);
 
@@ -31,24 +26,8 @@ CREATE TABLE IF NOT EXISTS messages (
 
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Participants can read messages" ON messages
-  FOR SELECT USING (
-    EXISTS (
-      SELECT 1 FROM conversations
-      WHERE id = messages.conversation_id
-      AND auth.uid() = ANY(participant_ids)
-    )
-  );
-
-CREATE POLICY "Participants can send messages" ON messages
-  FOR INSERT WITH CHECK (
-    auth.uid() = sender_id AND
-    EXISTS (
-      SELECT 1 FROM conversations
-      WHERE id = messages.conversation_id
-      AND auth.uid() = ANY(participant_ids)
-    )
-  );
+DO $$ BEGIN CREATE POLICY "Participants can read messages" ON messages FOR SELECT USING (EXISTS (SELECT 1 FROM conversations WHERE id = messages.conversation_id AND auth.uid() = ANY(participant_ids))); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Participants can send messages" ON messages FOR INSERT WITH CHECK (auth.uid() = sender_id AND EXISTS (SELECT 1 FROM conversations WHERE id = messages.conversation_id AND auth.uid() = ANY(participant_ids))); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at);
 
@@ -63,14 +42,9 @@ CREATE TABLE IF NOT EXISTS group_enrollments (
 
 ALTER TABLE group_enrollments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can view enrollments" ON group_enrollments
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users can enroll themselves" ON group_enrollments
-  FOR INSERT WITH CHECK (auth.uid() = member_id);
-
-CREATE POLICY "Users can unenroll themselves" ON group_enrollments
-  FOR DELETE USING (auth.uid() = member_id);
+DO $$ BEGIN CREATE POLICY "Anyone can view enrollments" ON group_enrollments FOR SELECT USING (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Users can enroll themselves" ON group_enrollments FOR INSERT WITH CHECK (auth.uid() = member_id); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Users can unenroll themselves" ON group_enrollments FOR DELETE USING (auth.uid() = member_id); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Feed Events
 CREATE TABLE IF NOT EXISTS feed_events (
@@ -85,10 +59,7 @@ CREATE TABLE IF NOT EXISTS feed_events (
 
 ALTER TABLE feed_events ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Anyone can read feed events" ON feed_events
-  FOR SELECT USING (true);
-
-CREATE POLICY "Users can create own feed events" ON feed_events
-  FOR INSERT WITH CHECK (auth.uid() = member_id);
+DO $$ BEGIN CREATE POLICY "Anyone can read feed events" ON feed_events FOR SELECT USING (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Users can create own feed events" ON feed_events FOR INSERT WITH CHECK (auth.uid() = member_id); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_feed_events_created ON feed_events(created_at DESC);

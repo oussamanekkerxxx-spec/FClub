@@ -61,7 +61,7 @@ export default function AudioPlayerBubble({ url, isOwn, bubbleRadius }: { url: s
   };
 
   return (
-    <div className={`flex items-center gap-3 px-3 py-2.5 shadow-sm min-w-[200px] sm:min-w-[260px] ${bubbleRadius || 'rounded-2xl'} ${isOwn ? 'bg-gradient-to-br from-purple-500 to-indigo-600 text-white' : 'bg-white text-navy border border-[var(--color-border)]'}`}>
+    <div className={`flex items-center gap-3 px-3 py-2.5 shadow-sm min-w-[200px] sm:min-w-[260px] ${bubbleRadius || 'rounded-2xl'} ${isOwn ? 'bg-purple-500/70 backdrop-blur-md text-white shadow-sm' : 'bg-white/60 backdrop-blur-md text-navy border border-white/40 shadow-sm'}`}>
       <button 
         onClick={togglePlay}
         className={`p-1.5 rounded-full flex-shrink-0 ${isOwn ? 'bg-white/20 text-white hover:bg-white/30' : 'bg-purple-100 text-purple-600 hover:bg-purple-200'} transition-colors justify-center flex items-center shadow-sm relative group outline-none`}

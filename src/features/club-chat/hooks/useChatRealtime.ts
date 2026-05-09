@@ -1,49 +1,66 @@
-import { useCallback, useEffect } from 'react';
-import { reportError } from '@/lib/errors';
+import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
-import {
-  MESSAGE_SELECT_CANDIDATES,
-  isSchemaMismatchError,
-  normaliseEvent,
-  normaliseMessageRow,
-} from '@/features/club-chat/workspace/messageData';
-import type { ChannelRead, Message, Reaction, SelectError } from '@/features/club-chat/workspace/types';
+
+import { isSchemaMismatchError, normaliseEvent } from '@/features/club-chat/workspace/messageData';
+import type { ChannelRead, Message, Reaction } from '@/features/club-chat/workspace/types';
 import type { PollVote } from '@/types/messaging';
+import { useChatStore } from '@/features/club-chat/store/chatStore';
 
-export function useClubChatRealtime(ctx: any) {
-  const {
-    clubId,
-    user,
-    focusChannelId,
-    focusMessageId,
-    activeChannelId,
-    channels,
-    messages,
-    loadingMore,
-    hasMore,
-    newMessage,
-    setIsAdminOrMod,
-    setPreferences,
-    setChannels,
-    setUserChannelPrefs,
-    setActiveChannelId,
-    setChannelUnreads,
-    setLoading,
-    setMessages,
-    setHasMore,
-    setPinnedMessage,
-    setChannelReads,
-    setTypingUsers,
-    setPlaylists,
-    setLoadingMore,
-    setShowScrollBottom,
-    didFocusMessageRef,
-    messagesEndRef,
-    messagesAreaRef,
-    textareaRef,
-    typingTimerRef,
-  } = ctx;
+const MAX_UNREAD_CHANNELS = 20;
 
+interface UseChatRealtimeProps {
+  focusChannelId?: string;
+  focusMessageId?: string;
+  messagesEndRef: React.RefObject<HTMLDivElement | null>;
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>;
+  typingTimerRef: React.RefObject<ReturnType<typeof setTimeout> | null>;
+  didFocusMessageRef: React.RefObject<boolean>;
+}
+
+export function useChatRealtime({
+  focusChannelId,
+  focusMessageId,
+  messagesEndRef,
+  textareaRef,
+  typingTimerRef,
+  didFocusMessageRef,
+}: UseChatRealtimeProps) {
+  // ── Store selectors ──
+  const clubId = useChatStore((s) => s.clubId);
+  const user = useChatStore((s) => s.user);
+  const activeChannelId = useChatStore((s) => s.activeChannelId);
+  const channels = useChatStore((s) => s.channels);
+  const messages = useChatStore((s) => s.messages);
+  const newMessage = useChatStore((s) => s.composer.text);
+
+  // ── Store action references (stable, no re-render) ──
+  const loadMessages = useChatStore((s) => s.loadMessages);
+  const appendRealtimeMessage = useChatStore((s) => s.appendRealtimeMessage);
+  const replaceMessageSender = useChatStore((s) => s.replaceMessageSender);
+  const setMessageEvent = useChatStore((s) => s.setMessageEvent);
+  const addMessageReaction = useChatStore((s) => s.addMessageReaction);
+  const removeMessageReaction = useChatStore((s) => s.removeMessageReaction);
+  const updatePollVote = useChatStore((s) => s.updatePollVote);
+  const updateChannelRead = useChatStore((s) => s.updateChannelRead);
+  const addTypingUser = useChatStore((s) => s.addTypingUser);
+  const removeTypingUser = useChatStore((s) => s.removeTypingUser);
+  const clearTypingUsers = useChatStore((s) => s.clearTypingUsers);
+  const setUi = useChatStore((s) => s.setUi);
+  const setPreferences = useChatStore((s) => s.setPreferences);
+  const setChannels = useChatStore((s) => s.setChannels);
+  const setUserChannelPrefs = useChatStore((s) => s.setUserChannelPrefs);
+  const setActiveChannelId = useChatStore((s) => s.setActiveChannelId);
+  const setChannelUnreads = useChatStore((s) => s.setChannelUnreads);
+
+  const setMessages = useChatStore((s) => s.setMessages);
+  const setPinnedMessage = useChatStore((s) => s.setPinnedMessage);
+  const setChannelReads = useChatStore((s) => s.setChannelReads);
+  const setPlaylists = useChatStore((s) => s.setPlaylists);
+
+
+  const lastMessageIdRef = useRef<string | null>(null);
+
+  // ── Init effect: membership, preferences, channels, unreads ──
   useEffect(() => {
     if (!clubId || !user) return;
 
@@ -57,7 +74,7 @@ export function useClubChatRealtime(ctx: any) {
         .maybeSingle();
 
       const isMod = mem?.role === 'admin' || mem?.role === 'moderator';
-      setIsAdminOrMod(isMod);
+      setUi({ isAdminOrMod: isMod });
 
       const { data: prefData } = await supabase.from('user_chat_preferences').select('*').eq('user_id', user.id).single();
       if (prefData) {
@@ -85,8 +102,10 @@ export function useClubChatRealtime(ctx: any) {
           .select('channel_id, last_read_at')
           .eq('user_id', user.id);
 
+        // P0 Fix: Limit unread count to first 20 channels to avoid N+1 explosion
+        const channelsToCheck = chans.slice(0, MAX_UNREAD_CHANNELS);
         const unreads: Record<string, number> = {};
-        await Promise.all(chans.map(async (chan: any) => {
+        await Promise.all(channelsToCheck.map(async (chan: any) => {
           const read = reads?.find((r: any) => r.channel_id === chan.id);
           const { count } = await supabase
             .from('club_messages')
@@ -96,7 +115,12 @@ export function useClubChatRealtime(ctx: any) {
             .gt('created_at', read?.last_read_at ?? '1970-01-01');
           unreads[chan.id] = count ?? 0;
         }));
+        // Mark channels beyond the limit as 0 unreads (lazy-load on channel switch)
+        chans.slice(MAX_UNREAD_CHANNELS).forEach((chan: any) => {
+          unreads[chan.id] = 0;
+        });
         setChannelUnreads(unreads);
+
         const { data: prefs, error: prefsError } = await supabase
           .from('user_channel_preferences')
           .select('*')
@@ -122,50 +146,20 @@ export function useClubChatRealtime(ctx: any) {
           setActiveChannelId(preferredSeeded);
         }
       }
-      setLoading(false);
+      setUi({ loading: false });
     };
 
     init();
-  }, [clubId, user, focusChannelId, setActiveChannelId, setChannelUnreads, setChannels, setIsAdminOrMod, setLoading, setPreferences]);
+  }, [clubId, user, focusChannelId, setActiveChannelId, setChannelUnreads, setChannels, setUi, setPreferences, setUserChannelPrefs]);
 
+  // ── Active channel effect: messages, pinned, reads, subscriptions ──
   useEffect(() => {
     if (!activeChannelId) {
       setMessages([]);
       return;
     }
 
-    const loadMessages = async () => {
-      let selectedData: Record<string, unknown>[] | null = null;
-      let lastError: SelectError = null;
-
-      for (const selectClause of MESSAGE_SELECT_CANDIDATES) {
-        const response = await supabase
-          .from('club_messages')
-          .select(selectClause)
-          .eq('channel_id', activeChannelId)
-          .order('created_at', { ascending: false })
-          .limit(50);
-
-        if (!response.error) {
-          selectedData = (response.data ?? []) as unknown as Record<string, unknown>[];
-          break;
-        }
-
-        lastError = response.error;
-        if (!isSchemaMismatchError(response.error)) break;
-      }
-
-      if (!selectedData) {
-        if (lastError) reportError('clubchat.load_messages', lastError);
-        setMessages([]);
-        setHasMore(false);
-        return;
-      }
-
-      const msgs = selectedData.reverse().map(normaliseMessageRow);
-      setMessages(msgs);
-      setHasMore(selectedData.length === 50);
-    };
+    loadMessages(activeChannelId);
 
     const activeChan = channels.find((c: any) => c.id === activeChannelId);
     if (activeChan?.pinned_message_id) {
@@ -188,8 +182,7 @@ export function useClubChatRealtime(ctx: any) {
       .neq('user_id', user?.id ?? '')
       .then(({ data: cr }) => { if (cr) setChannelReads(cr as ChannelRead[]); });
 
-    loadMessages();
-
+    // ── Supabase realtime subscriptions ──
     const channel = supabase
       .channel(`chat-${activeChannelId}`)
       .on(
@@ -197,15 +190,15 @@ export function useClubChatRealtime(ctx: any) {
         { event: 'INSERT', schema: 'public', table: 'club_messages', filter: `channel_id=eq.${activeChannelId}` },
         payload => {
           const msg = payload.new as Message;
-          setMessages((prev: Message[]) => {
-            if (prev.some(m => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
+          appendRealtimeMessage(msg);
+
+          // Enrich with profile data (needed for messages from *other* users)
           supabase.from('profiles').select('first_name, last_name, avatar_url').eq('id', msg.sender_id).single()
             .then(({ data: p }) => {
-              if (p) setMessages((prev: Message[]) => prev.map(m => (m.id === msg.id ? { ...m, sender: p } : m)));
+              if (p) replaceMessageSender(msg.id, p);
             });
 
+          // Enrich with event data if applicable
           if (msg.event_id) {
             const eventSelects = [
               'id, title, description, starts_at, format, event_style, meeting_link, location, duration_mins, rsvp_count, attendee_count, host_label, outcomes',
@@ -223,7 +216,7 @@ export function useClubChatRealtime(ctx: any) {
                 if (!eventResponse.error && eventResponse.data) {
                   const normalizedEvent = normaliseEvent(eventResponse.data as unknown as Record<string, unknown>);
                   if (!normalizedEvent) return;
-                  setMessages((prev: Message[]) => prev.map(m => (m.id === msg.id ? { ...m, event: normalizedEvent } : m)));
+                  setMessageEvent(msg.id, normalizedEvent);
                   return;
                 }
 
@@ -241,22 +234,9 @@ export function useClubChatRealtime(ctx: any) {
           const oldReact = payload.old as Reaction | null;
 
           if (payload.eventType === 'INSERT' && react) {
-            setMessages((prev: Message[]) => prev.map(m => {
-              if (m.id === react.message_id) {
-                const existing = m.reactions || [];
-                if (!existing.find(r => r.id === react.id)) {
-                  return { ...m, reactions: [...existing, react] };
-                }
-              }
-              return m;
-            }));
+            addMessageReaction(react);
           } else if (payload.eventType === 'DELETE' && oldReact) {
-            setMessages((prev: Message[]) => prev.map(m => {
-              if (m.reactions?.some(r => r.id === oldReact.id)) {
-                return { ...m, reactions: m.reactions.filter(r => r.id !== oldReact.id) };
-              }
-              return m;
-            }));
+            removeMessageReaction(oldReact.id);
           }
         }
       )
@@ -266,24 +246,7 @@ export function useClubChatRealtime(ctx: any) {
         payload => {
           const vote = (payload.new ?? payload.old) as PollVote | null;
           if (!vote?.option_id) return;
-          setMessages((prev: Message[]) => prev.map(m => {
-            if (!m.poll?.options) return m;
-            const hasOption = m.poll.options.some(o => o.id === vote.option_id);
-            if (!hasOption) return m;
-            const updatedOptions = m.poll.options.map(o => {
-              if (o.id !== vote.option_id) return o;
-              const existing = o.votes || [];
-              if (payload.eventType === 'INSERT') {
-                if (existing.some(v => v.id === (payload.new as PollVote).id)) return o;
-                return { ...o, votes: [...existing, payload.new as PollVote] };
-              }
-              if (payload.eventType === 'DELETE') {
-                return { ...o, votes: existing.filter(v => v.id !== (payload.old as PollVote).id) };
-              }
-              return o;
-            });
-            return { ...m, poll: { ...m.poll, options: updatedOptions } };
-          }));
+          updatePollVote(vote, payload.eventType as 'INSERT' | 'DELETE');
         }
       )
       .on(
@@ -292,12 +255,7 @@ export function useClubChatRealtime(ctx: any) {
         payload => {
           const cr = (payload.new ?? payload.old) as ChannelRead;
           if (!cr || cr.user_id === user?.id) return;
-          setChannelReads((prev: ChannelRead[]) => {
-            const idx = prev.findIndex(r => r.user_id === cr.user_id);
-            if (payload.eventType === 'DELETE') return prev.filter(r => r.user_id !== cr.user_id);
-            if (idx >= 0) { const u = [...prev]; u[idx] = cr; return u; }
-            return [...prev, cr];
-          });
+          updateChannelRead(cr, payload.eventType);
         }
       )
       .on(
@@ -306,18 +264,15 @@ export function useClubChatRealtime(ctx: any) {
         payload => {
           if (payload.eventType === 'DELETE') {
             const gone = payload.old as { user_id: string };
-            setTypingUsers((prev: any[]) => prev.filter(t => t.user_id !== gone.user_id));
+            removeTypingUser(gone.user_id);
           } else {
             const typer = payload.new as { user_id: string; channel_id: string };
             if (typer.user_id === user?.id) return;
             supabase.from('profiles').select('first_name').eq('id', typer.user_id).single()
               .then(({ data: p }) => {
                 if (!p) return;
-                setTypingUsers((prev: any[]) => {
-                  if (prev.some((t: any) => t.user_id === typer.user_id)) return prev;
-                  return [...prev, { user_id: typer.user_id, name: p.first_name }];
-                });
-                setTimeout(() => setTypingUsers((prev: any[]) => prev.filter((t: any) => t.user_id !== typer.user_id)), 5000);
+                addTypingUser(typer.user_id, p.first_name);
+                setTimeout(() => removeTypingUser(typer.user_id), 5000);
               });
           }
         }
@@ -331,14 +286,23 @@ export function useClubChatRealtime(ctx: any) {
 
     return () => {
       supabase.removeChannel(channel);
-      setTypingUsers([]);
+      clearTypingUsers();
     };
-  }, [activeChannelId, channels, setChannelReads, setChannelUnreads, setHasMore, setMessages, setPinnedMessage, setTypingUsers, user]);
+  // NOTE: setter functions are stable React dispatch references and do NOT need to be deps.
+  // user?.id is sufficient. Passing the full `user` object caused subscription churn.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeChannelId, channels, user?.id]);
 
+  // ── Auto-scroll to bottom when last message ID changes ──
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const lastId = messages[messages.length - 1]?.id ?? null;
+    if (lastId && lastId !== lastMessageIdRef.current) {
+      lastMessageIdRef.current = lastId;
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, messagesEndRef]);
 
+  // ── Focus message on mount / nav ──
   useEffect(() => {
     if (!focusMessageId || didFocusMessageRef.current || messages.length === 0) return;
     const target = document.querySelector(`[data-message-id="${focusMessageId}"]`) as HTMLElement | null;
@@ -352,6 +316,7 @@ export function useClubChatRealtime(ctx: any) {
     }, 1400);
   }, [focusMessageId, messages, didFocusMessageRef]);
 
+  // ── Textarea auto-resize ──
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -361,52 +326,14 @@ export function useClubChatRealtime(ctx: any) {
     el.style.overflowY = el.scrollHeight > 160 ? 'auto' : 'hidden';
   }, [newMessage, textareaRef]);
 
+  // ── Fetch playlists ──
   useEffect(() => {
     if (!clubId) return;
     supabase.from('club_playlists').select('id, title').eq('club_id', clubId).order('order_index')
       .then(({ data }) => setPlaylists(data ?? []));
   }, [clubId, setPlaylists]);
 
-  const loadMore = useCallback(async () => {
-    if (loadingMore || !hasMore || messages.length === 0 || !activeChannelId) return;
-    setLoadingMore(true);
-    const oldest = messages[0]?.created_at;
-    const area = messagesAreaRef.current;
-    const prevHeight = area?.scrollHeight ?? 0;
-
-    let selectedData: Record<string, unknown>[] | null = null;
-
-    for (const selectClause of MESSAGE_SELECT_CANDIDATES) {
-      const response = await supabase
-        .from('club_messages')
-        .select(selectClause)
-        .eq('channel_id', activeChannelId)
-        .lt('created_at', oldest)
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (!response.error) {
-        selectedData = (response.data ?? []) as unknown as Record<string, unknown>[];
-        break;
-      }
-
-      if (!isSchemaMismatchError(response.error)) {
-        reportError('clubchat.load_older_messages', response.error);
-        break;
-      }
-    }
-
-    if (selectedData) {
-      const older = selectedData.reverse().map(normaliseMessageRow);
-      setMessages((prev: Message[]) => [...older, ...prev]);
-      setHasMore(selectedData.length === 50);
-      requestAnimationFrame(() => {
-        if (area) area.scrollTop = area.scrollHeight - prevHeight;
-      });
-    }
-    setLoadingMore(false);
-  }, [loadingMore, hasMore, messages, activeChannelId, messagesAreaRef, setHasMore, setLoadingMore, setMessages]);
-
+  // ── Typing indicator ──
   const handleTypingStart = useCallback(() => {
     if (!activeChannelId || !user) return;
     supabase.from('club_typing')
@@ -420,8 +347,6 @@ export function useClubChatRealtime(ctx: any) {
   }, [activeChannelId, user, typingTimerRef]);
 
   return {
-    loadMore,
     handleTypingStart,
-    setShowScrollBottom,
   };
 }

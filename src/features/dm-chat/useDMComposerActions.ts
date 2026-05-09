@@ -205,6 +205,11 @@ export function useDMComposerActions(ctx: any) {
     let videoUrl: string | null = null;
     let pdfUrl: string | null = null;
     let voiceUrl: string | null = null;
+    
+    let imageWidth: number | undefined;
+    let imageHeight: number | undefined;
+    let videoWidth: number | undefined;
+    let videoHeight: number | undefined;
 
     if (chatAttachment) {
       if (chatAttachment.file.size > 100 * 1024 * 1024) {
@@ -217,8 +222,34 @@ export function useDMComposerActions(ctx: any) {
         setUploadProgress(1);
         const result = await uploadToCloudinary(chatAttachment.file, setUploadProgress);
         setUploadProgress(0);
-        if (chatAttachment.type === 'image') imageUrl = result.url;
-        else if (chatAttachment.type === 'video') videoUrl = result.url;
+        if (chatAttachment.type === 'image') {
+          imageUrl = result.url;
+          // Extract dimensions
+          const img = new Image();
+          img.src = chatAttachment.previewUrl;
+          await new Promise((resolve) => {
+            img.onload = () => {
+              imageWidth = img.naturalWidth;
+              imageHeight = img.naturalHeight;
+              resolve(true);
+            };
+            img.onerror = () => resolve(true);
+          });
+        }
+        else if (chatAttachment.type === 'video') {
+          videoUrl = result.url;
+          // Extract dimensions
+          const vid = document.createElement('video');
+          vid.src = chatAttachment.previewUrl;
+          await new Promise((resolve) => {
+            vid.onloadedmetadata = () => {
+              videoWidth = vid.videoWidth;
+              videoHeight = vid.videoHeight;
+              resolve(true);
+            };
+            vid.onerror = () => resolve(true);
+          });
+        }
         else if (chatAttachment.type === 'pdf') pdfUrl = result.url;
         else if (chatAttachment.type === 'voice') {
           voiceUrl = result.url;
@@ -241,16 +272,50 @@ export function useDMComposerActions(ctx: any) {
       content: voiceUrl ? null : (text || null),
     };
     if (replyingTo) payload.reply_to_id = replyingTo.id;
-    if (imageUrl) payload.image_url = imageUrl;
-    if (videoUrl) payload.video_url = videoUrl;
+    if (imageUrl) {
+      payload.image_url = imageUrl;
+      if (imageWidth) payload.image_width = imageWidth;
+      if (imageHeight) payload.image_height = imageHeight;
+    }
+    if (videoUrl) {
+      payload.video_url = videoUrl;
+      if (videoWidth) payload.video_width = videoWidth;
+      if (videoHeight) payload.video_height = videoHeight;
+    }
     if (pdfUrl) payload.pdf_url = pdfUrl;
     if (voiceUrl) payload.voice_url = voiceUrl;
     if (attachmentCaption.trim() && (imageUrl || videoUrl)) {
       payload.caption = attachmentCaption.trim();
     }
 
+    // ── Optimistic UI: show message immediately ──────────────────────────────
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: any = {
+      ...payload,
+      id: tempId,
+      created_at: new Date().toISOString(),
+      sender: {
+        first_name: user.firstName ?? user.first_name ?? '',
+        last_name: user.lastName ?? user.last_name ?? '',
+        avatar_url: user.avatarUrl ?? user.avatar ?? null,
+      },
+      reactions: [],
+      is_edited: false,
+      deleted_at: null,
+      reply_to_message: replyingTo ?? null,
+    };
+    setMessages((prev: DmMessage[]) => [...prev, optimisticMsg]);
+    setReplyingTo(null);
+    setAttachmentCaption('');
+    // ────────────────────────────────────────────────────────────────────────
+
     // Graceful fallback: retry with only base columns if DB hasn't been migrated yet
-    let { error } = await supabase.from('messages').insert(payload);
+    let { data: insertedRow, error } = await supabase
+      .from('messages')
+      .insert(payload)
+      .select('id, created_at')
+      .single();
+
     if (error?.code === '42703' || error?.code === 'PGRST200' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
       // Base schema only — no extended columns
       const minimal = {
@@ -258,15 +323,25 @@ export function useDMComposerActions(ctx: any) {
         sender_id: user.id,
         content: voiceUrl ? '🎙️ Voice Message' : imageUrl ? '📷 Photo' : videoUrl ? '🎬 Video' : pdfUrl ? '📄 File' : text || '📎 Attachment',
       };
-      ({ error } = await supabase.from('messages').insert(minimal));
+      const retry = await supabase.from('messages').insert(minimal).select('id, created_at').single();
+      insertedRow = retry.data;
+      error = retry.error;
     }
 
     if (error) {
+      // Roll back the optimistic message
       toast.error('Could not send message.');
+      setMessages((prev: DmMessage[]) => prev.filter((m) => m.id !== tempId));
       setNewMessage(text);
     } else {
-      setReplyingTo(null);
-      setAttachmentCaption('');
+      // Swap temp ID for real server-assigned ID so realtime dedup works
+      if (insertedRow?.id) {
+        setMessages((prev: DmMessage[]) =>
+          prev.map((m) =>
+            m.id === tempId ? { ...m, id: insertedRow!.id, created_at: insertedRow!.created_at } : m
+          )
+        );
+      }
       const preview =
         voiceUrl ? '🎙️ Voice Message' :
         imageUrl ? '📷 Photo' :
@@ -277,6 +352,7 @@ export function useDMComposerActions(ctx: any) {
     }
     setSending(false);
   };
+
 
   // ── Reactions ────────────────────────────────────────────────────────────────
   const handleToggleReaction = async (msgId: string, emoji: string) => {

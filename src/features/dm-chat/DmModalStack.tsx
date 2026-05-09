@@ -44,7 +44,7 @@ export default function DmModalStack({ c }: DmModalStackProps) {
                 onClick={() => {
                   const link = document.createElement('a');
                   link.href = c.viewingImageMsg.image_url;
-                  link.download = `lumina_dm_${c.viewingImageMsg.id}.jpg`;
+                  link.download = `fightclub_dm_${c.viewingImageMsg.id}.jpg`;
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);

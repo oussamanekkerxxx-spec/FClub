@@ -1,9 +1,11 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import './index.css'
 import App from './App.tsx'
+import { OfflineBanner } from '@/components/errors'
+import { I18nProvider } from '@/contexts/I18nProvider'
 
 const queryClient = new QueryClient({
   queryCache: new QueryCache({
@@ -11,6 +13,14 @@ const queryClient = new QueryClient({
       const msg = query.meta?.errorMessage as string | false | undefined;
       if (msg !== false) {
         toast.error(typeof msg === 'string' ? msg : (error as Error).message ?? 'Failed to load data');
+      }
+    },
+  }),
+  mutationCache: new MutationCache({
+    onError: (error, _variables, _context, mutation) => {
+      const msg = mutation.meta?.errorMessage as string | false | undefined;
+      if (msg !== false) {
+        toast.error(typeof msg === 'string' ? msg : (error as Error).message ?? 'Action failed');
       }
     },
   }),
@@ -25,8 +35,11 @@ const queryClient = new QueryClient({
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <I18nProvider>
+      <QueryClientProvider client={queryClient}>
+        <App />
+        <OfflineBanner />
+      </QueryClientProvider>
+    </I18nProvider>
   </StrictMode>,
 )

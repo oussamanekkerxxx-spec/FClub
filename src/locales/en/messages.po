@@ -1,0 +1,279 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-05-03 17:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+msgid "Home"
+msgstr "Home"
+
+msgid "Your clubs & activity"
+msgstr "Your clubs & activity"
+
+msgid "Discover"
+msgstr "Discover"
+
+msgid "Community feed"
+msgstr "Community feed"
+
+msgid "Clubs"
+msgstr "Clubs"
+
+msgid "All clubs in Morocco"
+msgstr "All clubs in Morocco"
+
+msgid "Board"
+msgstr "Board"
+
+msgid "Flares & skills"
+msgstr "Flares & skills"
+
+msgid "Messages"
+msgstr "Messages"
+
+msgid "Your conversations"
+msgstr "Your conversations"
+
+msgid "Path"
+msgstr "Path"
+
+msgid "Share what you know"
+msgstr "Share what you know"
+
+msgid "My Profile"
+msgstr "My Profile"
+
+msgid "Your member card"
+msgstr "Your member card"
+
+msgid "FightClub"
+msgstr "FightClub"
+
+msgid "Morocco"
+msgstr "Morocco"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "Profile"
+msgstr "Profile"
+
+msgid "Good morning"
+msgstr "Good morning"
+
+msgid "Good afternoon"
+msgstr "Good afternoon"
+
+msgid "Good evening"
+msgstr "Good evening"
+
+msgid "What do you want to put into the community today?"
+msgstr "What do you want to put into the community today?"
+
+msgid "Teach a skill"
+msgstr "Teach a skill"
+
+msgid "Browse sessions"
+msgstr "Browse sessions"
+
+msgid "Start a club"
+msgstr "Start a club"
+
+msgid "What's on your mind?"
+msgstr "What's on your mind?"
+
+msgid "For You"
+msgstr "For You"
+
+msgid "Activity"
+msgstr "Activity"
+
+msgid "Skills"
+msgstr "Skills"
+
+msgid "Recent sparks"
+msgstr "Recent sparks"
+
+msgid "Fresh activity from people publishing and learning nearby."
+msgstr "Fresh activity from people publishing and learning nearby."
+
+msgid "No activity yet"
+msgstr "No activity yet"
+
+msgid "As people publish skills and sessions, this area will light up."
+msgstr "As people publish skills and sessions, this area will light up."
+
+msgid "Skill spotlights"
+msgstr "Skill spotlights"
+
+msgid "The strongest matches for what you might want to learn next."
+msgstr "The strongest matches for what you might want to learn next."
+
+msgid "Browse all"
+msgstr "Browse all"
+
+msgid "Community activity"
+msgstr "Community activity"
+
+msgid "Updates, new sessions, and publishing moments from the network."
+msgstr "Updates, new sessions, and publishing moments from the network."
+
+msgid "The feed is quiet right now"
+msgstr "The feed is quiet right now"
+
+msgid "Check back soon or browse skills to kick off your next conversation."
+msgstr "Check back soon or browse skills to kick off your next conversation."
+
+msgid "Skills worth discovering"
+msgstr "Skills worth discovering"
+
+msgid "A warmer, card-based browse of the live skill inventory."
+msgstr "A warmer, card-based browse of the live skill inventory."
+
+msgid "Open browse"
+msgstr "Open browse"
+
+msgid "No skills published yet"
+msgstr "No skills published yet"
+
+msgid "Be the first to teach something and light up the feed."
+msgstr "Be the first to teach something and light up the feed."
+
+msgid "Start teaching"
+msgstr "Start teaching"
+
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Security"
+msgstr "Security"
+
+msgid "Preferences"
+msgstr "Preferences"
+
+msgid "Manage your account settings and preferences."
+msgstr "Manage your account settings and preferences."
+
+msgid "Notification Preferences"
+msgstr "Notification Preferences"
+
+msgid "These preferences will be applied when the notification system is enabled."
+msgstr "These preferences will be applied when the notification system is enabled."
+
+msgid "Email Notifications"
+msgstr "Email Notifications"
+
+msgid "Receive updates via email"
+msgstr "Receive updates via email"
+
+msgid "Push Notifications"
+msgstr "Push Notifications"
+
+msgid "Receive push notifications in browser"
+msgstr "Receive push notifications in browser"
+
+msgid "Session Reminders"
+msgstr "Session Reminders"
+
+msgid "Get notified before sessions start"
+msgstr "Get notified before sessions start"
+
+msgid "New Messages"
+msgstr "New Messages"
+
+msgid "Get notified when you receive a message"
+msgstr "Get notified when you receive a message"
+
+msgid "Community Updates"
+msgstr "Community Updates"
+
+msgid "Get notified about community news"
+msgstr "Get notified about community news"
+
+msgid "Review Notifications"
+msgstr "Review Notifications"
+
+msgid "Get notified when you receive reviews"
+msgstr "Get notified when you receive reviews"
+
+msgid "Save Preferences"
+msgstr "Save Preferences"
+
+msgid "Change Password"
+msgstr "Change Password"
+
+msgid "New Password"
+msgstr "New Password"
+
+msgid "Enter new password"
+msgstr "Enter new password"
+
+msgid "Confirm New Password"
+msgstr "Confirm New Password"
+
+msgid "Confirm new password"
+msgstr "Confirm new password"
+
+msgid "Changing..."
+msgstr "Changing..."
+
+msgid "Two-Factor Authentication"
+msgstr "Two-Factor Authentication"
+
+msgid "Enable 2FA"
+msgstr "Enable 2FA"
+
+msgid "Add an extra layer of security to your account"
+msgstr "Add an extra layer of security to your account"
+
+msgid "Enable"
+msgstr "Enable"
+
+msgid "Display Preferences"
+msgstr "Display Preferences"
+
+msgid "Language"
+msgstr "Language"
+
+msgid "Time Zone"
+msgstr "Time Zone"
+
+msgid "Danger Zone"
+msgstr "Danger Zone"
+
+msgid "Sign Out"
+msgstr "Sign Out"
+
+msgid "Sign out from your account"
+msgstr "Sign out from your account"
+
+msgid "Delete Account"
+msgstr "Delete Account"
+
+msgid "Permanently delete your account and all data"
+msgstr "Permanently delete your account and all data"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Delete Account?"
+msgstr "Delete Account?"
+
+msgid "This action cannot be undone. Please contact support to delete your account."
+msgstr "This action cannot be undone. Please contact support to delete your account."
+
+msgid "Cancel"
+msgstr "Cancel"
+
+msgid "Understood"
+msgstr "Understood"
+

@@ -1,1 +1,1 @@
-ALTER TABLE skills ADD COLUMN availability_note text;
+ALTER TABLE skills ADD COLUMN IF NOT EXISTS availability_note text;

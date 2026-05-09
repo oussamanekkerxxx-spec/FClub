@@ -1,0 +1,279 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-05-03 17:00+0000\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: fr\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+msgid "Home"
+msgstr "Accueil"
+
+msgid "Your clubs & activity"
+msgstr "Vos clubs et activités"
+
+msgid "Discover"
+msgstr "Découvrir"
+
+msgid "Community feed"
+msgstr "Fil d'actualité"
+
+msgid "Clubs"
+msgstr "Clubs"
+
+msgid "All clubs in Morocco"
+msgstr "Tous les clubs au Maroc"
+
+msgid "Board"
+msgstr "Tableau"
+
+msgid "Flares & skills"
+msgstr "Compétences"
+
+msgid "Messages"
+msgstr "Messages"
+
+msgid "Your conversations"
+msgstr "Vos conversations"
+
+msgid "Path"
+msgstr "Parcours"
+
+msgid "Share what you know"
+msgstr "Partagez ce que vous savez"
+
+msgid "My Profile"
+msgstr "Mon profil"
+
+msgid "Your member card"
+msgstr "Votre carte de membre"
+
+msgid "FightClub"
+msgstr "FightClub"
+
+msgid "Morocco"
+msgstr "Maroc"
+
+msgid "Settings"
+msgstr "Paramètres"
+
+msgid "Profile"
+msgstr "Profil"
+
+msgid "Good morning"
+msgstr "Bonjour"
+
+msgid "Good afternoon"
+msgstr "Bon après-midi"
+
+msgid "Good evening"
+msgstr "Bonsoir"
+
+msgid "What do you want to put into the community today?"
+msgstr "Que voulez-vous partager avec la communauté aujourd'hui ?"
+
+msgid "Teach a skill"
+msgstr "Enseigner une compétence"
+
+msgid "Browse sessions"
+msgstr "Parcourir les sessions"
+
+msgid "Start a club"
+msgstr "Créer un club"
+
+msgid "What's on your mind?"
+msgstr "Qu'avez-vous en tête ?"
+
+msgid "For You"
+msgstr "Pour vous"
+
+msgid "Activity"
+msgstr "Activité"
+
+msgid "Skills"
+msgstr "Compétences"
+
+msgid "Recent sparks"
+msgstr "Dernières étincelles"
+
+msgid "Fresh activity from people publishing and learning nearby."
+msgstr "Nouvelle activité de personnes qui publient et apprennent à proximité."
+
+msgid "No activity yet"
+msgstr "Pas encore d'activité"
+
+msgid "As people publish skills and sessions, this area will light up."
+msgstr "Lorsque les gens publieront des compétences et des sessions, cette zone s'illuminera."
+
+msgid "Skill spotlights"
+msgstr "Compétences en vedette"
+
+msgid "The strongest matches for what you might want to learn next."
+msgstr "Les meilleures correspondances pour ce que vous pourriez vouloir apprendre ensuite."
+
+msgid "Browse all"
+msgstr "Tout parcourir"
+
+msgid "Community activity"
+msgstr "Activité communautaire"
+
+msgid "Updates, new sessions, and publishing moments from the network."
+msgstr "Mises à jour, nouvelles sessions et moments de publication du réseau."
+
+msgid "The feed is quiet right now"
+msgstr "Le fil est calme pour l'instant"
+
+msgid "Check back soon or browse skills to kick off your next conversation."
+msgstr "Revenez bientôt ou parcourez les compétences pour lancer votre prochaine conversation."
+
+msgid "Skills worth discovering"
+msgstr "Compétences à découvrir"
+
+msgid "A warmer, card-based browse of the live skill inventory."
+msgstr "Un parcours plus chaleureux, basé sur des cartes, de l'inventaire des compétences."
+
+msgid "Open browse"
+msgstr "Ouvrir le parcours"
+
+msgid "No skills published yet"
+msgstr "Pas encore de compétences publiées"
+
+msgid "Be the first to teach something and light up the feed."
+msgstr "Soyez le premier à enseigner quelque chose et à illuminer le fil."
+
+msgid "Start teaching"
+msgstr "Commencer à enseigner"
+
+msgid "Notifications"
+msgstr "Notifications"
+
+msgid "Security"
+msgstr "Sécurité"
+
+msgid "Preferences"
+msgstr "Préférences"
+
+msgid "Manage your account settings and preferences."
+msgstr "Gérez les paramètres et préférences de votre compte."
+
+msgid "Notification Preferences"
+msgstr "Préférences de notification"
+
+msgid "These preferences will be applied when the notification system is enabled."
+msgstr "Ces préférences seront appliquées lorsque le système de notifications sera activé."
+
+msgid "Email Notifications"
+msgstr "Notifications par e-mail"
+
+msgid "Receive updates via email"
+msgstr "Recevoir les mises à jour par e-mail"
+
+msgid "Push Notifications"
+msgstr "Notifications push"
+
+msgid "Receive push notifications in browser"
+msgstr "Recevoir les notifications push dans le navigateur"
+
+msgid "Session Reminders"
+msgstr "Rappels de session"
+
+msgid "Get notified before sessions start"
+msgstr "Être notifié avant le début des sessions"
+
+msgid "New Messages"
+msgstr "Nouveaux messages"
+
+msgid "Get notified when you receive a message"
+msgstr "Être notifié lorsque vous recevez un message"
+
+msgid "Community Updates"
+msgstr "Mises à jour communautaires"
+
+msgid "Get notified about community news"
+msgstr "Être notifié des nouvelles de la communauté"
+
+msgid "Review Notifications"
+msgstr "Notifications d'avis"
+
+msgid "Get notified when you receive reviews"
+msgstr "Être notifié lorsque vous recevez des avis"
+
+msgid "Save Preferences"
+msgstr "Enregistrer les préférences"
+
+msgid "Change Password"
+msgstr "Changer le mot de passe"
+
+msgid "New Password"
+msgstr "Nouveau mot de passe"
+
+msgid "Enter new password"
+msgstr "Entrez le nouveau mot de passe"
+
+msgid "Confirm New Password"
+msgstr "Confirmer le nouveau mot de passe"
+
+msgid "Confirm new password"
+msgstr "Confirmer le nouveau mot de passe"
+
+msgid "Changing..."
+msgstr "Modification en cours..."
+
+msgid "Two-Factor Authentication"
+msgstr "Authentification à deux facteurs"
+
+msgid "Enable 2FA"
+msgstr "Activer 2FA"
+
+msgid "Add an extra layer of security to your account"
+msgstr "Ajoutez une couche de sécurité supplémentaire à votre compte"
+
+msgid "Enable"
+msgstr "Activer"
+
+msgid "Display Preferences"
+msgstr "Préférences d'affichage"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "Time Zone"
+msgstr "Fuseau horaire"
+
+msgid "Danger Zone"
+msgstr "Zone de danger"
+
+msgid "Sign Out"
+msgstr "Se déconnecter"
+
+msgid "Sign out from your account"
+msgstr "Se déconnecter de votre compte"
+
+msgid "Delete Account"
+msgstr "Supprimer le compte"
+
+msgid "Permanently delete your account and all data"
+msgstr "Supprimer définitivement votre compte et toutes vos données"
+
+msgid "Delete"
+msgstr "Supprimer"
+
+msgid "Delete Account?"
+msgstr "Supprimer le compte ?"
+
+msgid "This action cannot be undone. Please contact support to delete your account."
+msgstr "Cette action ne peut pas être annulée. Veuillez contacter le support pour supprimer votre compte."
+
+msgid "Cancel"
+msgstr "Annuler"
+
+msgid "Understood"
+msgstr "Compris"
+

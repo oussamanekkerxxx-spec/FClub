@@ -1,4 +1,4 @@
-CREATE TABLE board_posts (
+CREATE TABLE IF NOT EXISTS board_posts (
   id uuid primary key default gen_random_uuid(),
   author_id uuid references profiles(id),
   type text not null,

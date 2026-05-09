@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   BookOpen, Loader2, MessageCircle, MessageSquarePlus, Search, AlertCircle,
@@ -44,7 +44,7 @@ export default function DmChatWorkspace() {
 
   // ── Selected conversation ────────────────────────────────────────────────────
   const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
-  const selectedConversation = conversations.find((c) => c.id === selectedConvId) ?? null;
+  const selectedConversation = useMemo(() => conversations.find((c) => c.id === selectedConvId) ?? null, [conversations, selectedConvId]);
 
   // ── Message state ────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState<DmMessage[]>([]);

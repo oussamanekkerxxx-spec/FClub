@@ -1,6 +1,10 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig, loadEnv } from "vite";
 import { fileURLToPath, URL } from "node:url";
+import { VitePWA } from "vite-plugin-pwa";
+import { lingui } from "@lingui/vite-plugin";
+import { qrcode } from "vite-plugin-qrcode";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 
 function livekitTokenDevRoute() {
   return {
@@ -62,20 +66,69 @@ export default defineConfig(({ mode }) => {
   Object.assign(process.env, env);
 
   return {
-    plugins: [react(), livekitTokenDevRoute()],
+    plugins: [
+      react({
+        babel: {
+          plugins: ["@lingui/babel-plugin-lingui-macro"],
+        },
+      }),
+      lingui(),
+      livekitTokenDevRoute(),
+      qrcode(),
+      basicSsl(),
+      VitePWA({
+        registerType: "prompt",
+        includeAssets: ["logo.png", "logo-192.png", "logo-512.png"],
+        manifest: {
+          name: "FightClub",
+          short_name: "FightClub",
+          description: "A membership-based community platform where people teach what they know, learn what they want, and connect around shared interests.",
+          theme_color: "#1B2A4A",
+          background_color: "#F4F0E8",
+          display: "standalone",
+          icons: [
+            {
+              src: "/logo-192.png",
+              sizes: "192x192",
+              type: "image/png",
+            },
+            {
+              src: "/logo-512.png",
+              sizes: "512x512",
+              type: "image/png",
+            },
+          ],
+        },
+        workbox: {
+          globPatterns: ["**/*.{js,css,html,ico,png,svg}"],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/.*$/i,
+              handler: "StaleWhileRevalidate",
+              options: {
+                cacheName: "supabase-api-cache",
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24, // 24 hours
+                },
+              },
+            },
+          ],
+        },
+      }),
+    ],
     server: {
       port: 5173,
       strictPort: true,
-      hmr: {
-        protocol: "ws",
-        host: "localhost",
-        port: 5173,
-      },
+      host: true,
     },
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),
       },
+    },
+    define: {
+      __APP_VERSION__: JSON.stringify(process.env.npm_package_version || "0.1.0"),
     },
     build: {
       rollupOptions: {

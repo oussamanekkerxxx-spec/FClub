@@ -15,8 +15,8 @@ export default function ShareClubModal({ club, onClose }: ShareClubModalProps) {
   const [copied, setCopied] = useState(false);
 
   const clubUrl = window.location.href;
-  const shareText = `Check out "${club?.name || 'this club'}" on Lumina — ${club?.description ? club.description.slice(0, 80) + '…' : 'join us to learn and grow!'}`;
-  const subject = `${club?.name || 'Club'} on Lumina`;
+  const shareText = `Check out "${club?.name || 'this club'}" on FightClub — ${club?.description ? club.description.slice(0, 80) + '…' : 'join us to learn and grow!'}`;
+  const subject = `${club?.name || 'Club'} on FightClub`;
 
   const copyLink = async () => {
     await navigator.clipboard.writeText(clubUrl);

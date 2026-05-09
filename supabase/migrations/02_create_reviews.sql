@@ -1,4 +1,4 @@
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
   id uuid primary key default gen_random_uuid(),
   skill_id uuid references skills(id),
   reviewer_id uuid references profiles(id),

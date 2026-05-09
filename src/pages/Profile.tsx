@@ -12,6 +12,8 @@ import ProfileEditModal, { type ProfileEditValues } from '@/components/profile/P
 import ProfileHeroCard from '@/components/profile/ProfileHeroCard';
 import ProfileTagGroup from '@/components/profile/ProfileTagGroup';
 import TrustProgress from '@/components/profile/TrustProgress';
+import TrustTimeline from '@/components/profile/TrustTimeline';
+import { useT } from '@/lib/t';
 import { BookOpen, Check, Globe, MapPin, Phone, Shield, Sparkles, Users } from 'lucide-react';
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'];
@@ -83,6 +85,7 @@ function TabButton({
 }
 
 export default function Profile() {
+  const { t } = useT();
   const navigate = useNavigate();
   const { user: authUser, updateUser } = useAuth();
   const { user, setLocalUser, saveProfile, updateCover } = useProfileData({ authUser, updateUser });
@@ -165,10 +168,10 @@ export default function Profile() {
         what_i_teach: parseUniqueCsv(form.teach),
         what_i_learn: parseUniqueCsv(form.learn),
       });
-      toast.success('Profile updated.');
+      toast.success(t('Profile updated.'));
       setIsEditing(false);
     } catch {
-      toast.error('Failed to save profile.');
+      toast.error(t('Failed to save profile.'));
     } finally {
       setIsSaving(false);
     }
@@ -217,10 +220,10 @@ export default function Profile() {
         name={`${user.firstName} ${user.lastName}`.trim()}
         subtitle={TRUST_TIER_LABELS[user.trust_tier]}
         location={locationSummary}
-        bio={user.bio || 'Tell your community what you teach, what you are learning, and how you like to collaborate.'}
+        bio={user.bio || t('Tell your community what you teach, what you are learning, and how you like to collaborate.')}
         avatar={user.avatar}
         cover={user.cover_url}
-        badgeLabel="Member card"
+        badgeLabel={t('Member card')}
         verified={user.trust_tier >= 2 || user.id_verified}
         onEditAvatar={() => avatarInputRef.current?.click()}
         onChangeCover={() => setShowCoverPicker(true)}
@@ -228,18 +231,18 @@ export default function Profile() {
         avatarUploading={avatarUpload.uploading}
         coverUploading={coverUpload.uploading}
         stats={[
-          { label: 'Sessions', value: user.sessions_completed, tone: 'forest' },
-          { label: 'Reviews', value: user.reviews_count, tone: 'default' },
-          { label: 'Trust', value: user.trust_score, tone: 'warm' },
-          { label: 'Learning', value: user.what_i_learn.length, tone: 'plum' },
+          { label: t('Sessions'), value: user.sessions_completed, tone: 'forest' },
+          { label: t('Reviews'), value: user.reviews_count, tone: 'default' },
+          { label: t('Trust'), value: user.trust_score, tone: 'warm' },
+          { label: t('Learning'), value: user.what_i_learn.length, tone: 'plum' },
         ]}
       />
 
       <div className="sc-card p-2">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Profile sections">
-          <TabButton active={activeTab === 'about'} label="About" tabId="profile-tab-about" panelId="profile-panel-about" onClick={() => setActiveTab('about')} />
-          <TabButton active={activeTab === 'relations'} label="Relations" tabId="profile-tab-relations" panelId="profile-panel-relations" onClick={() => setActiveTab('relations')} />
-          <TabButton active={activeTab === 'trust'} label="Trust" tabId="profile-tab-trust" panelId="profile-panel-trust" onClick={() => setActiveTab('trust')} />
+          <TabButton active={activeTab === 'about'} label={t('About')} tabId="profile-tab-about" panelId="profile-panel-about" onClick={() => setActiveTab('about')} />
+          <TabButton active={activeTab === 'relations'} label={t('Relations')} tabId="profile-tab-relations" panelId="profile-panel-relations" onClick={() => setActiveTab('relations')} />
+          <TabButton active={activeTab === 'trust'} label={t('Trust')} tabId="profile-tab-trust" panelId="profile-panel-trust" onClick={() => setActiveTab('trust')} />
         </div>
       </div>
 
@@ -247,17 +250,17 @@ export default function Profile() {
         <div id="profile-panel-about" role="tabpanel" aria-labelledby="profile-tab-about" className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-4">
             <div className="sc-card p-6">
-              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">About me</div>
+              <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">{t('About me')}</div>
               <p className="text-[15px] leading-7 text-[var(--color-text-secondary)]">
-                {user.bio || 'Add a short bio so people understand your interests, context, and how they can work with you.'}
+                {user.bio || t('Add a short bio so people understand your interests, context, and how they can work with you.')}
               </p>
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="sc-card p-6">
-                <ProfileTagGroup label="What I teach" icon={<BookOpen className="h-3.5 w-3.5" />} items={user.what_i_teach} emptyLabel="No skills listed yet" tone="amber" />
+                <ProfileTagGroup label={t('What I teach')} icon={<BookOpen className="h-3.5 w-3.5" />} items={user.what_i_teach} emptyLabel={t('No skills listed yet')} tone="amber" />
               </div>
               <div className="sc-card p-6">
-                <ProfileTagGroup label="What I learn" icon={<Sparkles className="h-3.5 w-3.5" />} items={user.what_i_learn} emptyLabel="No learning goals listed yet" tone="plum" />
+                <ProfileTagGroup label={t('What I learn')} icon={<Sparkles className="h-3.5 w-3.5" />} items={user.what_i_learn} emptyLabel={t('No learning goals listed yet')} tone="plum" />
               </div>
             </div>
             <div className="sc-card p-6">
@@ -267,12 +270,12 @@ export default function Profile() {
 
           <div className="space-y-4">
             <div className="sc-card p-6">
-              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Profile details</div>
+              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">{t('Profile details')}</div>
               <div className="space-y-3">
                 {[
-                  { label: 'City', value: user.city || 'Add your city', icon: MapPin },
-                  { label: 'Region', value: user.region || 'Add your region', icon: Shield },
-                  { label: 'Phone', value: user.phone || 'Add your phone number', icon: Phone },
+                  { label: t('City'), value: user.city || t('Add your city'), icon: MapPin },
+                  { label: t('Region'), value: user.region || t('Add your region'), icon: Shield },
+                  { label: t('Phone'), value: user.phone || t('Add your phone number'), icon: Phone },
                 ].map((item) => (
                   <div key={item.label} className="flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3">
                     <item.icon className="mt-0.5 h-4 w-4 text-[var(--color-amber)]" />
@@ -286,12 +289,12 @@ export default function Profile() {
             </div>
 
             <div className="sc-card p-6">
-              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Snapshot</div>
+              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">{t('Snapshot')}</div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-4"><div className="text-2xl font-semibold text-amber-700">{user.what_i_teach.length}</div><div className="mt-1 text-xs font-medium text-amber-700/80">Teaching topics</div></div>
-                <div className="rounded-2xl border border-violet-200/70 bg-violet-50 px-4 py-4"><div className="text-2xl font-semibold text-violet-700">{user.languages.length}</div><div className="mt-1 text-xs font-medium text-violet-700/80">Languages</div></div>
-                <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50 px-4 py-4"><div className="text-2xl font-semibold text-emerald-700">{user.sessions_completed}</div><div className="mt-1 text-xs font-medium text-emerald-700/80">Sessions done</div></div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"><div className="text-2xl font-semibold text-[var(--color-navy)]">{user.reviews_count}</div><div className="mt-1 text-xs font-medium text-[var(--color-text-secondary)]">Reviews</div></div>
+                <div className="rounded-2xl border border-amber-200/70 bg-amber-50 px-4 py-4"><div className="text-2xl font-semibold text-amber-700">{user.what_i_teach.length}</div><div className="mt-1 text-xs font-medium text-amber-700/80">{t('Teaching topics')}</div></div>
+                <div className="rounded-2xl border border-violet-200/70 bg-violet-50 px-4 py-4"><div className="text-2xl font-semibold text-violet-700">{user.languages.length}</div><div className="mt-1 text-xs font-medium text-violet-700/80">{t('Languages')}</div></div>
+                <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50 px-4 py-4"><div className="text-2xl font-semibold text-emerald-700">{user.sessions_completed}</div><div className="mt-1 text-xs font-medium text-emerald-700/80">{t('Sessions done')}</div></div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4"><div className="text-2xl font-semibold text-[var(--color-navy)]">{user.reviews_count}</div><div className="mt-1 text-xs font-medium text-[var(--color-text-secondary)]">{t('Reviews')}</div></div>
               </div>
             </div>
           </div>
@@ -302,19 +305,19 @@ export default function Profile() {
         <div id="profile-panel-relations" role="tabpanel" aria-labelledby="profile-tab-relations" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="sc-card p-6">
-              <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]"><Users className="h-3.5 w-3.5" />Your network</div>
+              <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]"><Users className="h-3.5 w-3.5" />{t('Your network')}</div>
               <p className="text-[15px] leading-7 text-[var(--color-text-secondary)]">
                 This section keeps the relationship layer grounded in real activity. Session requests, confirmations, and completed exchanges stay connected to the same booking flow the app already uses.
               </p>
             </div>
             <div className="sc-card p-6">
-              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Collaboration snapshot</div>
+              <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">{t('Collaboration snapshot')}</div>
               <div className="space-y-3">
                 {[
-                  ['Trust tier', TRUST_TIER_LABELS[user.trust_tier]],
-                  ['Completed sessions', String(user.sessions_completed)],
-                  ['Reviews received', String(user.reviews_count)],
-                  ['Skills shared', String(user.what_i_teach.length)],
+                  [t('Trust tier'), TRUST_TIER_LABELS[user.trust_tier]],
+                  [t('Completed sessions'), String(user.sessions_completed)],
+                  [t('Reviews received'), String(user.reviews_count)],
+                  [t('Skills shared'), String(user.what_i_teach.length)],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
                     <span className="text-sm text-[var(--color-text-secondary)]">{label}</span>
@@ -326,8 +329,8 @@ export default function Profile() {
           </div>
           <div className="space-y-3">
             <div>
-              <h2 className="text-xl font-semibold text-[var(--color-navy)]">Session requests</h2>
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Incoming requests, confirmations, and history are unchanged. This is a visual refresh only.</p>
+              <h2 className="text-xl font-semibold text-[var(--color-navy)]">{t('Session requests')}</h2>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">{t('Incoming requests, confirmations, and history are unchanged. This is a visual refresh only.')}</p>
             </div>
             <BookingsDashboard />
           </div>
@@ -336,7 +339,10 @@ export default function Profile() {
 
       {activeTab === 'trust' ? (
         <div id="profile-panel-trust" role="tabpanel" aria-labelledby="profile-tab-trust" className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-          <TrustProgress user={user} onActionClick={handleTrustAction} />
+          <div className="space-y-4">
+            <TrustProgress user={user} onActionClick={handleTrustAction} />
+            <TrustTimeline userId={user.id} />
+          </div>
           <div className="sc-card p-6">
             <div className="mb-4 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--color-text-muted)]">Verification status</div>
             <div className="space-y-3">
@@ -345,7 +351,7 @@ export default function Profile() {
                   <div className={`flex h-10 w-10 items-center justify-center rounded-full ${item.done ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'}`}><item.icon className="h-4 w-4" /></div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold text-[var(--color-navy)]">{item.label}</div>
-                    <div className="text-sm text-[var(--color-text-secondary)]">{item.done ? 'Completed' : 'Still needed'}</div>
+                    <div className="text-sm text-[var(--color-text-secondary)]">{item.done ? t('Completed') : t('Still needed')}</div>
                   </div>
                 </div>
               ))}
@@ -356,7 +362,7 @@ export default function Profile() {
                 onClick={() => setShowIdModal(true)}
                 className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-300 px-4 py-3 text-sm font-semibold text-[var(--color-navy)] transition hover:border-[var(--color-amber)] hover:bg-amber-50"
               >
-                {user.id_card_status === 'pending' ? 'View ID verification status' : user.id_card_status === 'rejected' ? 'Re-submit government ID' : 'Submit ID for verification'}
+                {user.id_card_status === 'pending' ? t('View ID verification status') : user.id_card_status === 'rejected' ? t('Re-submit government ID') : t('Submit ID for verification')}
               </button>
             )}
           </div>

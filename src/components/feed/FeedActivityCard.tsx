@@ -17,11 +17,11 @@ export default function FeedActivityCard({ event }: FeedActivityCardProps) {
   const skillLink = event.skills?.slug ? `/app/skill/${event.skills.slug}` : '/app/board';
 
   return (
-    <article className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-5 shadow-[0_16px_38px_rgba(27,42,74,0.06)]">
+    <article className="rounded-[28px] border border-[rgba(196,135,58,0.12)] bg-white p-3.5 shadow-[0_16px_38px_rgba(27,42,74,0.06)] md:p-5">
       <div className="flex items-start gap-3">
-        <Avatar className="h-11 w-11 border-2 border-[rgba(244,240,232,0.92)]">
+        <Avatar className="h-9 w-9 border-2 border-[rgba(244,240,232,0.92)] md:h-11 md:w-11">
           <AvatarImage src={event.profiles?.avatar_url ?? undefined} alt={personName} />
-          <AvatarFallback className="bg-[var(--color-plum)] text-sm font-semibold text-white">
+          <AvatarFallback className="bg-[var(--color-plum)] text-xs font-semibold text-white md:text-sm">
             {initials(event.profiles?.first_name, event.profiles?.last_name)}
           </AvatarFallback>
         </Avatar>
@@ -39,26 +39,26 @@ export default function FeedActivityCard({ event }: FeedActivityCardProps) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-[24px] border border-[rgba(196,135,58,0.1)] bg-[linear-gradient(180deg,#FFF9F3_0%,#FFF5EA_100%)] p-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="space-y-2">
-            <h3 className="text-base font-semibold leading-6 text-[var(--color-navy)]">
+      <div className="mt-3 rounded-[24px] border border-[rgba(196,135,58,0.1)] bg-[linear-gradient(180deg,#FFF9F3_0%,#FFF5EA_100%)] p-3 md:mt-4 md:p-4">
+        <div className="flex items-start justify-between gap-3 md:gap-4">
+          <div className="space-y-1.5 md:space-y-2">
+            <h3 className="text-sm font-semibold leading-snug text-[var(--color-navy)] md:text-base md:leading-6">
               {event.title}
             </h3>
             {event.subtitle ? (
-              <p className="text-sm leading-6 text-[var(--color-text-secondary)]">
+              <p className="text-xs leading-relaxed text-[var(--color-text-secondary)] md:text-sm md:leading-6">
                 {event.subtitle}
               </p>
             ) : null}
           </div>
-          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(196,135,58,0.12)] text-[var(--color-amber)]">
-            <Sparkles className="h-4.5 w-4.5" />
+          <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-2xl bg-[rgba(196,135,58,0.12)] text-[var(--color-amber)] md:h-10 md:w-10">
+            <Sparkles className="h-4 w-4" />
           </div>
         </div>
 
         <Link
           to={skillLink}
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-amber)]"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-amber)] md:mt-4 md:text-sm"
         >
           {event.skills?.slug ? 'View skill' : 'Browse more'}
           <ArrowUpRight className="h-4 w-4" />
