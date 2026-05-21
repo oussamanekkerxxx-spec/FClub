@@ -72,7 +72,7 @@ export default function StudentViews({
       case 'library': return <LibraryView />;
       case 'exams': return <ExamsView />;
       case 'career': return <CareerView />;
-      case 'events': return <EventsView />;
+      case 'events': return <EventsView clubId={clubId} />;
       case 'workshops': return <WorkshopsView />;
       case 'liveclasses': return <LiveClassesView />;
       case 'xp': return <XpView />;
@@ -83,7 +83,7 @@ export default function StudentViews({
       case 'matching': return <MatchingView />;
       case 'mentors': return <MentorsView />;
       case 'qa': return <QaView />;
-      case 'roles': return <RolesView />;
+      case 'roles': return <RolesView clubId={clubId} />;
       default: return null;
     }
   })();

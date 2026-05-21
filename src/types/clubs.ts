@@ -309,7 +309,7 @@ export interface ClubMute {
 
 export type FileKind = 'video' | 'pdf' | 'document' | 'slides' | 'spreadsheet' | 'image' | 'audio' | 'other';
 export type SharedFileSource = 'chat' | 'course' | 'lesson';
-export type MathField = 'math' | 'physics' | 'biology' | 'chemistry';
+export type MathField = 'math' | 'physics' | 'biology' | 'chemistry' | 'algebra' | 'analysis';
 
 export interface ClubCourse {
   id: string;
@@ -357,6 +357,7 @@ export interface ClubSharedFile {
   storage_provider: string;
   storage_public_id: string | null;
   source: SharedFileSource;
+  file_size: number | null;
   created_at: string;
   updated_at: string;
 }

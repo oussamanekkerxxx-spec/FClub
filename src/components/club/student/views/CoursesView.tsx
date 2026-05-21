@@ -1,13 +1,17 @@
+import { useState } from 'react';
 import { useStudentCourses } from '@/hooks/useStudentCourses';
 import { FolderOpen } from 'lucide-react';
 import EmptyState from '@/components/club/EmptyState';
 import SkeletonCard from '@/components/club/SkeletonCard';
+import type { ClubCourse } from '@/types/clubs';
 
 import { PillNav, MATH_FIELD_LABELS } from './StudentViewShared';
+import { CourseDetailModal } from './CourseDetailModal';
 
 
 export function CoursesView({ clubId }: { clubId: string }) {
   const { data: courses, isLoading, error } = useStudentCourses(clubId, !!clubId);
+  const [selectedCourse, setSelectedCourse] = useState<ClubCourse | null>(null);
 
   if (!clubId) {
     return (
@@ -60,6 +64,7 @@ export function CoursesView({ clubId }: { clubId: string }) {
         {courses.map((course) => (
           <div
             key={course.id}
+            onClick={() => setSelectedCourse(course)}
             className="bg-white border border-[var(--color-border)] rounded-2xl overflow-hidden hover:-translate-y-1 hover:border-orange-200 transition-all cursor-pointer group shadow-sm"
           >
             <div className="h-28 relative">
@@ -91,6 +96,9 @@ export function CoursesView({ clubId }: { clubId: string }) {
           </div>
         ))}
       </div>
+      {selectedCourse && (
+        <CourseDetailModal course={selectedCourse} onClose={() => setSelectedCourse(null)} />
+      )}
     </div>
   );
 }
