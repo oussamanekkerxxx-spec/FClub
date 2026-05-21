@@ -157,7 +157,7 @@ const MessageItem = React.memo(function MessageItemInternal({
 
             {/* Deleted State Guard */}
             {msg.deleted_at ? (
-              <div className={`px-3.5 py-2.5 text-[13px] font-body text-[var(--color-text-muted)] italic bg-white shadow-sm border border-gray-200 ${bubbleRadius} flex items-center gap-2`}>
+              <div className={`px-3.5 py-2.5 text-[13px] font-body text-[var(--color-text-muted)] italic bg-gray-100 shadow-sm border border-gray-300 ${bubbleRadius} flex items-center gap-2`}>
                 <Trash2 className="w-3.5 h-3.5 opacity-50" /> This message was deleted.
               </div>
             ) : (
@@ -232,7 +232,7 @@ const MessageItem = React.memo(function MessageItemInternal({
                 )}
                 {msg.image_url && msg.caption && (
                   <div className={`px-3.5 py-2 text-[14px] font-body leading-relaxed shadow-sm break-words max-w-[280px] sm:max-w-xs ${bubbleRadius}
-                    ${isOwn ? 'bg-[var(--color-navy)]/70 backdrop-blur-md text-white shadow-sm' : 'bg-white text-[#1E293B] border border-gray-200 shadow-sm'}`}>
+                    ${isOwn ? 'bg-[var(--color-navy)] text-white shadow-sm' : 'bg-gray-100 text-[#1E293B] border border-gray-300 shadow-sm'}`}>
                     {msg.caption}
                   </div>
                 )}
@@ -256,7 +256,7 @@ const MessageItem = React.memo(function MessageItemInternal({
                 )}
                 {msg.video_url && msg.caption && (
                   <div className={`px-3.5 py-2 text-[14px] font-body leading-relaxed shadow-sm break-words max-w-[280px] sm:max-w-xs ${bubbleRadius}
-                    ${isOwn ? 'bg-[var(--color-navy)]/70 backdrop-blur-md text-white shadow-sm' : 'bg-white text-[#1E293B] border border-gray-200 shadow-sm'}`}>
+                    ${isOwn ? 'bg-[var(--color-navy)] text-white shadow-sm' : 'bg-gray-100 text-[#1E293B] border border-gray-300 shadow-sm'}`}>
                     {msg.caption}
                   </div>
                 )}
@@ -272,8 +272,8 @@ const MessageItem = React.memo(function MessageItemInternal({
                       rel="noopener noreferrer"
                       className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium shadow-sm max-w-xs ${bubbleRadius}
                         ${isOwn
-                          ? 'bg-blue-600/70 backdrop-blur-md text-white shadow-sm'
-                          : 'bg-white text-navy border border-gray-200 shadow-sm'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'bg-gray-100 text-navy border border-gray-300 shadow-sm'
                         }`}
                     >
                       <FileText className={`w-4 h-4 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-red-400'}`} />
@@ -290,7 +290,7 @@ const MessageItem = React.memo(function MessageItemInternal({
 
                 {/* Location */}
                 {msg.location_lat && msg.location_lng && (
-                  <div className={`flex flex-col overflow-hidden shadow-sm w-[240px] ${bubbleRadius} ${isOwn ? 'bg-cyan-500/70 backdrop-blur-md text-white shadow-sm' : 'bg-white text-navy border border-gray-200 shadow-sm'}`}>
+                  <div className={`flex flex-col overflow-hidden shadow-sm w-[240px] ${bubbleRadius} ${isOwn ? 'bg-cyan-500 text-white shadow-sm' : 'bg-gray-100 text-navy border border-gray-300 shadow-sm'}`}>
                     <div className="h-28 w-full bg-slate-200 relative">
                       <img src={`https://static-maps.yandex.ru/1.x/?lang=en-US&ll=${msg.location_lng},${msg.location_lat}&z=14&l=map&size=240,112&pt=${msg.location_lng},${msg.location_lat},pm2ntl`} alt="Map" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                     </div>
@@ -333,7 +333,7 @@ const MessageItem = React.memo(function MessageItemInternal({
 
                 {/* Poll */}
                 {msg.poll && (
-                  <div className={`flex flex-col shadow-sm w-[260px] p-3 ${bubbleRadius} ${isOwn ? 'bg-orange-500/70 backdrop-blur-md text-white shadow-sm' : 'bg-white text-navy border border-gray-200 shadow-sm'}`}>
+                  <div className={`flex flex-col shadow-sm w-[260px] p-3 ${bubbleRadius} ${isOwn ? 'bg-orange-500 text-white shadow-sm' : 'bg-gray-100 text-navy border border-gray-300 shadow-sm'}`}>
                     <div className="flex items-start gap-2.5 mb-3">
                       <BarChart2 className={`w-5 h-5 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-orange-500'}`} />
                       <div>
@@ -386,8 +386,8 @@ const MessageItem = React.memo(function MessageItemInternal({
                   <div
                     className={`px-3.5 py-2 text-[15px] font-body leading-[1.45] shadow-sm break-words ${bubbleRadius}
                       ${isOwn
-                        ? 'bg-[var(--color-navy)]/70 backdrop-blur-md text-white shadow-sm'
-                        : 'bg-white text-[#1E293B] border border-gray-200 shadow-sm'
+                        ? 'bg-[var(--color-navy)] text-white shadow-sm'
+                        : 'bg-gray-100 text-[#1E293B] border border-gray-300 shadow-sm'
                       }
                     `}
                     style={{ minWidth: '80px' }}
