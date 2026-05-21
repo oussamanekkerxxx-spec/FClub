@@ -12,8 +12,11 @@ export class LruCache<K, V> {
   private map = new Map<K, LruNode<K, V>>();
   private head: LruNode<K, V> | null = null;
   private tail: LruNode<K, V> | null = null;
+  private capacity: number;
 
-  constructor(private capacity: number) {}
+  constructor(capacity: number) {
+    this.capacity = capacity;
+  }
 
   get(key: K): V | undefined {
     const node = this.map.get(key);

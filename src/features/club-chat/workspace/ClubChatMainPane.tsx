@@ -38,7 +38,7 @@ interface ClubChatMainPaneProps {
 
 const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
   return (
-    <div className={`${c.mobileView === 'channels' ? 'hidden md:flex' : 'flex'} flex-1 flex-col ${c.preferences?.wallpaper_class || 'wall-default'} ${c.preferences?.is_dark_mode ? 'bg-[#121212]' : ''} relative`}>
+    <div className={`${c.mobileView === 'channels' ? 'hidden md:flex' : 'flex'} flex-1 flex-col h-full ${c.preferences?.wallpaper_class || 'wall-default'} ${c.preferences?.is_dark_mode ? 'bg-[#121212]' : ''} relative`}>
       {c.activeChannel ? (
         <>
           <div className="flex flex-col bg-white border-b border-[var(--color-border)] z-10 shrink-0">

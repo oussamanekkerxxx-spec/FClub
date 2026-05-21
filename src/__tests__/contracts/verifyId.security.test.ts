@@ -1,24 +1,4 @@
-/**
- * verifyId.security.test.ts
- *
- * Security contract tests for the verify-id edge function logic.
- *
- * Because the edge function runs in Deno, we cannot import it directly.
- * Instead we extract and re-implement the pure security-critical functions
- * here and test them in isolation — ensuring they match the implementation
- * in supabase/functions/verify-id/index.ts exactly.
- *
- * Covered contracts:
- *   1.  Path ownership validation  (frontPath must start with userId/)
- *   2.  MRZ field-level checksum validation (TD1 + TD3)
- *   3.  Response shape does NOT include ocrData
- *   4.  CORS origin is not wildcard
- *   5.  documentType whitelist
- */
-
 import { describe, it, expect } from 'vitest';
-
-// ── 1. Path ownership (mirrored from verify-id/index.ts) ─────────────────────
 
 function isOwnedPath(userId: string, path: string): boolean {
   return path.startsWith(`${userId}/`);

@@ -1,5 +1,3 @@
--- Migration 45: DM read receipts
--- Tracks per-user last-read timestamp per conversation so we can show unread badges.
 
 CREATE TABLE IF NOT EXISTS public.dm_reads (
   user_id         UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,

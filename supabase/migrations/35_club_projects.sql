@@ -116,3 +116,34 @@ CREATE TRIGGER update_club_projects_updated_at
   BEFORE UPDATE ON club_projects
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- ── 35b: Allow description to be NULL (optional field in the wizard) ──
+ALTER TABLE public.club_projects ALTER COLUMN description DROP NOT NULL;
+
+-- ── 35c: Expand status CHECK to include 'open' (used by the project wizard) ──
+ALTER TABLE public.club_projects DROP CONSTRAINT IF EXISTS club_projects_status_check;
+ALTER TABLE public.club_projects
+  ADD CONSTRAINT club_projects_status_check
+  CHECK (status IN ('idea', 'active', 'paused', 'completed', 'open'));
+
+-- ── 35d: Add FK from project_applications.user_id → public.profiles(id)
+-- so PostgREST can resolve the user:profiles(...) join in API queries.
+DO $$
+BEGIN
+  IF to_regclass('public.project_applications') IS NULL
+     OR to_regclass('public.profiles') IS NULL THEN
+    RETURN;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'project_applications_user_id_profiles_fkey'
+      AND conrelid = 'public.project_applications'::regclass
+  ) THEN
+    ALTER TABLE public.project_applications
+      ADD CONSTRAINT project_applications_user_id_profiles_fkey
+      FOREIGN KEY (user_id) REFERENCES public.profiles(id) ON DELETE CASCADE
+      NOT VALID;
+  END IF;
+END $$;

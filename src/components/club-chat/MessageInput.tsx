@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { springs } from '@/lib/animation';
 import { useChatStore } from '@/features/club-chat/store/chatStore';
+import { getChatTheme } from '@/config/clubChatThemes';
 
 import type { ChatAttachment } from '@/features/club-chat/workspace/types';
 
@@ -96,6 +97,10 @@ const MessageInput = React.memo(function MessageInputInternal({
   fileInputRef,
   pendingAttachTypeRef,
 }: MessageInputProps) {
+  // ── Theme ──
+  const clubCategory = useChatStore((s) => s.clubCategory);
+  const theme = getChatTheme(clubCategory);
+
   // ── Store fallbacks for composer state (club-chat path) ──
   const storeComposerText = useChatStore((s) => s.composer.text);
   const storeComposerSending = useChatStore((s) => s.composer.sending);
@@ -138,7 +143,7 @@ const MessageInput = React.memo(function MessageInputInternal({
   const onClearEdit = propOnClearEdit ?? (() => { storeSetComposerEditing(null); storeSetComposerText(''); });
 
   return (
-    <div className="px-4 pb-4 pt-2 bg-transparent">
+    <div className="px-4 pb-0 md:pb-4 pt-2 bg-transparent">
       {canPost ? (
         <div className="flex flex-col gap-2">
 
@@ -316,7 +321,7 @@ const MessageInput = React.memo(function MessageInputInternal({
               </div>
             </motion.div>
           ) : (
-          <div className="flex items-end gap-2 rounded-3xl focus-within:shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all duration-200 p-1.5 pl-2 relative">
+          <div className={`flex items-end gap-2 rounded-3xl transition-all duration-200 p-1.5 pl-2 relative ${theme.composer.shell}`}>
 
             {/* Attachment Button & Menu */}
             <div className="relative mb-0.5">

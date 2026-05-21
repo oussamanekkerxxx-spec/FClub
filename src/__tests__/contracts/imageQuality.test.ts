@@ -1,15 +1,3 @@
-/**
- * imageQuality.test.ts
- *
- * Tests for the client-side image quality + structural validation pipeline.
- *
- * Strategy: we cannot run Canvas API in Vitest (jsdom doesn't implement it),
- * so we test the PURE helper functions that are exported or that we can reach
- * by importing the module in a way that lets us call the logic directly.
- *
- * The Canvas-dependent entry points (checkImageQuality, checkIDStructure) are
- * tested via "smoke" tests with mocked canvas and with PDF short-circuit paths.
- */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
@@ -19,8 +7,6 @@ import {
   type IDFailReason,
 } from '@/lib/imageQuality';
 
-// ── Helpers reproduced from imageQuality.ts (pure, no DOM) ───────────────────
-// These match the implementations exactly so we can unit-test them in isolation.
 
 function rgbToHsv(r: number, g: number, b: number): [number, number, number] {
   const rn = r / 255, gn = g / 255, bn = b / 255;
@@ -70,8 +56,6 @@ function luminanceSD(pixels: Uint8ClampedArray): number {
 }
 
 function laplacianVarianceOnThreePixels(pixels: number[]): number {
-  // Minimal 3×3 grey patch helper for verifying Welford stability
-  // Not a full convolution – just checks the algorithm doesn't NaN
   let count = 0, mean = 0, M2 = 0;
   for (const v of pixels) {
     count++;
@@ -86,7 +70,6 @@ function clamp100(n: number): number {
   return Math.round(Math.max(0, Math.min(100, n)));
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
 
 describe('rgbToHsv', () => {
   it('pure red → hue ≈ 0°, saturation = 1, value = 1', () => {
@@ -120,7 +103,6 @@ describe('rgbToHsv', () => {
   });
 });
 
-// ── MRZ checksum ──────────────────────────────────────────────────────────────
 
 describe('mrzCheckValid', () => {
   // Known-good TD3 passport doc-number segment from ICAO 9303 examples

@@ -7,7 +7,10 @@ export function useT() {
 
   const t = useMemo(() => {
     const catalog = translations[locale] || translations.en;
-    return (message: string): string => catalog[message] || message;
+    return (message: string | TemplateStringsArray): string => {
+      const key = typeof message === 'string' ? message : message[0];
+      return catalog[key] || key;
+    };
   }, [locale]);
 
   return { t };

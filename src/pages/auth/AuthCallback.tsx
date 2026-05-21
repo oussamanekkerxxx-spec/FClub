@@ -42,6 +42,10 @@ export default function AuthCallback() {
       if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
         subscription.unsubscribe();
         clearTimeout(timeout);
+        // Strip the OAuth tokens from the URL hash so they don't linger in the address bar
+        if (window.location.hash) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
         redirectAfterAuth(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         subscription.unsubscribe();

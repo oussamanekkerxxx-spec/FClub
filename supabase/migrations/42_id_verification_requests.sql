@@ -1,7 +1,3 @@
--- id_verification_requests
--- Stores rich per-submission data (OCR output, MRZ validity, quality scores,
--- reviewer notes) so the admin panel can make informed approve/reject decisions.
--- The profiles table keeps id_card_status / id_verified as the user-facing truth.
 
 CREATE TABLE IF NOT EXISTS id_verification_requests (
   id                  uuid        PRIMARY KEY DEFAULT gen_random_uuid(),

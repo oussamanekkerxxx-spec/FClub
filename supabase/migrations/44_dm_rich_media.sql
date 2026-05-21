@@ -1,10 +1,4 @@
--- Migration 44: Rich media support for personal DMs
--- Adds attachment columns, soft-delete, reply-to, and reactions to the `messages` table.
-
--- 1. Make content nullable (so attachments alone can be sent)
 ALTER TABLE "public"."messages" ALTER COLUMN "content" DROP NOT NULL;
-
--- 2. Rich-content columns
 ALTER TABLE "public"."messages" ADD COLUMN IF NOT EXISTS "image_url"     TEXT;
 ALTER TABLE "public"."messages" ADD COLUMN IF NOT EXISTS "video_url"     TEXT;
 ALTER TABLE "public"."messages" ADD COLUMN IF NOT EXISTS "pdf_url"       TEXT;

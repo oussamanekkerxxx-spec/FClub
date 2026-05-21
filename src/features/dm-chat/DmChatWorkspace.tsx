@@ -36,7 +36,7 @@ function conversationTimeLabel(dateStr?: string) {
 
 export default function DmChatWorkspace() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { conversations, setConversations, loading: convsLoading, error: convsError } = useConversations(
     user?.id,
     user?.isDemo ?? false
@@ -105,6 +105,15 @@ export default function DmChatWorkspace() {
       setSelectedConvId(conversations[0].id);
     }
   }, [conversations, searchParams, selectedConvId]);
+
+  // ── Sync selected conversation ↔ URL (so AppLayout can detect active chat) ─────
+  useEffect(() => {
+    if (mobileView === 'chat' && selectedConvId) {
+      setSearchParams({ conv: selectedConvId }, { replace: true });
+    } else if (mobileView === 'list') {
+      setSearchParams({}, { replace: true });
+    }
+  }, [mobileView, selectedConvId, setSearchParams]);
 
   // ── Fetch a conversation that isn't in the list yet (e.g. newly created from MemberProfile) ──
   useEffect(() => {
@@ -311,7 +320,7 @@ export default function DmChatWorkspace() {
   }
 
   return (
-    <div className="relative h-[calc(100vh-3.5rem-2rem)] overflow-hidden rounded-[32px] border border-[rgba(196,135,58,0.16)] bg-[linear-gradient(135deg,#FFF8F1_0%,#F8EEDF_54%,#F7ECE7_100%)] shadow-[0_24px_65px_rgba(196,135,58,0.14)] md:h-[calc(100vh-3.5rem-3rem)]">
+    <div className="relative h-full overflow-hidden rounded-[32px] border border-[rgba(196,135,58,0.16)] bg-[linear-gradient(135deg,#FFF8F1_0%,#F8EEDF_54%,#F7ECE7_100%)] shadow-[0_24px_65px_rgba(196,135,58,0.14)] md:h-[calc(100vh-3.5rem-3rem)]">
       {/* Ambient blobs */}
       <div className="pointer-events-none absolute -left-20 top-0 h-48 w-48 rounded-full bg-[rgba(225,107,59,0.1)] blur-[90px]" />
       <div className="pointer-events-none absolute bottom-0 right-0 h-56 w-56 rounded-full bg-[rgba(92,61,143,0.12)] blur-[100px]" />

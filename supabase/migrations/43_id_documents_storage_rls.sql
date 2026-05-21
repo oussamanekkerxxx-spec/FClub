@@ -1,7 +1,8 @@
--- Create the id-documents bucket
+
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('id-documents', 'id-documents', false)
 ON CONFLICT (id) DO NOTHING;
+
 
 -- Storage RLS: Users can upload documents to their own folder
 CREATE POLICY "Users can upload their own ID documents"

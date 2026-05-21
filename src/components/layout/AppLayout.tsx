@@ -1,5 +1,5 @@
 import type React from 'react';
-import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import { useT } from '@/lib/t';
 import { AmbientBackground } from './AmbientBackground';
@@ -79,7 +79,11 @@ export default function AppLayout() {
   const navItems = useNavItems();
   const { t } = useT();
 
-  const isClubChatMobile = !!location.pathname.match(/\/club\/[^\/]+\/chat/);
+  const [searchParams] = useSearchParams();
+  const isInChatMobile = (
+    !!location.pathname.match(/\/club\/[^\/]+\/chat/) ||
+    (location.pathname === '/app/messages' && searchParams.has('conv'))
+  );
 
   const handleLogout = () => {
     logout();
@@ -255,7 +259,7 @@ export default function AppLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
         <header
-          className={`app-layout-header h-14 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 ${isClubChatMobile ? 'hidden md:flex' : ''}`}
+          className={`app-layout-header h-14 flex items-center justify-between px-4 md:px-6 sticky top-0 z-30 ${isInChatMobile ? 'hidden md:flex' : ''}`}
           style={{
             background: 'rgba(244, 240, 232, 0.92)',
             backdropFilter: 'blur(12px)',
@@ -296,7 +300,7 @@ export default function AppLayout() {
         </header>
 
         {/* Content */}
-        <main className={`app-layout-main flex-1 overflow-y-auto ${isClubChatMobile ? 'p-0 pb-16 md:p-6' : 'p-4 pb-20 md:p-6'}`}>
+        <main className={`app-layout-main flex-1 overflow-y-auto ${isInChatMobile ? 'p-0 md:p-6' : 'p-4 pb-20 md:p-6'}`}>
           <AnimatePresence mode="wait">
             <PageTransition key={location.pathname}>
               <Outlet />
@@ -304,7 +308,7 @@ export default function AppLayout() {
           </AnimatePresence>
         </main>
 
-        <MobileBottomNav />
+        {!isInChatMobile && <MobileBottomNav />}
       </div>
     </div>
   );
