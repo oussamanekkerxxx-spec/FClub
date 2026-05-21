@@ -435,6 +435,143 @@ export function createComposerActions(
       toast.success(state.scheduleModal.isSilent ? 'Message scheduled silently.' : 'Message scheduled.');
     },
 
+    // ── Send attachment without course linking (casual / meme photos) ──
+    sendAttachmentCasually: async (file: File, fileKind: string) => {
+      const state = get();
+      if (!state.activeChannelId || !state.user) return;
+
+      try {
+        set((draft) => {
+          draft.composer.sending = true;
+          draft.composer.uploadProgress = 1;
+        });
+
+        const result = await uploadToCloudinary(file, (progress) => {
+          set((draft) => { draft.composer.uploadProgress = progress; });
+        });
+
+        let imageUrl: string | undefined;
+        let videoUrl: string | undefined;
+        let pdfUrl: string | undefined;
+        let imageWidth: number | undefined;
+        let imageHeight: number | undefined;
+        let videoWidth: number | undefined;
+        let videoHeight: number | undefined;
+
+        if (fileKind === 'image') {
+          imageUrl = result.url;
+          const img = new Image();
+          img.src = URL.createObjectURL(file);
+          await new Promise((resolve) => {
+            img.onload = () => {
+              imageWidth = img.naturalWidth;
+              imageHeight = img.naturalHeight;
+              resolve(true);
+            };
+            img.onerror = () => resolve(true);
+          });
+        } else if (fileKind === 'video' || fileKind === 'audio') {
+          videoUrl = result.url;
+          if (fileKind === 'video') {
+            const vid = document.createElement('video');
+            vid.src = URL.createObjectURL(file);
+            await new Promise((resolve) => {
+              vid.onloadedmetadata = () => {
+                videoWidth = vid.videoWidth;
+                videoHeight = vid.videoHeight;
+                resolve(true);
+              };
+              vid.onerror = () => resolve(true);
+            });
+          }
+        } else {
+          pdfUrl = result.url;
+        }
+
+        const payload: any = {
+          channel_id: state.activeChannelId,
+          sender_id: state.user.id,
+          content: '',
+        };
+        if (imageUrl) {
+          payload.image_url = imageUrl;
+          if (imageWidth) payload.image_width = imageWidth;
+          if (imageHeight) payload.image_height = imageHeight;
+        }
+        if (videoUrl) {
+          payload.video_url = videoUrl;
+          if (videoWidth) payload.video_width = videoWidth;
+          if (videoHeight) payload.video_height = videoHeight;
+        }
+        if (pdfUrl) payload.pdf_url = pdfUrl;
+
+        // Optimistic UI
+        const tempId = `temp-${Date.now()}`;
+        const optimisticMsg: any = {
+          ...payload,
+          id: tempId,
+          created_at: new Date().toISOString(),
+          sender: {
+            first_name: (state.user as any).firstName ?? '',
+            last_name: (state.user as any).lastName ?? '',
+            avatar_url: (state.user as any).avatarUrl ?? null,
+          },
+          reactions: [],
+          is_edited: false,
+          deleted_at: null,
+          reply_to_message: null,
+        };
+        set((draft) => { draft.messages = [...draft.messages, optimisticMsg]; });
+
+        let { data: insertedRow, error } = await supabase
+          .from('club_messages')
+          .insert(payload)
+          .select('id, created_at')
+          .single();
+
+        if (error?.code === '42703' || error?.message?.includes('column')) {
+          delete payload.reply_to_id;
+          delete payload.is_edited;
+          const retry = await supabase
+            .from('club_messages')
+            .insert(payload)
+            .select('id, created_at')
+            .single();
+          insertedRow = retry.data;
+          error = retry.error;
+        }
+
+        if (error) {
+          toast.error('Could not send message.');
+          set((draft) => {
+            draft.messages = draft.messages.filter((m) => m.id !== tempId);
+          });
+        } else if (insertedRow?.id) {
+          set((draft) => {
+            draft.messages = draft.messages.map((m) =>
+              m.id === tempId ? { ...m, id: insertedRow!.id, created_at: insertedRow!.created_at } : m
+            );
+          });
+          set((draft) => { draft.lastSentAt = Date.now(); });
+        }
+
+        set((draft) => {
+          draft.composer.sending = false;
+          draft.composer.uploadProgress = 0;
+          draft.composer.attachment = null;
+          draft.learningFileModal.open = false;
+          draft.learningFileModal.data = null;
+        });
+      } catch (err: any) {
+        reportError('composerActions:casualUpload', err);
+        toast.error('Upload failed: ' + (err?.message ?? 'unknown error'));
+        set((draft) => {
+          draft.composer.sending = false;
+          draft.composer.uploadProgress = 0;
+        });
+      }
+    },
+
     // ── Handle learning file submit ──
     handleLearningFileSubmit: async (data: {
       file: File;

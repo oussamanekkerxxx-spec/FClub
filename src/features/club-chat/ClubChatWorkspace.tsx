@@ -91,6 +91,7 @@ export default function ClubChatWorkspace({
   const storeHandleSend = useChatStore((s) => s.handleSend);
   const storeSubmitScheduledMessage = useChatStore((s) => s.submitScheduledMessage);
   const storeHandleLearningFileSubmit = useChatStore((s) => s.handleLearningFileSubmit);
+  const storeSendAttachmentCasually = useChatStore((s) => s.sendAttachmentCasually);
 
   // ── Steps 4-5: Wizard + UI domain (store-backed) ──
   const storeUi = useChatStore((s) => s.ui);
@@ -212,6 +213,7 @@ export default function ClubChatWorkspace({
     handleSend: (overrides?: any) => storeHandleSend(overrides, typingTimerRef),
     submitScheduledMessage: storeSubmitScheduledMessage,
     handleLearningFileSubmit: storeHandleLearningFileSubmit,
+    sendAttachmentCasually: storeSendAttachmentCasually,
 
     // UI domain (store-backed)
     viewingImageMsg: storeUi.viewingImageMsg,
@@ -405,6 +407,16 @@ export default function ClubChatWorkspace({
             }
           }}
           onClose={() => {
+            controller.setShowLearningFileModal(false);
+            controller.setLearningFileData(null);
+          }}
+          onSkip={async () => {
+            if (controller.learningFileData && controller.sendAttachmentCasually) {
+              await controller.sendAttachmentCasually(
+                controller.learningFileData.file,
+                controller.learningFileData.fileKind
+              );
+            }
             controller.setShowLearningFileModal(false);
             controller.setLearningFileData(null);
           }}

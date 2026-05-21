@@ -19,6 +19,7 @@ interface LearningFileMetadataModalProps {
     category: string;
     mathField: MathField | null;
   }) => Promise<void>;
+  onSkip: () => Promise<void>;
   onClose: () => void;
 }
 
@@ -39,6 +40,7 @@ export default function LearningFileMetadataModal({
   clubId,
   user,
   onSubmit,
+  onSkip,
   onClose,
 }: LearningFileMetadataModalProps) {
   const [title, setTitle] = useState(file.name.replace(/\.[^/.]+$/, ''));
@@ -53,27 +55,39 @@ export default function LearningFileMetadataModal({
   const [showNewCourse, setShowNewCourse] = useState(false);
   const [newCourseTitle, setNewCourseTitle] = useState('');
   const [newCourseDesc, setNewCourseDesc] = useState('');
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
-    async function loadCourses() {
+    async function loadCoursesAndRole() {
       setCoursesLoading(true);
-      const { data, error } = await supabase
+      const { data: courseData, error: courseError } = await supabase
         .from('club_courses')
         .select('*')
         .eq('club_id', clubId)
         .eq('is_published', true)
         .order('position', { ascending: true });
       
-      if (!error && data) {
-        setCourses(data as ClubCourse[]);
-        if (data.length > 0) {
-          setCourseId(data[0].id);
+      if (!courseError && courseData) {
+        setCourses(courseData as ClubCourse[]);
+        if (courseData.length > 0) {
+          setCourseId(courseData[0].id);
         }
       }
       setCoursesLoading(false);
+
+      if (user?.id) {
+        const { data: mem } = await supabase
+          .from('club_memberships')
+          .select('role')
+          .eq('club_id', clubId)
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+        setUserRole(mem?.role ?? 'member');
+      }
     }
-    if (clubId) loadCourses();
-  }, [clubId]);
+    if (clubId) loadCoursesAndRole();
+  }, [clubId, user?.id]);
 
   useEffect(() => {
     async function loadLessons() {
@@ -103,8 +117,10 @@ export default function LearningFileMetadataModal({
     
     let finalCourseId = courseId;
 
-    // If no course selected, create one
+    // If no course selected, auto-create one (admins/moderators only)
     if (!finalCourseId && clubId && user && category) {
+      const canCreateCourse = userRole === 'admin' || userRole === 'moderator';
+
       // Check if course exists for this subject
       const { data: existing } = await supabase
         .from('club_courses')
@@ -116,7 +132,7 @@ export default function LearningFileMetadataModal({
       
       if (existing?.id) {
         finalCourseId = existing.id;
-      } else {
+      } else if (canCreateCourse) {
         // Create new course
         const { data: newCourse, error: courseError } = await supabase
           .from('club_courses')
@@ -136,6 +152,10 @@ export default function LearningFileMetadataModal({
           return;
         }
         finalCourseId = newCourse.id;
+      } else {
+        toast.error('No course exists for this subject. Ask a moderator to create one, or send the file in chat only.');
+        setLoading(false);
+        return;
       }
     }
 
@@ -177,8 +197,8 @@ export default function LearningFileMetadataModal({
               {FILE_KIND_ICONS[fileKind] || 'FILE'}
             </div>
             <div>
-              <h2 className="text-[15px] font-bold text-navy">Share to Course</h2>
-              <p className="text-[11px] text-[var(--color-text-muted)]">Add file to learning materials</p>
+              <h2 className="text-[15px] font-bold text-navy">Share File</h2>
+              <p className="text-[11px] text-[var(--color-text-muted)]">Add to courses or send in chat</p>
             </div>
           </div>
           <button onClick={onClose} className="rounded-xl p-2 text-[var(--color-text-muted)] hover:bg-gray-100">
@@ -239,13 +259,15 @@ export default function LearningFileMetadataModal({
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[12px] font-semibold text-navy">Course</label>
-              <button
-                type="button"
-                onClick={() => setShowNewCourse(!showNewCourse)}
-                className="text-[11px] text-[var(--color-amber)] hover:underline flex items-center gap-1"
-              >
-                <Plus className="h-3 w-3" /> New Course
-              </button>
+              {(userRole === 'admin' || userRole === 'moderator') && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewCourse(!showNewCourse)}
+                  className="text-[11px] text-[var(--color-amber)] hover:underline flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" /> New Course
+                </button>
+              )}
             </div>
             
             {showNewCourse ? (
@@ -308,21 +330,35 @@ export default function LearningFileMetadataModal({
             </div>
           )}
 
-          <div className="flex gap-2 pt-2">
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 rounded-xl border border-[var(--color-border)] bg-gray-50 px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!isValid || loading}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--color-amber)] to-orange-500 px-4 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
+                {loading ? 'Sharing...' : 'Share to Course'}
+              </button>
+            </div>
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 rounded-xl border border-[var(--color-border)] bg-gray-50 px-4 py-2.5 text-sm font-semibold text-navy transition-colors hover:bg-gray-100"
+              onClick={async () => {
+                setLoading(true);
+                await onSkip();
+                setLoading(false);
+              }}
+              disabled={loading}
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!isValid || loading}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[var(--color-amber)] to-orange-500 px-4 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4" />}
-              {loading ? 'Sharing...' : 'Share'}
+              📎 Send in chat only
             </button>
           </div>
         </form>

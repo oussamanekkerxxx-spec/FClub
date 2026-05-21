@@ -251,4 +251,5 @@ export interface ChatStoreComposerActions {
     category: string;
     mathField: import('@/types/clubs').MathField | null;
   }) => Promise<void>;
+  sendAttachmentCasually: (file: File, fileKind: string) => Promise<void>;
 }
