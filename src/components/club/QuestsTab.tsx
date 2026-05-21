@@ -209,7 +209,7 @@ const handleCreateQuest = async () => {
       })),
       participants: [],
       i_am_participant: false,
-    } as QuestRow;
+    } as unknown as QuestRow;
 
     setQuests(prev => [optimisticRow, ...prev]);
     setCreatingQuest(true);

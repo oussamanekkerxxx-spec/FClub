@@ -288,7 +288,7 @@ const handleRsvp = async (eventId: string) => {
       }
     } else {
       const { error } = await supabase.from('event_rsvps').insert({ event_id: eventId, user_id: userId });
-      if (error) {
+      if (error && snapshot) {
         setEvents(prev => prev.map(e => e.id === eventId ? snapshot : e));
         setMyRsvpIds(prev => { const next = new Set(prev); next.delete(eventId); return next; });
         toast.error('Could not RSVP.');

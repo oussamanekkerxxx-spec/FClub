@@ -16,7 +16,7 @@ interface ClubStoriesStripProps {
   isMember: boolean;
 }
 
-export default function ClubStoriesStrip({ clubId, clubName, isMember }: ClubStoriesStripProps) {
+export default function ClubStoriesStrip({ clubId, clubName: _clubName, isMember: _isMember }: ClubStoriesStripProps) {
   const { user } = useAuth();
   const { storyGroups } = useStories({ clubId });
   const [selectedGroupIdx, setSelectedGroupIdx] = useState<number | null>(null);

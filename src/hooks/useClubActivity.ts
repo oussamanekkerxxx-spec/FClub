@@ -35,7 +35,7 @@ function toActivityItem(
   row: ClubMessageWithAttachments,
   channelMap: Map<string, string>
 ): ActivityItem | null {
-  const sender = row.sender ? unwrapRelation(row.sender) : undefined;
+  const sender = row.sender ? (unwrapRelation(row.sender) ?? undefined) : undefined;
   const poll = row.poll ? unwrapRelation(row.poll) : null;
   const project = row.project ? unwrapRelation(row.project) : null;
   const content = row.content?.trim() ?? '';
@@ -168,7 +168,7 @@ async function fetchClubActivity(clubId: string): Promise<{ items: ActivityItem[
     return { items: [], channelIds, channelMap };
   }
 
-  const items = ((rows ?? []) as ClubMessageWithAttachments[])
+  const items = ((rows ?? []) as unknown as ClubMessageWithAttachments[])
     .map((row) => toActivityItem(row, channelMap))
     .filter((item): item is ActivityItem => item !== null)
     .sort(

@@ -48,7 +48,7 @@ export default function MembersTab({
     { errorMessage: 'Failed to load members' }
   );
 
-  const handleChangeMemberRole = async (membershipId: string, newRole: 'member' | 'moderator') => {
+  const handleChangeMemberRole = async (membershipId: string, newRole: 'member' | 'moderator' | 'admin') => {
     const { error } = await supabase
       .from('club_memberships').update({ role: newRole }).eq('id', membershipId);
     if (!error) {

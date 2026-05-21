@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { queryKeys } from '@/lib/queryKeys';
 import type { Club } from '@/types/clubs';
 
 interface MyClub extends Club {

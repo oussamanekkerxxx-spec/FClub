@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Calendar,
-  CheckCircle2,
   Clock3,
   ExternalLink,
   Filter,
@@ -483,9 +482,6 @@ export default function ProjectDetails() {
                       </div>
                       <div className="space-y-2">
                         {colTasks.map((task) => {
-                          const assignee = task.assigned_to
-                            ? members.find((m) => m.user_id === task.assigned_to)
-                            : null;
                           const blocked = isBlocked(task.title);
                           return (
                             <div

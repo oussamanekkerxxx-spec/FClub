@@ -31,3 +31,5 @@ nul
 
 # Supabase CLI temp files
 supabase/.temp/
+
+.vercel

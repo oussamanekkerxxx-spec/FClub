@@ -11,7 +11,7 @@ interface BattlesTabProps {
 }
 
 export default function BattlesTab({ clubId, isMember }: BattlesTabProps) {
-  const { user } = useAuth();
+  useAuth();
   const { data: battles = [], isLoading } = useBattles(clubId);
   const [showCreate, setShowCreate] = useState(false);
 

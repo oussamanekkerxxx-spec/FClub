@@ -10,7 +10,7 @@ interface TournamentsTabProps {
 
 export default function TournamentsTab({ clubId, isMember }: TournamentsTabProps) {
   const { data: tournaments = [], isLoading } = useTournaments(clubId);
-  const [showCreate, setShowCreate] = useState(false);
+  const [_showCreate, _setShowCreate] = useState(false);
 
   const active = tournaments.filter((t) => t.status === 'registering' || t.status === 'active');
   const completed = tournaments.filter((t) => t.status === 'completed');
@@ -24,7 +24,7 @@ export default function TournamentsTab({ clubId, isMember }: TournamentsTabProps
         </h2>
         {isMember && (
           <button
-            onClick={() => setShowCreate(true)}
+            onClick={() => _setShowCreate(true)}
             className="btn-amber text-xs inline-flex items-center gap-1.5 py-2 px-3"
           >
             <Plus className="w-3.5 h-3.5" />

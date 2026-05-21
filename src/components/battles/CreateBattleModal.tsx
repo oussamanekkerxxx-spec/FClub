@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Swords } from 'lucide-react';
+import { Swords } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -38,6 +38,7 @@ export function CreateBattleModal({ clubId, open, onClose }: CreateBattleModalPr
         opponent_id: null,
         challenger_club_id: clubId,
         opponent_club_id: null,
+        winner_id: null,
         judge_type: 'community_vote' as JudgeType,
         deadline: deadline ? new Date(deadline).toISOString() : null,
       },

@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { Swords, Clock, Users } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import type { Battle } from '@/types/battles';

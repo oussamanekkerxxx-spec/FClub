@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import type { DmMessage, DmReaction, TypingUser } from '@/features/dm-chat/types';
 import type { Conversation } from '@/types/messaging';
