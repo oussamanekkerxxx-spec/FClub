@@ -436,7 +436,7 @@ export function createComposerActions(
     },
 
     // ── Send attachment without course linking (casual / meme photos) ──
-    sendAttachmentCasually: async (file: File, fileKind: string) => {
+    sendAttachmentCasually: async (file: File, fileKind: string, caption?: string) => {
       const state = get();
       if (!state.activeChannelId || !state.user) return;
 
@@ -492,6 +492,7 @@ export function createComposerActions(
           channel_id: state.activeChannelId,
           sender_id: state.user.id,
           content: '',
+          caption: caption?.trim() || null,
         };
         if (imageUrl) {
           payload.image_url = imageUrl;
@@ -582,6 +583,7 @@ export function createComposerActions(
       lessonId: string | null;
       category: string;
       mathField: import('@/types/clubs').MathField | null;
+      caption?: string;
     }) => {
       const state = get();
       if (!state.activeChannelId || !state.user || !state.clubId) return;
@@ -608,8 +610,9 @@ export function createComposerActions(
           payload.pdf_url = result.url;
         }
 
-        if (data.description.trim()) {
-          payload.caption = data.description.trim();
+        const description = data.description.trim() || data.caption?.trim() || '';
+        if (description) {
+          payload.caption = description;
         }
 
         const { data: messageData, error: messageError } = await supabase

@@ -7,6 +7,7 @@ import type { MathField, ClubCourse, ClubLesson } from '@/types/clubs';
 interface LearningFileMetadataModalProps {
   file: File;
   fileKind: string;
+  caption?: string;
   clubId: string;
   user?: { id: string };
   onSubmit: (data: {
@@ -37,14 +38,15 @@ const FILE_KIND_ICONS: Record<string, string> = {
 export default function LearningFileMetadataModal({
   file,
   fileKind,
+  caption,
   clubId,
   user,
   onSubmit,
   onSkip,
   onClose,
 }: LearningFileMetadataModalProps) {
-  const [title, setTitle] = useState(file.name.replace(/\.[^/.]+$/, ''));
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState((caption?.trim() || file.name).replace(/\.[^/.]+$/, ''));
+  const [description, setDescription] = useState(caption?.trim() || '');
   const [category, setCategory] = useState('');
   const [courses, setCourses] = useState<ClubCourse[]>([]);
   const [lessons, setLessons] = useState<ClubLesson[]>([]);

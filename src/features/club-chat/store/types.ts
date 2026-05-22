@@ -63,7 +63,7 @@ export interface ScheduleModalState {
 
 export interface LearningFileModalState {
   open: boolean;
-  data: { file: File; fileKind: string } | null;
+  data: { file: File; fileKind: string; caption?: string } | null;
 }
 
 // ── Composer State ──
@@ -252,5 +252,5 @@ export interface ChatStoreComposerActions {
     category: string;
     mathField: import('@/types/clubs').MathField | null;
   }) => Promise<void>;
-  sendAttachmentCasually: (file: File, fileKind: string) => Promise<void>;
+  sendAttachmentCasually: (file: File, fileKind: string, caption?: string) => Promise<void>;
 }

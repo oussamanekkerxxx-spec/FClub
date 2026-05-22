@@ -121,13 +121,19 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
   }, [isPlaying]);
 
   const handleSendCasually = async () => {
-    try { await sendCasually(attachment.file, fileKind); } catch { /* handled inside action */ }
+    try { await sendCasually(attachment.file, fileKind, caption); } catch { /* handled inside action */ }
     onRemove();
   };
 
   const handleAddToCourse = () => {
-    setLearningFileModal({ open: true, data: { file: attachment.file, fileKind } });
+    setLearningFileModal({ open: true, data: { file: attachment.file, fileKind, caption } });
   };
+
+  const casualLabel = fileKind === 'image'
+    ? 'Temporary chat photo'
+    : fileKind === 'video'
+    ? 'Temporary chat video'
+    : 'Temporary chat file';
 
   const renderPreview = () => {
     if (isImage) {
@@ -261,7 +267,7 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
           >
             <Paperclip className="w-3.5 h-3.5" />
-            Send in chat only
+            {casualLabel}
           </button>
           <button
             type="button"
@@ -269,7 +275,7 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
             className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-amber)] to-orange-500 px-3 py-2 text-[12px] font-bold text-white hover:opacity-90 transition-opacity"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            Add to course
+            Learning resource
           </button>
         </div>
       )}

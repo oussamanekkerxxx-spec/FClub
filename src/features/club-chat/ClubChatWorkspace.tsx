@@ -404,6 +404,7 @@ export default function ClubChatWorkspace({
         <LearningFileMetadataModal
           file={controller.learningFileData.file}
           fileKind={controller.learningFileData.fileKind}
+          caption={controller.learningFileData.caption}
           clubId={clubId}
           user={user ?? undefined}
           onSubmit={async (data) => {

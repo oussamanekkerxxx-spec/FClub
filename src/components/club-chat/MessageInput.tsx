@@ -158,6 +158,13 @@ const MessageInput = React.memo(function MessageInputInternal({
             />
           )}
 
+          {/* Student club attachment hint */}
+          {clubCategory === 'student' && chatAttachment && (
+            <p className="text-[11px] text-[var(--color-text-muted)] text-center -mb-1">
+              Choose how to share your attachment above
+            </p>
+          )}
+
           {/* Upload progress */}
           {uploadProgress > 0 && uploadProgress < 100 && (
             <div>
@@ -412,12 +419,13 @@ const MessageInput = React.memo(function MessageInputInternal({
                   longPressFiredRef.current = false;
                   return;
                 }
+                if (clubCategory === 'student' && chatAttachment) return;
 
                 if (isRecording) onStopRecordingAndSend();
                 else if (!newMessage.trim() && !chatAttachment && !editingMessage) onStartRecording();
                 else onSend();
               }}
-              disabled={sending}
+              disabled={sending || (clubCategory === 'student' && !!chatAttachment)}
               className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-40
                 ${isRecording ? 'bg-red-500 shadow-md scale-110' : 'bg-[var(--color-amber)]'}`}
             >
