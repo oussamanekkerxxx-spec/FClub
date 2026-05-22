@@ -144,7 +144,7 @@ const MessageInput = React.memo(function MessageInputInternal({
   const onClearEdit = propOnClearEdit ?? (() => { storeSetComposerEditing(null); storeSetComposerText(''); });
 
   return (
-    <div className="px-4 pb-0 md:pb-4 pt-2 bg-transparent">
+    <div className="bg-transparent px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-4 md:pb-4">
       {canPost ? (
         <div className="flex flex-col gap-2">
 
@@ -156,13 +156,6 @@ const MessageInput = React.memo(function MessageInputInternal({
               onCaptionChange={onSetAttachmentCaption}
               onRemove={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
             />
-          )}
-
-          {/* Student club attachment hint */}
-          {clubCategory === 'student' && chatAttachment && (
-            <p className="text-[11px] text-[var(--color-text-muted)] text-center -mb-1">
-              Choose how to share your attachment above
-            </p>
           )}
 
           {/* Upload progress */}
@@ -274,6 +267,7 @@ const MessageInput = React.memo(function MessageInputInternal({
             <div className="relative mb-0.5">
               <button
                 onClick={() => onSetShowAttachMenu(!showAttachMenu)}
+                aria-label="Add attachment"
                 className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--color-text-muted)] hover:text-navy hover:bg-black/5 transition-colors"
               >
                 <Paperclip className="w-5 h-5" />
@@ -298,24 +292,30 @@ const MessageInput = React.memo(function MessageInputInternal({
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => onSetShowAttachMenu(false)} />
                   <motion.div
-                    className="absolute bottom-12 left-0 w-48 bg-white rounded-xl shadow-[var(--shadow-elevated)] border border-[var(--color-border)] py-1.5 z-50"
+                    className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-50 max-h-[70dvh] overflow-y-auto rounded-3xl border border-[var(--color-border)] bg-white p-2 shadow-[var(--shadow-elevated)] md:absolute md:inset-x-auto md:bottom-12 md:left-0 md:w-48 md:max-h-none md:overflow-visible md:rounded-xl md:p-0 md:py-1.5"
                     initial={{ opacity: 0, y: 8, scale: 0.96 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 6, scale: 0.98 }}
                     transition={springs.menu}
                   >
+                    <div className="px-3 pb-2 pt-1 md:hidden">
+                      <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-200" />
+                      <p className="text-[11px] font-bold uppercase tracking-wide text-[var(--color-text-muted)]">
+                        Add to message
+                      </p>
+                    </div>
                     <button
                       onClick={() => { pendingAttachTypeRef.current = 'image'; onSetShowAttachMenu(false); fileInputRef.current!.accept = 'image/*'; fileInputRef.current?.click(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                     >
                       <ImageIcon className="w-4 h-4 text-[var(--color-amber)]" /> Photo / Image
                     </button>
                     {onOpenVideoWizard && (
                       <button
                         onClick={() => { onSetShowAttachMenu(false); onOpenVideoWizard(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                        className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                       >
-                        <PlayCircle className="w-4 h-4 text-purple-500" /> Video → Playlist
+                        <PlayCircle className="w-4 h-4 text-purple-500" /> Video to Playlist
                       </button>
                     )}
                     <button
@@ -325,7 +325,7 @@ const MessageInput = React.memo(function MessageInputInternal({
                         fileInputRef.current!.accept = '.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.txt,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv,text/plain,application/rtf';
                         fileInputRef.current?.click();
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                     >
                       <FileText className="w-4 h-4 text-red-400" /> Docs / Files
                     </button>
@@ -336,7 +336,7 @@ const MessageInput = React.memo(function MessageInputInternal({
                         fileInputRef.current!.accept = '.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.rtf,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; 
                         fileInputRef.current?.click(); 
                       }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                     >
                       <File className="w-4 h-4 text-blue-400" /> Document
                     </button>
@@ -344,7 +344,7 @@ const MessageInput = React.memo(function MessageInputInternal({
                     {onOpenProjectWizard && (
                       <button
                         onClick={() => { onSetShowAttachMenu(false); onOpenProjectWizard(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                        className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                       >
                         <Code2 className="w-4 h-4 text-blue-500" /> Share Project
                       </button>
@@ -352,7 +352,7 @@ const MessageInput = React.memo(function MessageInputInternal({
                     {onOpenEventWizard && (
                       <button
                         onClick={() => { onSetShowAttachMenu(false); onOpenEventWizard(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                        className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                       >
                         <Calendar className="w-4 h-4 text-green-500" /> Create Event
                       </button>
@@ -360,21 +360,21 @@ const MessageInput = React.memo(function MessageInputInternal({
                     {onOpenStartRoomModal && (
                       <button
                         onClick={() => { onSetShowAttachMenu(false); onOpenStartRoomModal(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                        className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                       >
                         <Mic2 className="w-4 h-4 text-emerald-500" /> Start Voice Room
                       </button>
                     )}
                     <button
                       onClick={() => { onSetShowAttachMenu(false); onShareLocation(); }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                      className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                     >
                       <MapPin className="w-4 h-4 text-cyan-500" /> Share Location
                     </button>
                     {onOpenPollWizard && (
                       <button
                         onClick={() => { onSetShowAttachMenu(false); onOpenPollWizard(); }}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:bg-parchment hover:text-navy transition-colors text-left"
+                        className="w-full flex items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-parchment hover:text-navy md:rounded-none md:py-2.5"
                       >
                         <BarChart2 className="w-4 h-4 text-orange-500" /> Create Poll
                       </button>
@@ -402,7 +402,7 @@ const MessageInput = React.memo(function MessageInputInternal({
                 if (e.pointerType === 'mouse' && e.button !== 0) return;
                 longPressTimerRef.current = setTimeout(() => {
                   longPressFiredRef.current = true;
-                  if (!isRecording && (newMessage.trim() || chatAttachment || editingMessage) && onShowScheduleModal) {
+                  if (!isRecording && !(clubCategory === 'student' && chatAttachment) && (newMessage.trim() || chatAttachment || editingMessage) && onShowScheduleModal) {
                     onShowScheduleModal();
                   }
                 }, 500);

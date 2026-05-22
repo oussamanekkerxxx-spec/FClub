@@ -19,20 +19,21 @@ interface LearningFileMetadataModalProps {
     lessonId: string | null;
     category: string;
     mathField: MathField | null;
+    caption?: string;
   }) => Promise<void>;
-  onSkip: () => Promise<void>;
+  onSkip: (data?: { caption?: string }) => Promise<void>;
   onClose: () => void;
 }
 
 const FILE_KIND_ICONS: Record<string, string> = {
-  pdf: '📄',
-  document: '📝',
-  slides: '📊',
-  spreadsheet: '📈',
-  video: '🎬',
-  audio: '🎧',
-  image: '🖼',
-  other: '📎',
+  pdf: 'PDF',
+  document: 'DOC',
+  slides: 'SLD',
+  spreadsheet: 'XLS',
+  video: 'VID',
+  audio: 'AUD',
+  image: 'IMG',
+  other: 'FILE',
 };
 
 export default function LearningFileMetadataModal({
@@ -176,6 +177,7 @@ export default function LearningFileMetadataModal({
       lessonId: lessonId || null,
       category: category.trim(),
       mathField: (category as MathField) || null,
+      caption: caption?.trim() || undefined,
     });
     setLoading(false);
   };
@@ -190,16 +192,21 @@ export default function LearningFileMetadataModal({
   }, {} as Record<string, ClubCourse[]>);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in-up max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4 sticky top-0 bg-white z-10">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="learning-file-modal-title"
+        className="relative flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl animate-fade-in-up sm:max-h-[90vh] sm:rounded-2xl"
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-white px-4 py-3.5 sm:px-5 sm:py-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-orange-50 text-[11px] font-bold text-orange-700">
               {FILE_KIND_ICONS[fileKind] || 'FILE'}
             </div>
             <div>
-              <h2 className="text-[15px] font-bold text-navy">Share File</h2>
+              <h2 id="learning-file-modal-title" className="text-[15px] font-bold text-navy">Share File</h2>
               <p className="text-[11px] text-[var(--color-text-muted)]">Add to courses or send in chat</p>
             </div>
           </div>
@@ -208,7 +215,8 @@ export default function LearningFileMetadataModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5">
           <div className="flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-gray-50 p-3">
             <FileText className="h-5 w-5 text-gray-400" />
             <div className="flex-1 min-w-0">
@@ -332,8 +340,11 @@ export default function LearningFileMetadataModal({
             </div>
           )}
 
-          <div className="flex flex-col gap-2 pt-2">
-            <div className="flex gap-2">
+          </div>
+
+          <div className="shrink-0 border-t border-[var(--color-border)] bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-5">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2 max-[380px]:flex-col">
               <button
                 type="button"
                 onClick={onClose}
@@ -354,14 +365,15 @@ export default function LearningFileMetadataModal({
               type="button"
               onClick={async () => {
                 setLoading(true);
-                await onSkip();
+                await onSkip({ caption: description.trim() || caption?.trim() || undefined });
                 setLoading(false);
               }}
               disabled={loading}
               className="w-full rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
             >
-              📎 Send in chat only
+              Send in chat only
             </button>
+          </div>
           </div>
         </form>
       </div>

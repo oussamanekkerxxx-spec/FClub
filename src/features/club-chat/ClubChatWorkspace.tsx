@@ -320,7 +320,7 @@ export default function ClubChatWorkspace({
     showLearningFileModal: storeLearningFileModal.open,
     setShowLearningFileModal: (val: boolean) => storeSetLearningFileModal({ open: val }),
     learningFileData: storeLearningFileModal.data,
-    setLearningFileData: (data: { file: File; fileKind: string } | null) => storeSetLearningFileModal({ data }),
+    setLearningFileData: (data: { file: File; fileKind: string; caption?: string } | null) => storeSetLearningFileModal({ data }),
 
     // DOM refs
     fileInputRef, textareaRef, pendingAttachTypeRef,
@@ -377,7 +377,7 @@ export default function ClubChatWorkspace({
   }
 
   return (
-    <div className={`flex overflow-hidden ${isEmbedded ? 'h-full w-full' : 'h-[calc(100vh-80px)] max-w-6xl mx-auto bg-white shadow-sm border border-[var(--color-border)] rounded-2xl'}`}>
+    <div className={`flex min-h-0 overflow-hidden ${isEmbedded ? 'h-full w-full' : 'h-[calc(100vh-80px)] max-w-6xl mx-auto bg-white shadow-sm border border-[var(--color-border)] rounded-2xl'}`}>
       <ChannelList
         isEmbedded={isEmbedded}
         clubName={clubName}
@@ -416,11 +416,12 @@ export default function ClubChatWorkspace({
             controller.setShowLearningFileModal(false);
             controller.setLearningFileData(null);
           }}
-          onSkip={async () => {
+          onSkip={async (data) => {
             if (controller.learningFileData && controller.sendAttachmentCasually) {
               await controller.sendAttachmentCasually(
                 controller.learningFileData.file,
-                controller.learningFileData.fileKind
+                controller.learningFileData.fileKind,
+                data?.caption ?? controller.learningFileData.caption
               );
             }
             controller.setShowLearningFileModal(false);

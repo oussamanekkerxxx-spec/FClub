@@ -38,11 +38,11 @@ interface ClubChatMainPaneProps {
 
 const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMainPaneProps) {
   return (
-    <div className={`${c.mobileView === 'channels' ? 'hidden md:flex' : 'flex'} flex-1 flex-col h-full ${c.preferences?.wallpaper_class || 'wall-default'} ${c.preferences?.is_dark_mode ? 'bg-[#121212]' : ''} relative`}>
+    <div className={`${c.mobileView === 'channels' ? 'hidden md:flex' : 'flex'} relative min-h-0 flex-1 flex-col h-full ${c.preferences?.wallpaper_class || 'wall-default'} ${c.preferences?.is_dark_mode ? 'bg-[#121212]' : ''}`}>
       {c.activeChannel ? (
         <>
           <div className="flex flex-col bg-white border-b border-[var(--color-border)] z-10 shrink-0">
-            <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center justify-between px-3 py-2.5 sm:px-4 sm:py-3">
               <div className="flex items-center gap-3">
                 {/* Desktop view channel header */}
                 <div className="hidden md:flex items-center gap-3">
@@ -225,7 +225,7 @@ const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMai
             )}
           </div>
 
-          <div ref={c.messagesAreaRef} className={`flex-1 overflow-y-auto px-5 py-4 space-y-0 flex flex-col relative`} onScroll={(e) => {
+          <div ref={c.messagesAreaRef} className={`relative flex flex-1 flex-col space-y-0 overflow-y-auto px-3 py-3 sm:px-5 sm:py-4`} onScroll={(e) => {
             const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
             c.setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 300);
           }}>
@@ -301,7 +301,7 @@ const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMai
               <motion.button
                 onClick={() => c.messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
                 aria-label="Scroll to bottom"
-                className="absolute right-6 bottom-24 p-3 bg-white border border-[var(--color-border)] rounded-full text-navy shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all z-20 hidden sm:flex"
+                className="absolute right-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-20 flex rounded-full border border-[var(--color-border)] bg-white p-2.5 text-navy shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl sm:right-6 sm:bottom-24 sm:p-3"
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 12 }}
@@ -315,7 +315,7 @@ const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMai
           <AnimatePresence>
             {c.typingUsers.length > 0 && (
               <motion.div
-                className="px-5 py-1.5 flex items-center gap-2.5 text-[12px] text-[var(--color-text-muted)] bg-white/60 backdrop-blur-sm border-t border-[var(--color-border)]/50"
+                className="flex items-center gap-2.5 border-t border-[var(--color-border)]/50 bg-white/60 px-3 py-1.5 text-[12px] text-[var(--color-text-muted)] backdrop-blur-sm sm:px-5"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}

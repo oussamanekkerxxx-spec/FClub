@@ -122,24 +122,17 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
 
   const handleSendCasually = async () => {
     try { await sendCasually(attachment.file, fileKind, caption); } catch { /* handled inside action */ }
-    onRemove();
   };
 
   const handleAddToCourse = () => {
     setLearningFileModal({ open: true, data: { file: attachment.file, fileKind, caption } });
   };
 
-  const casualLabel = fileKind === 'image'
-    ? 'Temporary chat photo'
-    : fileKind === 'video'
-    ? 'Temporary chat video'
-    : 'Temporary chat file';
-
   const renderPreview = () => {
     if (isImage) {
       return (
-        <div className="relative max-h-64">
-          <img src={attachment.previewUrl} alt="" className="w-full h-full object-cover max-h-64" />
+        <div className="relative overflow-hidden">
+          <img src={attachment.previewUrl} alt="" className="block w-full max-h-[34dvh] object-cover sm:max-h-64" />
           <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
           <div className="absolute bottom-3 left-3 right-12 text-white">
             <p className="text-sm font-semibold truncate drop-shadow">{attachment.file.name}</p>
@@ -154,8 +147,8 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
 
     if (isVideo) {
       return (
-        <div className="relative max-h-64">
-          <video ref={videoRef} src={attachment.previewUrl} preload="metadata" className="w-full h-full object-cover max-h-64 opacity-90" />
+        <div className="relative overflow-hidden">
+          <video ref={videoRef} src={attachment.previewUrl} preload="metadata" className="block w-full max-h-[34dvh] object-cover opacity-90 sm:max-h-64" />
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="w-14 h-14 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center border border-white/20">
               <Play className="w-6 h-6 text-white fill-white ml-1" />
@@ -193,8 +186,8 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
                 key={i}
                 className="w-1 bg-purple-300 rounded-full transition-all"
                 style={{
-                  height: `${isPlaying ? Math.max(20, Math.random() * 100) : h}%`,
-                  opacity: isPlaying ? 0.8 + Math.random() * 0.2 : 0.6,
+                  height: `${h}%`,
+                  opacity: isPlaying ? 0.9 : 0.6,
                 }}
               />
             ))}
@@ -234,12 +227,13 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
   const showCaption = (isImage || isVideo) && onCaptionChange;
 
   return (
-    <div className="relative rounded-2xl bg-white border border-[var(--color-border)] shadow-sm overflow-hidden max-w-md mx-auto w-full">
+    <div className="relative mx-auto w-full max-w-[min(100%,28rem)] overflow-hidden rounded-2xl border border-[var(--color-border)] bg-white shadow-sm">
       {renderPreview()}
 
       {/* Remove button */}
       <button
         onClick={onRemove}
+        aria-label="Remove attachment"
         className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 text-white hover:bg-black/80 transition-colors z-10"
         title="Remove"
       >
@@ -260,22 +254,22 @@ const ComposerAttachmentPreview = React.memo(function ComposerAttachmentPreviewI
 
       {/* Student club action bar */}
       {showActions && (
-        <div className="px-3 py-2 border-t border-[var(--color-border)] flex gap-2">
+        <div className="grid grid-cols-2 gap-2 border-t border-[var(--color-border)] px-3 py-2 max-[380px]:grid-cols-1">
           <button
             type="button"
             onClick={handleSendCasually}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-[12px] font-semibold text-gray-600 hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-[12px] font-semibold text-gray-600 transition-colors hover:bg-gray-100 sm:text-[13px]"
           >
             <Paperclip className="w-3.5 h-3.5" />
-            {casualLabel}
+            Chat only
           </button>
           <button
             type="button"
             onClick={handleAddToCourse}
-            className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-amber)] to-orange-500 px-3 py-2 text-[12px] font-bold text-white hover:opacity-90 transition-opacity"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[var(--color-amber)] to-orange-500 px-3 py-2.5 text-[12px] font-bold text-white transition-opacity hover:opacity-90 sm:text-[13px]"
           >
             <BookOpen className="w-3.5 h-3.5" />
-            Learning resource
+            Add to course
           </button>
         </div>
       )}

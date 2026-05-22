@@ -24,7 +24,7 @@ const VideoPlayerModal = React.memo(function VideoPlayerModalInternal({
           transition={springs.backdrop}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent shrink-0">
+          <div className="flex shrink-0 items-center justify-between bg-gradient-to-b from-black/60 to-transparent p-4 pt-[max(1rem,env(safe-area-inset-top))]">
             <div className="flex flex-col">
               <span className="text-white font-medium text-[15px]">
                 {msg.caption || 'Video'}
@@ -52,7 +52,7 @@ const VideoPlayerModal = React.memo(function VideoPlayerModalInternal({
 
           {/* Video */}
           <div
-            className="flex-1 overflow-hidden flex items-center justify-center p-4 cursor-zoom-out"
+            className="flex flex-1 cursor-zoom-out items-center justify-center overflow-hidden p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
             onClick={onClose}
           >
             <motion.video

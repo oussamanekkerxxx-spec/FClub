@@ -116,7 +116,7 @@ export default function StudentClubHome({ club, user, isMember, canModerate }: S
           onSettingsSelect={handleSettingsSelect}
         />
         
-        <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent relative z-10">
+        <div className={`relative z-10 flex-1 ${activeTab === 'chat' ? 'overflow-hidden' : 'overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 scrollbar-track-transparent'}`}>
           <StudentViews
             activeTab={activeTab}
             clubId={club.id}

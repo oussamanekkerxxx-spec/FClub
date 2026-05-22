@@ -59,7 +59,7 @@ const ChatFileCard = React.memo(function ChatFileCardInternal({
 
   return (
     <div
-      className={`flex flex-col shadow-sm max-w-xs ${bubbleRadius} overflow-hidden
+      className={`flex max-w-[82vw] flex-col overflow-hidden shadow-sm sm:max-w-xs ${bubbleRadius}
         ${isOwn ? 'bg-[var(--color-navy)] text-white' : 'bg-white text-navy border border-gray-200'}
       `}
     >
@@ -73,7 +73,7 @@ const ChatFileCard = React.memo(function ChatFileCardInternal({
           <div className={`text-[10px] flex items-center gap-1 ${isOwn ? 'text-white/60' : 'text-[var(--color-text-muted)]'}`}>
             <span className="font-bold uppercase">{meta.label}</span>
             {linkedSharedFile?.file_size ? (
-              <span>· {(linkedSharedFile.file_size / 1024 / 1024).toFixed(1)} MB</span>
+              <span>- {(linkedSharedFile.file_size / 1024 / 1024).toFixed(1)} MB</span>
             ) : null}
           </div>
         </div>
@@ -103,8 +103,8 @@ const ChatFileCard = React.memo(function ChatFileCardInternal({
       {/* Learning badge */}
       {linkedSharedFile && (
         <div className={`px-3 pb-2 pt-0 ${isOwn ? 'bg-[var(--color-navy)]' : 'bg-white'}`}>
-          <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border ${isOwn ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
-            🎓 {linkedCourse ? `Added to ${linkedCourse.title}` : 'Course resource'}
+          <span className={`inline-flex max-w-full items-center gap-1 truncate rounded-full border px-2 py-0.5 text-[9px] font-bold ${isOwn ? 'bg-orange-500/20 text-orange-300 border-orange-500/30' : 'bg-orange-50 text-orange-600 border-orange-200'}`}>
+            {linkedCourse ? `Course: ${linkedCourse.title}` : 'Course resource'}
           </span>
         </div>
       )}

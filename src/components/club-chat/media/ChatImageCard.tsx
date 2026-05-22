@@ -33,7 +33,7 @@ const ChatImageCard = React.memo(function ChatImageCardInternal({
 
   return (
     <div
-      className={`relative overflow-hidden shadow-sm bg-white border border-black/5 ${bubbleRadius} shrink-0 max-w-[280px] sm:max-w-xs`}
+      className={`relative max-w-[82vw] shrink-0 overflow-hidden border border-black/5 bg-white shadow-sm sm:max-w-xs ${bubbleRadius}`}
       style={{ WebkitTapHighlightColor: 'transparent', transform: 'translateZ(0)' }}
     >
       {/* Image area */}
@@ -52,7 +52,7 @@ const ChatImageCard = React.memo(function ChatImageCardInternal({
           loading="lazy"
           decoding="async"
           draggable={false}
-          className="w-full h-full max-h-60 object-cover block"
+          className="block h-full max-h-[46dvh] w-full object-cover sm:max-h-60"
         />
 
         {/* Timestamp pill */}
@@ -77,8 +77,8 @@ const ChatImageCard = React.memo(function ChatImageCardInternal({
       {/* Learning badge */}
       {linkedSharedFile && (
         <div className="px-3 pb-2 pt-0.5">
-          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
-            🎓 {linkedCourse ? `Added to ${linkedCourse.title}` : 'Course resource'}
+          <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[9px] font-bold text-orange-600">
+            {linkedCourse ? `Course: ${linkedCourse.title}` : 'Course resource'}
           </span>
         </div>
       )}

@@ -31,7 +31,7 @@ export default function StudentTopBar({ activeTab, club, onMenuClick, onSearchCl
   }, []);
 
   return (
-    <div className="flex items-center gap-3.5 px-6 py-3.5 bg-white/80 backdrop-blur-md border-b border-[var(--color-border)] relative z-20 flex-shrink-0">
+    <div className="relative z-20 flex flex-shrink-0 items-center gap-3 border-b border-[var(--color-border)] bg-white/80 px-4 py-2.5 backdrop-blur-md sm:gap-3.5 sm:px-6 sm:py-3.5">
       
       {onMenuClick && (
         <button className="md:hidden p-1.5 -ml-2 text-[var(--color-text-secondary)] hover:text-navy" onClick={onMenuClick}>

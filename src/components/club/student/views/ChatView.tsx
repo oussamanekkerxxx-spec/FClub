@@ -12,7 +12,7 @@ export function ChatView({
   userId?: string;
 }) {
   return (
-    <div className="h-full md:h-[calc(100vh-140px)] w-full overflow-hidden">
+    <div className="h-full min-h-0 w-full overflow-hidden md:h-[calc(100vh-140px)]">
       <ClubChatWorkspace
         isEmbedded
         clubId={clubId}

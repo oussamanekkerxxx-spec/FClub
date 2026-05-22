@@ -33,7 +33,7 @@ const ChatVideoCard = React.memo(function ChatVideoCardInternal({
 
   return (
     <div
-      className={`relative overflow-hidden shadow-sm bg-black border border-black/5 ${bubbleRadius} shrink-0 max-w-[280px] sm:max-w-xs`}
+      className={`relative max-w-[82vw] shrink-0 overflow-hidden border border-black/5 bg-black shadow-sm sm:max-w-xs ${bubbleRadius}`}
       style={{ WebkitTapHighlightColor: 'transparent', transform: 'translateZ(0)' }}
     >
       {/* Thumbnail area */}
@@ -49,7 +49,7 @@ const ChatVideoCard = React.memo(function ChatVideoCardInternal({
         <video
           src={msg.video_url}
           preload="metadata"
-          className="w-full h-full max-h-52 object-cover block opacity-80"
+          className="block h-full max-h-[42dvh] w-full object-cover opacity-80 sm:max-h-52"
         />
 
         {/* Dark overlay */}
@@ -84,8 +84,8 @@ const ChatVideoCard = React.memo(function ChatVideoCardInternal({
       {/* Learning badge */}
       {linkedSharedFile && (
         <div className="px-3 pb-2 pt-0.5 bg-black">
-          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30">
-            🎓 {linkedCourse ? `Added to ${linkedCourse.title}` : 'Course resource'}
+          <span className="inline-flex max-w-full items-center gap-1 truncate rounded-full border border-orange-500/30 bg-orange-500/20 px-2 py-0.5 text-[9px] font-bold text-orange-300">
+            {linkedCourse ? `Course: ${linkedCourse.title}` : 'Course resource'}
           </span>
         </div>
       )}

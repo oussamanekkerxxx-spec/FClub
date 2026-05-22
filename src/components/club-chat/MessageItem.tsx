@@ -128,7 +128,7 @@ const MessageItem = React.memo(function MessageItemInternal({
         </div>
 
         {/* Bubble Container */}
-        <div className={`max-w-[78%] sm:max-w-[70%] flex flex-col gap-0.5 ${isOwn ? 'items-end' : 'items-start'}`}>
+        <div className={`flex max-w-[86%] flex-col gap-0.5 sm:max-w-[72%] ${isOwn ? 'items-end' : 'items-start'}`}>
 
           {/* Name header — first bubble of group only, for other users */}
           {!isOwn && isGroupFirst && (

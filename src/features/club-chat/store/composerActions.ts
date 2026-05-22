@@ -270,7 +270,11 @@ export function createComposerActions(
             return;
           }
           set((draft) => {
-            draft.learningFileModal.data = { file: composer.attachment!.file, fileKind };
+            draft.learningFileModal.data = {
+              file: composer.attachment!.file,
+              fileKind,
+              caption: composer.caption.trim() || undefined,
+            };
             draft.learningFileModal.open = true;
             draft.composer.sending = false;
           });
@@ -375,6 +379,10 @@ export function createComposerActions(
       if (error?.code === '42703' || error?.message?.includes('column')) {
         delete payload.reply_to_id;
         delete payload.is_edited;
+        delete payload.image_width;
+        delete payload.image_height;
+        delete payload.video_width;
+        delete payload.video_height;
         const retry = await supabase
           .from('club_messages')
           .insert(payload)
@@ -533,6 +541,10 @@ export function createComposerActions(
         if (error?.code === '42703' || error?.message?.includes('column')) {
           delete payload.reply_to_id;
           delete payload.is_edited;
+          delete payload.image_width;
+          delete payload.image_height;
+          delete payload.video_width;
+          delete payload.video_height;
           const retry = await supabase
             .from('club_messages')
             .insert(payload)
@@ -560,6 +572,7 @@ export function createComposerActions(
           draft.composer.sending = false;
           draft.composer.uploadProgress = 0;
           draft.composer.attachment = null;
+          draft.composer.caption = '';
           draft.learningFileModal.open = false;
           draft.learningFileModal.data = null;
         });
@@ -675,6 +688,8 @@ export function createComposerActions(
         set((draft) => {
           draft.composer.uploadProgress = 0;
           draft.composer.attachment = null;
+          draft.composer.caption = '';
+          draft.learningFileModal.open = false;
           draft.learningFileModal.data = null;
         });
       } catch (err: any) {
