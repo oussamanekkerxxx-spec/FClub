@@ -15,6 +15,7 @@ const NotesView = lazy(() => import('./views/NotesView').then(m => ({ default: m
 const DocsView = lazy(() => import('./views/DocsView').then(m => ({ default: m.DocsView })));
 const TasksView = lazy(() => import('./views/TasksView').then(m => ({ default: m.TasksView })));
 const FilesView = lazy(() => import('./views/FilesView').then(m => ({ default: m.FilesView })));
+const ImagesView = lazy(() => import('./views/ImagesView').then(m => ({ default: m.ImagesView })));
 const StudyRoomsView = lazy(() => import('./views/StudyRoomsView').then(m => ({ default: m.StudyRoomsView })));
 const PomodoroView = lazy(() => import('./views/PomodoroView').then(m => ({ default: m.PomodoroView })));
 const LibraryView = lazy(() => import('./views/LibraryView').then(m => ({ default: m.LibraryView })));
@@ -67,6 +68,7 @@ export default function StudentViews({
       case 'docs': return <DocsView clubId={clubId} />;
       case 'tasks': return <TasksView />;
       case 'files': return <FilesView clubId={clubId} />;
+      case 'images': return <ImagesView clubId={clubId} />;
       case 'studyrooms': return <StudyRoomsView />;
       case 'pomodoro': return <PomodoroView />;
       case 'library': return <LibraryView />;

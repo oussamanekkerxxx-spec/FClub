@@ -16,6 +16,7 @@ interface VirtualizedMessageListProps {
   onToggleReaction: (msgId: string, emoji: string) => void;
   onForward: (msg: any) => void;
   onViewImage: (msg: any) => void;
+  onViewVideo?: (msg: any) => void;
   onApplyToProject: (project: any) => void;
   onViewApplicants: (project: any) => void;
   
@@ -34,6 +35,7 @@ export default function VirtualizedMessageList({
   onToggleReaction,
   onForward,
   onViewImage,
+  onViewVideo,
   onApplyToProject,
   onViewApplicants,
   scrollContainerRef
@@ -150,6 +152,7 @@ export default function VirtualizedMessageList({
               onToggleReaction={onToggleReaction}
               onForward={onForward}
               onViewImage={onViewImage}
+              onViewVideo={onViewVideo}
               onApplyToProject={onApplyToProject}
               onViewApplicants={onViewApplicants}
             />

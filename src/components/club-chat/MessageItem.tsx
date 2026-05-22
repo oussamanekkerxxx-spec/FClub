@@ -5,16 +5,21 @@ import { motion } from 'framer-motion';
 import { springs } from '@/lib/animation';
 import {
   Trash2, Reply, Edit2, CornerUpLeft, Pin, Smile, Check, CheckCheck,
-  FileText, ExternalLink, MapPin, BarChart2, CornerDownRight,
+  MapPin, BarChart2, CornerDownRight, ExternalLink,
 } from 'lucide-react';
 import AudioPlayerBubble from '@/components/AudioPlayerBubble';
 import { ProjectBubble, type ClubProject } from '@/components/chat/ProjectBubble';
 import { supabase } from '@/lib/supabase';
-import { extractFileNameFromUrl, normalizeHttpUrl } from '@/lib/safeUrl';
+// safeUrl helpers now used inside media card components
 import { useChatStore } from '@/features/club-chat/store/chatStore';
 import { parseMessageContent } from '@/features/club-chat/lib/parseMessageContent';
 import type { ChannelRead } from '@/types/clubs';
 import type { ClubMessage } from '@/types/clubs';
+import ChatImageCard from './media/ChatImageCard';
+import ChatVideoCard from './media/ChatVideoCard';
+import ChatFileCard from './media/ChatFileCard';
+import { useMessageSharedFile } from './media/MessageSharedFileContext';
+import type { Message } from '@/features/club-chat/workspace/types';
 
 /** Extends ClubMessage with reply-to tracking used by the chat UI */
 type ChatMessage = ClubMessage & {
@@ -43,6 +48,7 @@ interface MessageItemProps {
   onToggleReaction: (msgId: string, emoji: string) => void;
   onForward: (msg: ChatMessage) => void;
   onViewImage: (msg: ChatMessage) => void;
+  onViewVideo?: (msg: ChatMessage) => void;
   onApplyToProject: (project: ClubProject) => void;
   onViewApplicants: (project: ClubProject) => void;
 }
@@ -69,9 +75,11 @@ const MessageItem = React.memo(function MessageItemInternal({
   onToggleReaction,
   onForward,
   onViewImage,
+  onViewVideo,
   onApplyToProject,
   onViewApplicants,
 }: MessageItemProps) {
+  const { getSharedFileByMessageId, getCourseById } = useMessageSharedFile();
   const msgDate = new Date(msg.created_at);
   const storeCurrentUserId = useChatStore((s) => s.user?.id);
   const storeIsAdminOrMod = useChatStore((s) => s.ui.isAdminOrMod);
@@ -85,6 +93,11 @@ const MessageItem = React.memo(function MessageItemInternal({
   const allMessages = propAllMessages ?? storeAllMessages;
   const searchQuery = propSearchQuery ?? storeSearchQuery ?? '';
   const parseMessageContentFn = propParseMessageContent ?? parseMessageContent;
+
+  const linkedSharedFile = getSharedFileByMessageId(msg.id);
+  const linkedCourse = linkedSharedFile ? getCourseById(linkedSharedFile.course_id) : undefined;
+
+  const needsLooseTimestamp = !msg.content && !msg.poll && !msg.project && (msg.voice_url || msg.content === 'Shared Location');
 
   return (
     <div key={msg.id} data-message-id={msg.id} className="flex flex-col">
@@ -209,79 +222,43 @@ const MessageItem = React.memo(function MessageItemInternal({
                   );
                 })()}
 
-                {/* Image */}
+                {/* Image Card */}
                 {msg.image_url && (
-                  <div
-                    className={`relative overflow-hidden shadow-sm cursor-pointer border border-black/5 outline-none select-none ${bubbleRadius} shrink-0`}
-                    onClick={(e) => { e.preventDefault(); onViewImage(msg); }}
-                    style={{
-                      WebkitTapHighlightColor: 'transparent',
-                      transform: 'translateZ(0)',
-                      ...(msg.image_width && msg.image_height ? { aspectRatio: `${msg.image_width} / ${msg.image_height}` } : {}),
-                    }}
-                  >
-                    <img
-                      src={msg.image_url}
-                      alt=""
-                      loading="lazy"
-                      decoding="async"
-                      draggable={false}
-                      className="w-full h-auto max-h-60 max-w-[280px] sm:max-w-xs object-cover block"
-                    />
-                  </div>
-                )}
-                {msg.image_url && msg.caption && (
-                  <div className={`px-3.5 py-2 text-[14px] font-body leading-relaxed shadow-sm break-words max-w-[280px] sm:max-w-xs ${bubbleRadius}
-                    ${isOwn ? 'bg-[var(--color-navy)] text-white shadow-sm' : 'bg-gray-100 text-[#1E293B] border border-gray-300 shadow-sm'}`}>
-                    {msg.caption}
-                  </div>
+                  <ChatImageCard
+                    msg={msg as unknown as Message}
+                    isOwn={isOwn}
+                    bubbleRadius={bubbleRadius}
+                    channelReads={channelReads}
+                    onViewImage={(m) => onViewImage(m as unknown as ChatMessage)}
+                    linkedSharedFile={linkedSharedFile}
+                    linkedCourse={linkedCourse}
+                  />
                 )}
 
-                {/* Video */}
+                {/* Video Card */}
                 {msg.video_url && (
-                  <div
-                    className={`relative overflow-hidden shadow-sm bg-black border border-black/5 ${bubbleRadius} shrink-0`}
-                    style={{
-                      transform: 'translateZ(0)',
-                      ...(msg.video_width && msg.video_height ? { aspectRatio: `${msg.video_width} / ${msg.video_height}` } : {}),
-                    }}
-                  >
-                    <video
-                      src={msg.video_url}
-                      controls
-                      preload="none"
-                      className="w-full h-auto max-h-52 max-w-[280px] sm:max-w-xs object-cover block"
-                    />
-                  </div>
-                )}
-                {msg.video_url && msg.caption && (
-                  <div className={`px-3.5 py-2 text-[14px] font-body leading-relaxed shadow-sm break-words max-w-[280px] sm:max-w-xs ${bubbleRadius}
-                    ${isOwn ? 'bg-[var(--color-navy)] text-white shadow-sm' : 'bg-gray-100 text-[#1E293B] border border-gray-300 shadow-sm'}`}>
-                    {msg.caption}
-                  </div>
+                  <ChatVideoCard
+                    msg={msg as unknown as Message}
+                    isOwn={isOwn}
+                    bubbleRadius={bubbleRadius}
+                    channelReads={channelReads}
+                    onViewVideo={onViewVideo ? (m) => onViewVideo(m as unknown as ChatMessage) : undefined}
+                    linkedSharedFile={linkedSharedFile}
+                    linkedCourse={linkedCourse}
+                  />
                 )}
 
-                {/* PDF */}
-                {(() => {
-                  const safePdfUrl = normalizeHttpUrl(msg.pdf_url);
-                  if (!safePdfUrl) return null;
-                  return (
-                    <a
-                      href={safePdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-2 px-3 py-2.5 text-sm font-medium shadow-sm max-w-xs ${bubbleRadius}
-                        ${isOwn
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'bg-gray-100 text-navy border border-gray-300 shadow-sm'
-                        }`}
-                    >
-                      <FileText className={`w-4 h-4 flex-shrink-0 ${isOwn ? 'text-white/80' : 'text-red-400'}`} />
-                      <span className="truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</span>
-                      <ExternalLink className="w-3 h-3 opacity-60 flex-shrink-0" />
-                    </a>
-                  );
-                })()}
+                {/* File Card */}
+                {msg.pdf_url && (
+                  <ChatFileCard
+                    msg={msg as unknown as Message}
+                    isOwn={isOwn}
+                    bubbleRadius={bubbleRadius}
+                    channelReads={channelReads}
+                    linkedSharedFile={linkedSharedFile}
+                    linkedCourse={linkedCourse}
+                  />
+                )}
 
                 {/* Voice */}
                 {msg.voice_url && (
@@ -406,8 +383,8 @@ const MessageItem = React.memo(function MessageItemInternal({
                   </div>
                 )}
 
-                {/* Media-only / project timestamp — shown when there is no text bubble */}
-                {(!msg.content || msg.poll || msg.project || msg.voice_url || msg.content === 'Shared Location' || msg.image_url || msg.video_url || msg.pdf_url) && (!msg.content || msg.poll || msg.project || msg.voice_url || msg.content === 'Shared Location') && (
+                {/* Loose timestamp for voice/location — media cards have inline timestamps */}
+                {needsLooseTimestamp && (
                   <div className={`flex items-center gap-1 text-[10px] select-none px-1 mt-0.5 justify-end w-full ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>
                     {msg.is_edited && <span className="opacity-70 italic mr-0.5">edited</span>}
                     {format(msgDate, 'h:mm a')}

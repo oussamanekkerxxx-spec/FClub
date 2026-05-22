@@ -1,7 +1,7 @@
 export type StudentTabId = 
   | 'chat' | 'voice' | 'notifs'
   | 'courses' | 'smart-explain' | 'quizzes' | 'flashcards' | 'notes'
-  | 'docs' | 'tasks' | 'files'
+  | 'docs' | 'tasks' | 'files' | 'images'
   | 'studyrooms' | 'pomodoro'
   | 'library' | 'exams' | 'career'
   | 'events' | 'workshops' | 'liveclasses'
@@ -28,6 +28,7 @@ export const STUDENT_TABS_META: Record<StudentTabId, TabMeta> = {
   docs: { icon: '📄', title: 'Shared Documents', subtitle: '3 docs' },
   tasks: { icon: '☑', title: 'Group Tasks', subtitle: '4 tasks' },
   files: { icon: '📎', title: 'File Sharing', subtitle: '8 files' },
+  images: { icon: '🖼', title: 'Images & Gallery', subtitle: 'Learning images' },
   studyrooms: { icon: '🏠', title: 'Study Rooms', subtitle: '2 active' },
   pomodoro: { icon: '🍅', title: 'Pomodoro Timer', subtitle: 'Focus mode' },
   library: { icon: '📖', title: 'Notes Library', subtitle: 'Resources' },

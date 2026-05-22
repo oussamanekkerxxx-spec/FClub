@@ -1,10 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Paperclip, Send, Mic, StopCircle, Loader2, X, FileText, Reply, Edit2,
+  Paperclip, Send, Mic, StopCircle, Loader2, X, Reply, Edit2,
   ImageIcon, PlayCircle, Code2, Calendar, MapPin, BarChart2, AlertCircle, Mic2,
-  File, Trash2, Pause
+  File, FileText, Trash2, Pause
 } from 'lucide-react';
+import ComposerAttachmentPreview from './media/ComposerAttachmentPreview';
 import { springs } from '@/lib/animation';
 import { useChatStore } from '@/features/club-chat/store/chatStore';
 import { getChatTheme } from '@/config/clubChatThemes';
@@ -149,73 +150,12 @@ const MessageInput = React.memo(function MessageInputInternal({
 
           {/* Attachment preview */}
           {chatAttachment && (
-            <>
-              {(chatAttachment as any).type === 'voice' ? (
-                /* ── Voice message preview ── */
-                <div className="relative rounded-2xl border border-purple-200/70 bg-gradient-to-br from-purple-50 to-indigo-50 px-4 py-3">
-                  <div className="flex items-center gap-3 mb-2.5">
-                    <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-purple-100 text-purple-600 shadow-sm">
-                      <Mic className="h-4 w-4" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-navy">Voice message ready</p>
-                      <p className="text-[11px] text-[var(--color-text-muted)]">
-                        Listen before sending — tap Send when ready
-                      </p>
-                    </div>
-                  </div>
-                  <audio
-                    src={chatAttachment.previewUrl}
-                    controls
-                    className="w-full"
-                    style={{ height: '36px', accentColor: '#7c3aed' }}
-                  />
-                  <button
-                    onClick={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
-                    className="absolute right-2 top-2 rounded-full bg-black/40 p-1 text-white transition-colors hover:bg-black/70"
-                    title="Discard recording"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                /* ── Image / video / PDF preview ── */
-                <div className="relative rounded-xl overflow-hidden border border-[var(--color-border)] bg-white">
-                  {chatAttachment.type === 'image' && (
-                    <img src={chatAttachment.previewUrl} alt="" loading="lazy" decoding="async" className="max-h-40 w-full object-cover" />
-                  )}
-                  {chatAttachment.type === 'video' && (
-                    <video src={chatAttachment.previewUrl} controls className="max-h-40 w-full bg-black" />
-                  )}
-                  {(chatAttachment.type === 'pdf' || chatAttachment.type === 'document') && (
-                    <div className="flex items-center gap-2.5 px-3 py-3">
-                      <FileText className="w-5 h-5 text-red-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-navy truncate">{chatAttachment.file.name}</span>
-                    </div>
-                  )}
-                  {chatAttachment.type === 'document' && (
-                    <div className="flex items-center gap-2.5 px-3 py-3">
-                      <File className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                      <span className="text-sm font-medium text-navy truncate">{chatAttachment.file.name}</span>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
-                    className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
-              {(chatAttachment.type === 'image' || chatAttachment.type === 'video') && (
-                <input
-                  value={attachmentCaption}
-                  onChange={e => onSetAttachmentCaption(e.target.value)}
-                  placeholder="Add a caption..."
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-[var(--color-border)] bg-white outline-none focus:border-amber-300 focus:ring-2 focus:ring-amber-400/20"
-                />
-              )}
-            </>
+            <ComposerAttachmentPreview
+              attachment={chatAttachment}
+              caption={attachmentCaption}
+              onCaptionChange={onSetAttachmentCaption}
+              onRemove={() => { onSetChatAttachment(null); onSetAttachmentCaption(''); }}
+            />
           )}
 
           {/* Upload progress */}

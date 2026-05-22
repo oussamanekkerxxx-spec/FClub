@@ -37,6 +37,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'docs', icon: '📄', label: 'Shared Documents' },
       { id: 'tasks', icon: '☑', label: 'Group Tasks' },
       { id: 'files', icon: '📎', label: 'File Sharing' },
+      { id: 'images', icon: '🖼', label: 'Images & Gallery' },
     ],
   },
   {

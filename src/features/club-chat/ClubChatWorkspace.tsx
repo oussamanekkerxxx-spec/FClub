@@ -14,6 +14,7 @@ import { useChatUi } from '@/features/club-chat/hooks/useChatUi';
 import { parseMessageContent as cachedParseMessageContent } from '@/features/club-chat/lib/parseMessageContent';
 import StartRoomModal from '@/components/club/StartRoomModal';
 import LearningFileMetadataModal from '@/components/club/student/LearningFileMetadataModal';
+import { MessageSharedFileProvider } from '@/components/club-chat/media/MessageSharedFileContext';
 import type {
   ChatAttachType,
   Message,
@@ -218,6 +219,8 @@ export default function ClubChatWorkspace({
     // UI domain (store-backed)
     viewingImageMsg: storeUi.viewingImageMsg,
     setViewingImageMsg: (msg: any | null) => storeSetUi({ viewingImageMsg: msg }),
+    viewingVideoMsg: storeUi.viewingVideoMsg,
+    setViewingVideoMsg: (msg: any | null) => storeSetUi({ viewingVideoMsg: msg }),
     showSearch: storeUi.showSearch,
     setShowSearch: (val: boolean) => storeSetUi({ showSearch: val }),
     searchQuery: storeUi.searchQuery,
@@ -381,9 +384,11 @@ export default function ClubChatWorkspace({
         onNavigateBack={() => navigate(-1)}
       />
 
-      <ClubChatMainPane c={controller} />
-      <ClubChatDetailsSidebar c={controller} />
-      <ClubChatModalStack c={controller} />
+      <MessageSharedFileProvider clubId={clubId || ''}>
+        <ClubChatMainPane c={controller} />
+        <ClubChatDetailsSidebar c={controller} />
+        <ClubChatModalStack c={controller} />
+      </MessageSharedFileProvider>
       {controller.showStartRoomModal && clubId && composerRoomHostId ? (
         <StartRoomModal
           clubId={clubId}

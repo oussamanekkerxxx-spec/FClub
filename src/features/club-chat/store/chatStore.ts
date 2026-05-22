@@ -35,6 +35,7 @@ const initialUiState: UiState = {
   showScrollBottom: false,
   isAdminOrMod: false,
   viewingImageMsg: null,
+  viewingVideoMsg: null,
   forwardingMessage: null,
 };
 

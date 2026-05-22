@@ -264,6 +264,7 @@ const ClubChatMainPane = React.memo(function ClubChatMainPane({ c }: ClubChatMai
                 c.setShowForwardModal(true);
               }}
               onViewImage={c.setViewingImageMsg}
+              onViewVideo={c.setViewingVideoMsg}
               onApplyToProject={(project) => {
                 if (project.creator_id === c.user?.id) {
                   toast.info("You're the project creator");

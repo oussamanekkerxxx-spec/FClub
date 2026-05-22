@@ -100,6 +100,7 @@ export interface UiState {
   showScrollBottom: boolean;
   isAdminOrMod: boolean;
   viewingImageMsg: any | null;
+  viewingVideoMsg: any | null;
   forwardingMessage: Message | null;
 }
 

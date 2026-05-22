@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { CheckCheck, Users, Image as ImageIcon, PlayCircle, FileText, X } from 'lucide-react';
+import { CheckCheck, Users, Image as ImageIcon, PlayCircle, FileText, FileSpreadsheet, FileIcon, Presentation, X } from 'lucide-react';
 import { extractFileNameFromUrl, normalizeHttpUrl } from '@/lib/safeUrl';
 import { springs } from '@/lib/animation';
 
@@ -96,16 +96,19 @@ const ClubChatDetailsSidebar = React.memo(function ClubChatDetailsSidebar({ c }:
               {mediaStats.videoMessages.length === 0
                 ? <p className="text-center text-[13px] text-[var(--color-text-muted)] py-8">No videos shared.</p>
                 : mediaStats.videoMessages.map((m: any) => (
-                  <div key={m.id} className="flex gap-3 items-center p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors border border-transparent hover:border-[var(--color-border)] cursor-pointer">
-                    <div className="w-16 h-12 rounded-lg bg-black flex-shrink-0 overflow-hidden relative">
-                      <video src={m.video_url!} preload="none" className="w-full h-full object-cover" />
-                      <PlayCircle className="w-6 h-6 text-white absolute inset-0 m-auto opacity-80 pointer-events-none" />
+                  <button
+                    key={m.id}
+                    className="w-full flex gap-3 items-center p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors border border-transparent hover:border-[var(--color-border)] text-left"
+                    onClick={() => c.setViewingVideoMsg(m)}
+                  >
+                    <div className="w-16 h-12 rounded-lg bg-black flex-shrink-0 overflow-hidden relative flex items-center justify-center">
+                      <PlayCircle className="w-6 h-6 text-white opacity-80" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium text-navy truncate">{m.content || 'Video File'}</p>
+                      <p className="text-[13px] font-medium text-navy truncate">{m.caption || 'Video'}</p>
                       <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(m.created_at), 'MMM d, yyyy')}</p>
                     </div>
-                  </div>
+                  </button>
                 ))}
             </div>
           )}
@@ -114,23 +117,32 @@ const ClubChatDetailsSidebar = React.memo(function ClubChatDetailsSidebar({ c }:
             <div className="space-y-2">
               {mediaStats.fileMessages.length === 0
                 ? <p className="text-center text-[13px] text-[var(--color-text-muted)] py-8">No files shared.</p>
-                : mediaStats.fileMessages.map(({ message, safePdfUrl }: { message: any; safePdfUrl: string }) => (
-                    <a
-                      key={message.id}
-                      href={safePdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors border border-transparent hover:border-[var(--color-border)]"
-                    >
-                      <div className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-                        <FileText className="w-5 h-5 text-red-500" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-medium text-navy truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</p>
-                        <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(message.created_at), 'MMM d, yyyy')}</p>
-                      </div>
-                    </a>
-                  ))}
+                : mediaStats.fileMessages.map(({ message, safePdfUrl }: { message: any; safePdfUrl: string }) => {
+                    const name = extractFileNameFromUrl(safePdfUrl, 'document.pdf').toLowerCase();
+                    let FileIconComp = FileText;
+                    let iconColor = 'text-red-500';
+                    let bgColor = 'bg-red-50';
+                    if (name.endsWith('.doc') || name.endsWith('.docx')) { FileIconComp = FileIcon; iconColor = 'text-blue-500'; bgColor = 'bg-blue-50'; }
+                    else if (name.endsWith('.ppt') || name.endsWith('.pptx')) { FileIconComp = Presentation; iconColor = 'text-amber-500'; bgColor = 'bg-amber-50'; }
+                    else if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv')) { FileIconComp = FileSpreadsheet; iconColor = 'text-green-500'; bgColor = 'bg-green-50'; }
+                    return (
+                      <a
+                        key={message.id}
+                        href={safePdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#F0F2F5] transition-colors border border-transparent hover:border-[var(--color-border)]"
+                      >
+                        <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
+                          <FileIconComp className={`w-5 h-5 ${iconColor}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-medium text-navy truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</p>
+                          <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(message.created_at), 'MMM d, yyyy')}</p>
+                        </div>
+                      </a>
+                    );
+                  })}
             </div>
           )}
         </div>

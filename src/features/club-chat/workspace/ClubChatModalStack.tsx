@@ -15,6 +15,9 @@ import {
   Film,
   Layers,
   FileText,
+  FileSpreadsheet,
+  FileIcon,
+  Presentation,
   ExternalLink,
 } from 'lucide-react';
 import PollWizard from '@/components/club-chat/PollWizard';
@@ -25,6 +28,7 @@ import { extractFileNameFromUrl, normalizeHttpUrl } from '@/lib/safeUrl';
 import { supabase } from '@/lib/supabase';
 import { springs } from '@/lib/animation';
 import ForwardMessageModal from '@/features/club-chat/workspace/ForwardMessageModal';
+import VideoPlayerModal from '@/components/club-chat/media/VideoPlayerModal';
 
 interface ClubChatModalStackProps {
   c: any;
@@ -104,10 +108,10 @@ export default function ClubChatModalStack({ c }: ClubChatModalStackProps) {
               />
             </div>
 
-            {c.viewingImageMsg.content && (
+            {c.viewingImageMsg.caption && (
               <div className="p-6 bg-gradient-to-t from-black/80 to-transparent flex justify-center">
                 <div className="max-w-3xl text-white text-[15px] font-body leading-relaxed text-center">
-                  {c.viewingImageMsg.content}
+                  {c.viewingImageMsg.caption}
                 </div>
               </div>
             )}
@@ -446,15 +450,19 @@ export default function ClubChatModalStack({ c }: ClubChatModalStackProps) {
                     {c.messages.filter((m: any) => m.video_url).length === 0
                       ? <p className="text-center text-sm text-[var(--color-text-muted)] py-8">No videos shared yet.</p>
                       : c.messages.filter((m: any) => m.video_url).map((m: any) => (
-                        <div key={m.id} className="flex gap-3 items-center p-3 rounded-xl border border-[var(--color-border)] hover:bg-parchment transition-colors">
-                          <div className="w-16 h-12 rounded-lg bg-black flex-shrink-0 overflow-hidden">
-                            <video src={m.video_url!} preload="none" className="w-full h-full object-cover" />
+                        <button
+                          key={m.id}
+                          className="w-full flex gap-3 items-center p-3 rounded-xl border border-[var(--color-border)] hover:bg-parchment transition-colors text-left"
+                          onClick={() => { c.setShowSharedMedia(false); c.setViewingVideoMsg(m); }}
+                        >
+                          <div className="w-16 h-12 rounded-lg bg-black flex-shrink-0 overflow-hidden relative flex items-center justify-center">
+                            <PlayCircle className="w-6 h-6 text-white opacity-80" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-navy truncate">{m.content || 'Video'}</p>
+                            <p className="text-sm font-medium text-navy truncate">{m.caption || 'Video'}</p>
                             <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(m.created_at), 'MMM d, yyyy')}</p>
                           </div>
-                        </div>
+                        </button>
                       ))}
                   </div>
                 )}
@@ -465,16 +473,27 @@ export default function ClubChatModalStack({ c }: ClubChatModalStackProps) {
                       : c.messages
                         .map((m: any) => ({ message: m, safePdfUrl: normalizeHttpUrl(m.pdf_url) }))
                         .filter((item: any): item is { message: any; safePdfUrl: string } => !!item.safePdfUrl)
-                        .map(({ message, safePdfUrl }: { message: any; safePdfUrl: string }) => (
-                          <a key={message.id} href={safePdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-[var(--color-border)] hover:bg-parchment transition-colors">
-                            <FileText className="w-5 h-5 text-red-400 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-navy truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</p>
-                              <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(message.created_at), 'MMM d, yyyy')}</p>
-                            </div>
-                            <ExternalLink className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
-                          </a>
-                        ))}
+                        .map(({ message, safePdfUrl }: { message: any; safePdfUrl: string }) => {
+                          const name = extractFileNameFromUrl(safePdfUrl, 'document.pdf').toLowerCase();
+                          let FileIconComp = FileText;
+                          let iconColor = 'text-red-400';
+                          let bgColor = 'bg-red-50';
+                          if (name.endsWith('.doc') || name.endsWith('.docx')) { FileIconComp = FileIcon; iconColor = 'text-blue-400'; bgColor = 'bg-blue-50'; }
+                          else if (name.endsWith('.ppt') || name.endsWith('.pptx')) { FileIconComp = Presentation; iconColor = 'text-amber-400'; bgColor = 'bg-amber-50'; }
+                          else if (name.endsWith('.xls') || name.endsWith('.xlsx') || name.endsWith('.csv')) { FileIconComp = FileSpreadsheet; iconColor = 'text-green-400'; bgColor = 'bg-green-50'; }
+                          return (
+                            <a key={message.id} href={safePdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-xl border border-[var(--color-border)] hover:bg-parchment transition-colors">
+                              <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
+                                <FileIconComp className={`w-5 h-5 ${iconColor}`} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-navy truncate">{extractFileNameFromUrl(safePdfUrl, 'document.pdf')}</p>
+                                <p className="text-[11px] text-[var(--color-text-muted)]">{format(new Date(message.created_at), 'MMM d, yyyy')}</p>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-[var(--color-text-muted)] flex-shrink-0" />
+                            </a>
+                          );
+                        })}
                   </div>
                 )}
               </div>
@@ -483,6 +502,7 @@ export default function ClubChatModalStack({ c }: ClubChatModalStackProps) {
         )}
       </AnimatePresence>
 
+      <VideoPlayerModal msg={c.viewingVideoMsg} onClose={() => c.setViewingVideoMsg(null)} />
       <ForwardMessageModal c={c} />
     </>
   );
